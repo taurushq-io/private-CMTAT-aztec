@@ -1,0 +1,30 @@
+{
+  "name": "token_contract",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
+    "clean": "rm -rf ./dest tsconfig.tsbuildinfo",
+    "start": "yarn build && DEBUG='token' node ./dest/index.js",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
+
+  },
+  "dependencies": {
+    "@aztec/accounts": "^0.41.0",
+    "@aztec/aztec.js": "^0.41.0",
+    "@aztec/builder": "^0.41.0",
+    "@aztec/noir-contracts.js": "^0.41.0",
+    "@types/jest": "^29.5.12",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.14.2",
+    "ts-jest": "^29.1.4",
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
