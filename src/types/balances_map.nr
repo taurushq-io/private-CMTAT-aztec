@@ -40,10 +40,8 @@ impl<T> BalancesMap<T, ()> {
         offset: u32
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
         let mut balance = U128::from_integer(0);
-        // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
         let opt_notes = self.map.at(owner).view_notes(options.set_offset(offset));
-        // docs:end:view_notes
         let len = opt_notes.len();
         for i in 0..len {
             if opt_notes[i].is_some() {
@@ -69,10 +67,10 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
 
         // We fetch the nullifier public key hash from the registry / from our PXE
         let owner_npk_m_hash = get_npk_m_hash(context, owner);
-        let mut addend_note = T::new(addend, owner_npk_m_hash);
+        let mut new_note = T::new(addend, owner_npk_m_hash);
 
         // docs:start:insert
-        self.map.at(owner).insert(&mut addend_note, true, owner_ivpk_m);
+        self.map.at(owner).insert(&mut new_note, true, owner_ivpk_m);
         // docs:end:insert
     }
 
