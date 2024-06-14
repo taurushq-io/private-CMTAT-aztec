@@ -65,7 +65,7 @@ logger.info(`Minting tokens to Alice...`);
 // Mint the initial supply privately "to secret hash"
 const receipt = await tokenContractAlice.methods.mint_private(initialSupply, aliceSecretHash).send().wait();
 
-// Add the newly created "pending shield" note to PXE
+//Add the newly created "pending shield" note to PXE
 const note = new Note([new Fr(initialSupply), aliceSecretHash]);
 await pxe.addNote(
   new ExtendedNote(
@@ -77,6 +77,7 @@ await pxe.addNote(
     receipt.txHash,
   ),
 );
+
 
 // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
 // to a "token note")

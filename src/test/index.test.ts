@@ -124,6 +124,45 @@ describe("Token", () => {
         console.log(`${initialSupply} tokens were successfully minted and redeemed by Alice`);
     })
 
+    //TODO: both need the secret, we need a way to share it between them
+    it("Alice mints tokens on behalf of Bob, so that Bob stays private", async () => {
+        tokenContractAlice = await TokenContract.at(contractAddress, aliceWallet);
+        tokenContractBob = tokenContractAlice.withWallet(bobWallet);
+
+        const bobSecret = Fr.random()
+        const bobSecretHash = computeSecretHash(bobSecret)
+        const bobTokens = 1000;
+
+        console.log(`Alice minting tokens to Bob...`);
+
+        const receipt = await tokenContractAlice.methods.mint_private(bobTokens, bobSecretHash).send().wait();
+
+
+        // Add the newly created "pending shield" note to PXE
+        const note = new Note([new Fr(bobTokens), bobSecretHash]);
+        await pxe.addNote(
+        new ExtendedNote(
+            note,
+            bob,
+            contractAddress,
+            TokenContract.storage.pending_shields.slot,
+            TokenContract.notes.TransparentNote.id,
+            receipt.txHash,
+        ),
+        );
+        
+        await tokenContractBob.methods.redeem_shield(bob, bobTokens, bobSecret).send().wait();
+        console.log(`${bobTokens} tokens were successfully minted and redeemed by Bob`);
+    })
+
+    it("Bob privately mints his tokens", async () => {
+        const bobTokens = 1000;
+        const receipt = await tokenContractBob.methods.privately_mint_private_note(bobTokens)
+
+
+
+    })
+
 
     it("queries the token balance for each account", async () => {
         // Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it his wallet

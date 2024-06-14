@@ -29,25 +29,15 @@ contract Token {
     // docs:start:storage_struct
     #[aztec(storage)]
     struct Storage {
-        // docs:start:storage_admin
         admin: PublicMutable<AztecAddress>,
-        // docs:end:storage_admin
-        // docs:start:storage_minters
         minters: Map<AztecAddress, PublicMutable<bool>>,
-        // docs:end:storage_minters
-        // docs:start:storage_balances
         balances: BalancesMap<TokenNote>,
-        // docs:end:storage_balances
         total_supply: PublicMutable<U128>,
-        // docs:start:storage_pending_shields
         pending_shields: PrivateSet<TransparentNote>,
-        // docs:end:storage_pending_shields
-        public_balances: Map<AztecAddress, PublicMutable<U128>>,
+
         symbol: SharedImmutable<FieldCompressedString>,
         name: SharedImmutable<FieldCompressedString>,
-        // docs:start:storage_decimals
         decimals: SharedImmutable<u8>,
-        // docs:end:storage_decimals
     }
     // docs:end:storage_struct
 
@@ -136,20 +126,6 @@ contract Token {
     }
     // docs:end:set_minter
 
-    // docs:start:mint_public
-    #[aztec(public)]
-    fn mint_public(to: AztecAddress, amount: Field) {
-        // docs:start:read_minter
-        assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
-        // docs:end:read_minter
-        let amount = U128::from_integer(amount);
-        let new_balance = storage.public_balances.at(to).read().add(amount);
-        let supply = storage.total_supply.read().add(amount);
-
-        storage.public_balances.at(to).write(new_balance);
-        storage.total_supply.write(supply);
-    }
-    // docs:end:mint_public
 
     // docs:start:mint_private
     #[aztec(public)]
@@ -180,65 +156,6 @@ contract Token {
         storage.total_supply.write(supply);
     }
 
-    // docs:start:shield
-    #[aztec(public)]
-    fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-
-        let amount = U128::from_integer(amount);
-        let from_balance = storage.public_balances.at(from).read().sub(amount);
-
-        let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount.to_integer(), secret_hash);
-
-        storage.public_balances.at(from).write(from_balance);
-        pending_shields.insert_from_public(&mut note);
-    }
-    // docs:end:shield
-
-    // docs:start:transfer_public
-    #[aztec(public)]
-    fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-
-        let amount = U128::from_integer(amount);
-        let from_balance = storage.public_balances.at(from).read().sub(amount);
-        storage.public_balances.at(from).write(from_balance);
-
-        let to_balance = storage.public_balances.at(to).read().add(amount);
-        storage.public_balances.at(to).write(to_balance);
-    }
-    // docs:end:transfer_public
-
-    // docs:start:burn_public
-    #[aztec(public)]
-    fn burn_public(from: AztecAddress, amount: Field, nonce: Field) {
-        // docs:start:assert_current_call_valid_authwit_public
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-        // docs:end:assert_current_call_valid_authwit_public
-
-        let amount = U128::from_integer(amount);
-        let from_balance = storage.public_balances.at(from).read().sub(amount);
-        storage.public_balances.at(from).write(from_balance);
-
-        let new_supply = storage.total_supply.read().sub(amount);
-        storage.total_supply.write(new_supply);
-    }
-    // docs:end:burn_public
-
     // docs:start:redeem_shield
     #[aztec(private)]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
@@ -262,20 +179,6 @@ contract Token {
     }
     // docs:end:redeem_shield
 
-    // docs:start:unshield
-    #[aztec(private)]
-    fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-
-        storage.balances.sub(from, U128::from_integer(amount));
-
-        Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
-    }
-    // docs:end:unshield
 
     // docs:start:transfer
     #[aztec(private)]
@@ -313,14 +216,6 @@ contract Token {
 
     /// Internal ///
 
-    // docs:start:increase_public_balance
-    #[aztec(public)]
-    #[aztec(internal)]
-    fn _increase_public_balance(to: AztecAddress, amount: Field) {
-        let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
-        storage.public_balances.at(to).write(new_balance);
-    }
-    // docs:end:increase_public_balance
 
     // docs:start:reduce_total_supply
     #[aztec(public)]
@@ -357,11 +252,5 @@ contract Token {
         storage.balances.balance_of(owner).to_integer()
     }
     // docs:end:balance_of_private
-
-    // docs:start:balance_of_public
-    unconstrained fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.public_balances.at(owner).read().to_integer()
-    }
-    // docs:end:balance_of_public
 }
 // docs:end:token_all
