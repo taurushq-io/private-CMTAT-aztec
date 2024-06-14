@@ -89,7 +89,7 @@ describe("Token", () => {
     }, 300_000)
 
 
-    it("Mints initial token supply to Alice", async () => {
+    it("Mints initial token supply to Alice privately", async () => {
         // Create the contract abstraction and link it to Alice's wallet for future signing
         //TODO understand what this does
         const initialSupply = 1_000_000n;
@@ -97,72 +97,36 @@ describe("Token", () => {
         tokenContractAlice = await TokenContract.at(contractAddress, aliceWallet);
 
 
-        // Create a secret and a corresponding hash that will be used to mint funds privately
-        const aliceSecret = Fr.random();
-        const aliceSecretHash = computeSecretHash(aliceSecret);
-
         console.log(`Minting tokens to Alice...`);
-        // Mint the initial supply privately "to secret hash"
-        const receipt = await tokenContractAlice.methods.mint_private(initialSupply, aliceSecretHash).send().wait();
-
-        // Add the newly created "pending shield" note to PXE
-        const note = new Note([new Fr(initialSupply), aliceSecretHash]);
-        await pxe.addNote(
-        new ExtendedNote(
-            note,
-            alice,
-            contractAddress,
-            TokenContract.storage.pending_shields.slot,
-            TokenContract.notes.TransparentNote.id,
-            receipt.txHash,
-        ),
+        // Mint the initial supply privately 
+        const receipt = await tokenContractAlice.methods.privately_mint_private_note(alice,initialSupply).send().wait();
+        expect(receipt).toEqual(
+            expect.objectContaining({
+                status: TxStatus.MINED,
+            }),
         );
+        let aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
+        console.log(`Alice's balance ${aliceBalance}`);
 
-        // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
-        // to a "token note")
-        await tokenContractAlice.methods.redeem_shield(alice, initialSupply, aliceSecret).send().wait();
-        console.log(`${initialSupply} tokens were successfully minted and redeemed by Alice`);
+        const SupplyAfter = await tokenContractAlice.methods.total_supply().simulate()
+        console.log(`${SupplyAfter} tokens as initial supply minted by Alice`);
     })
 
-    //TODO: both need the secret, we need a way to share it between them
-    it("Alice mints tokens on behalf of Bob, so that Bob stays private", async () => {
-        tokenContractAlice = await TokenContract.at(contractAddress, aliceWallet);
-        tokenContractBob = tokenContractAlice.withWallet(bobWallet);
+    it("Alice privately mints tokens to Bob", async () => {
 
-        const bobSecret = Fr.random()
-        const bobSecretHash = computeSecretHash(bobSecret)
         const bobTokens = 1000;
+        const supplyBefore = await tokenContractAlice.methods.total_supply().simulate()
+        console.log(`Supply before mint: ${supplyBefore}`)
 
-        console.log(`Alice minting tokens to Bob...`);
+        console.log("Alice minting tokens to Bob...")
 
-        const receipt = await tokenContractAlice.methods.mint_private(bobTokens, bobSecretHash).send().wait();
+        const receipt = await tokenContractAlice.methods.privately_mint_private_note(bob, bobTokens).send().wait()
 
+        console.log(`Alice successfuly privately minted ${bobTokens} tokens to Bob`)
+        const supplyAfter = await tokenContractAlice.methods.total_supply().simulate()
 
-        // Add the newly created "pending shield" note to PXE
-        const note = new Note([new Fr(bobTokens), bobSecretHash]);
-        await pxe.addNote(
-        new ExtendedNote(
-            note,
-            bob,
-            contractAddress,
-            TokenContract.storage.pending_shields.slot,
-            TokenContract.notes.TransparentNote.id,
-            receipt.txHash,
-        ),
-        );
-        
-        await tokenContractBob.methods.redeem_shield(bob, bobTokens, bobSecret).send().wait();
-        console.log(`${bobTokens} tokens were successfully minted and redeemed by Bob`);
+        console.log(`Supply after mint: ${supplyAfter}`)
     })
-
-    it("Bob privately mints his tokens", async () => {
-        const bobTokens = 1000;
-        const receipt = await tokenContractBob.methods.privately_mint_private_note(bobTokens)
-
-
-
-    })
-
 
     it("queries the token balance for each account", async () => {
         // Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it his wallet
@@ -177,7 +141,7 @@ describe("Token", () => {
     })
 
     it("transfers funds from Alice to Bob", async () => {
-        // We will now transfer tokens from ALice to Bob
+        // We will now transfer tokens from Alice to Bob
 
         tokenContractBob = tokenContractAlice.withWallet(bobWallet);
 
@@ -193,34 +157,11 @@ describe("Token", () => {
         console.log(`Bob's balance ${bobBalance}`);
     })
 
+    it("transfers funds from Bob to Alice", async () => {
 
-    it("mint more tokens to Bob and check final balances", async () => {
-        // Now mint some further funds for Bob
-
-        // Alice is nice and she adds Bob as a minter
-        await tokenContractAlice.methods.set_minter(bob, true).send().wait();
-
-        const bobSecret = Fr.random();
-        const bobSecretHash = computeSecretHash(bobSecret);
-        // Bob now has a secret 🥷
-
-        const mintQuantity = 10_000n;
-        console.log(`Minting ${mintQuantity} tokens to Bob...`);
-        const mintPrivateReceipt = await tokenContractBob.methods.mint_private(mintQuantity, bobSecretHash).send().wait();
-
-        const bobPendingShield = new Note([new Fr(mintQuantity), bobSecretHash]);
-        await pxe.addNote(
-        new ExtendedNote(
-            bobPendingShield,
-            bob,
-            contractAddress,
-            TokenContract.storage.pending_shields.slot,
-            TokenContract.notes.TransparentNote.id,
-            mintPrivateReceipt.txHash,
-        ),
-        );
-
-        await tokenContractBob.methods.redeem_shield(bob, mintQuantity, bobSecret).send().wait();
+        const transferQuantity = 1000n;
+        console.log(`Transferring ${transferQuantity} tokens from Bob to Alice...`);
+        await tokenContractBob.methods.transfer(bob, alice, transferQuantity, 0).send().wait();
 
         // Check the new balances
         const aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();

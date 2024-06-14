@@ -62,13 +62,6 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
           );
       }
     }
-
-    // fn to_be_bytes(self, storage_slot: Field) -> [u8; TOKEN_NOTE_BYTES_LEN] {
-    //     let final: [u8; TOKEN_NOTE_BYTES_LEN] = [0;160];
-    //     final
-    // }
-
-
 }
 
 impl OwnedNote for TokenNote {
