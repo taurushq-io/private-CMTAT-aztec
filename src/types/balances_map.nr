@@ -68,10 +68,9 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         // We fetch the nullifier public key hash from the registry / from our PXE
         let owner_npk_m_hash = get_npk_m_hash(context, owner);
         let mut new_note = T::new(addend, owner_npk_m_hash);
-
-        // docs:start:insert
+        
+        //owner ivpk is added for note encryption
         self.map.at(owner).insert(&mut new_note, true, owner_ivpk_m);
-        // docs:end:insert
     }
 
     pub fn sub<T_SERIALIZED_LEN>(
@@ -79,10 +78,8 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         owner: AztecAddress,
         subtrahend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
-        // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let maybe_notes = self.map.at(owner).get_notes(options);
-        // docs:end:get_notes
 
         let mut minuend: U128 = U128::from_integer(0);
         for i in 0..maybe_notes.len() {

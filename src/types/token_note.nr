@@ -26,7 +26,6 @@ struct TokenNote {
 }
 
 impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
-    // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nsk_app(self.npk_m_hash);
@@ -36,8 +35,9 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
-    // docs:end:nullifier
 
+    //Note: adding the secret to the nullifier is a pattern for nullifier randomization as per: 
+    // https://docs.aztec.network/guides/smart_contracts/writing_contracts/common_patterns#deterministic-nullifiers
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);

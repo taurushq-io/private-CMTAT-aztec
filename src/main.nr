@@ -3,7 +3,7 @@ mod types;
 
 contract Token {
     // Libs
-
+ 
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
@@ -13,7 +13,7 @@ contract Token {
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
-    use crate::types::{transparent_note::TransparentNote, token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
 
     #[aztec(storage)]
     struct Storage {
@@ -21,7 +21,6 @@ contract Token {
         minters: Map<AztecAddress, PublicMutable<bool>>,
         balances: BalancesMap<TokenNote>,
         total_supply: PublicMutable<U128>,
-        pending_shields: PrivateSet<TransparentNote>,
 
         symbol: SharedImmutable<FieldCompressedString>,
         name: SharedImmutable<FieldCompressedString>,
@@ -106,25 +105,22 @@ contract Token {
     #[aztec(internal)]
     fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
         assert(storage.minters.at(minter).read(), "caller is not minter");
-        let supply = storage.total_supply.read() + U128::from_integer(amount);
+        let supply = storage.total_supply.read().add(U128::from_integer(amount));
         storage.total_supply.write(supply);
     }
 
     #[aztec(private)]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
-        // docs:start:assert_current_call_valid_authwit
+        //the authwit is used to allow a thrid party to spend funds of a user upon approval
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        // docs:end:assert_current_call_valid_authwit
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount);
-        // docs:start:increase_private_balance
         storage.balances.add(to, amount);
-        // docs:end:increase_private_balance
     }
 
     #[aztec(private)]
@@ -138,6 +134,9 @@ contract Token {
 
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
+
+
+
 
     /// Internal ///
     #[aztec(public)]
