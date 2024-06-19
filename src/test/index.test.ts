@@ -2,6 +2,7 @@ import { TokenContractArtifact, TokenContract } from "../artifacts/Token.js"
 import { AccountWallet, CompleteAddress, ContractDeployer, Fr, Note,ExtendedNote, PXE, waitForPXE, TxStatus, createPXEClient, getContractInstanceFromDeployParams, deriveKeys, AztecAddress, AccountWalletWithSecretKey, createDebugLogger, DebugLogger, computeSecretHash } from "@aztec/aztec.js";
 import { getInitialTestAccountsWallets, getDeployedTestAccountsWallets } from "@aztec/accounts/testing"
 import { format } from 'util';
+import {NoteFilter} from "@aztec/circuit-types"
 
 const setupSandbox = async () => {
     const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -42,9 +43,11 @@ describe("Token", () => {
         bobWallet = wallets[1]
         bob = bobWallet.getCompleteAddress().address
 
+
         const nodeInfo = await pxe.getNodeInfo();
         console.log(format('Aztec Sandbox Info ', nodeInfo));
         console.log(`Loaded alice's account at ${alice.toShortString()}`);
+        console.log(`Alice's secret key ${aliceWallet.getSecretKey()}`)
         console.log(`Loaded bob's account at ${bob.toShortString()}`);
 
         // const tokenName = "TOKEN"
@@ -99,7 +102,7 @@ describe("Token", () => {
 
         console.log(`Minting tokens to Alice...`);
         // Mint the initial supply privately 
-        const receipt = await tokenContractAlice.methods.privately_mint_private_note(alice,initialSupply).send().wait();
+        const receipt = await tokenContractAlice.methods.mint(alice,initialSupply).send().wait();
         expect(receipt).toEqual(
             expect.objectContaining({
                 status: TxStatus.MINED,
@@ -120,7 +123,12 @@ describe("Token", () => {
 
         console.log("Alice minting tokens to Bob...")
 
-        const receipt = await tokenContractAlice.methods.privately_mint_private_note(bob, bobTokens).send().wait()
+        const receipt = await tokenContractAlice.methods.mint(bob, bobTokens).send().wait()
+        expect(receipt).toEqual(
+            expect.objectContaining({
+                status: TxStatus.MINED,
+            }),
+        );
 
         console.log(`Alice successfuly privately minted ${bobTokens} tokens to Bob`)
         const supplyAfter = await tokenContractAlice.methods.total_supply().simulate()
@@ -153,6 +161,14 @@ describe("Token", () => {
         const aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
         console.log(`Alice's balance ${aliceBalance}`);
 
+        //Note: Bob should not be able to know the private balance of Alice
+        const bobTriesToAccessAliceBalance = await tokenContractBob.methods.balance_of_private(alice).simulate();
+        console.log(`Alice's balance from Bob PoW ${bobTriesToAccessAliceBalance}`);
+
+        //Note: Alice should not be able to know the private balance of bob
+        const aliceTriesToAccessBobBalance = await tokenContractAlice.methods.balance_of_private(bob).simulate()
+        console.log(`Bob's balance from Alice's PoW ${aliceTriesToAccessBobBalance}`);
+
         const bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
         console.log(`Bob's balance ${bobBalance}`);
     })
@@ -169,6 +185,47 @@ describe("Token", () => {
 
         const bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
         console.log(`Bob's balance ${bobBalance}`);
+
+
+        const notefilter : NoteFilter = {contractAddress: contractAddress}
+
+
+        await (await aliceWallet.getNotes(notefilter)).forEach((n,i) => console.log(`Alice Note ${i}: ${n.note.toFriendlyJSON()} \n`))
+        await (await bobWallet.getNotes(notefilter)).forEach((n,i) => console.log(`Bob Note ${i}: ${n.note.toFriendlyJSON()} \n`))
+    })
+
+    it("bob tries to send funds from Alice to Bob", async () => {
+        const transferQuantity = 1000n;
+
+          //try to transfer funds from alice to bo  using bob contract
+          console.log(`Transferring ${transferQuantity} tokens from alice to Bob using Bob account - should fail...`);
+          await expect(tokenContractBob.methods.transfer(alice, bob, transferQuantity, 0).send().wait()).rejects.toThrow();
+
+    })
+
+
+    it("Alice, the issuer, is able to burn tokens of Bob", async () => {
+        const burnTokens = 43n;
+    
+        console.log(`Alice burning ${burnTokens} from Bob...`);
+        const receipt = await tokenContractAlice.methods.burn(bob,burnTokens).send().wait();
+        expect(receipt).toEqual(
+            expect.objectContaining({
+                status: TxStatus.MINED,
+            }),
+        );
+
+        // Check the new balances
+        const aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
+        console.log(`Alice's balance ${aliceBalance}`);
+
+        const bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
+        console.log(`Bob's balance ${bobBalance}`);
+
+
+
+
+        
     })
 
 

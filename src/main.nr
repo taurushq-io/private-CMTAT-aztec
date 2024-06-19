@@ -18,7 +18,7 @@ contract Token {
     #[aztec(storage)]
     struct Storage {
         admin: PublicMutable<AztecAddress>,
-        minters: Map<AztecAddress, PublicMutable<bool>>,
+        issuers: Map<AztecAddress, PublicMutable<bool>>,
         balances: BalancesMap<TokenNote>,
         total_supply: PublicMutable<U128>,
 
@@ -33,7 +33,7 @@ contract Token {
     fn constructor(admin: AztecAddress) {
         assert(!admin.is_zero(), "invalid admin");
         storage.admin.write(admin);
-        storage.minters.at(admin).write(true);
+        storage.issuers.at(admin).write(true);
         storage.name.initialize(FieldCompressedString::from_string("TOKEN00000000000000000000000000"));
         storage.symbol.initialize(FieldCompressedString::from_string("TKN0000000000000000000000000000"));
         let decimal: u8 = 18;
@@ -89,26 +89,19 @@ contract Token {
     }
 
     #[aztec(public)]
-    fn set_minter(minter: AztecAddress, approve: bool) {
+    fn set_issuer(issuer: AztecAddress, approve: bool) {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
-        storage.minters.at(minter).write(approve);
+        storage.issuers.at(issuer).write(approve);
     }
 
 
     #[aztec(private)]
-    fn privately_mint_private_note(to: AztecAddress, amount: Field) {
+    fn mint(to: AztecAddress, amount: Field) {
         storage.balances.add(to, U128::from_integer(amount));
-        Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
+        Token::at(context.this_address()).assert_issuer_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
-    #[aztec(public)]
-    #[aztec(internal)]
-    fn assert_minter_and_mint(minter: AztecAddress, amount: Field) {
-        assert(storage.minters.at(minter).read(), "caller is not minter");
-        let supply = storage.total_supply.read().add(U128::from_integer(amount));
-        storage.total_supply.write(supply);
-    }
-
+    //NOTE: in the docs, it is stated that the nonce should prevent replay attacks, but here it does strictly nothing
     #[aztec(private)]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         //the authwit is used to allow a thrid party to spend funds of a user upon approval
@@ -124,28 +117,28 @@ contract Token {
     }
 
     #[aztec(private)]
-    fn burn(from: AztecAddress, amount: Field, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+    fn burn(from: AztecAddress, amount: Field) {
         storage.balances.sub(from, U128::from_integer(amount));
-
-        Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
+        Token::at(context.this_address()).assert_issuer_and_burn(context.msg_sender(),amount).enqueue(&mut context);
     }
 
-
-
-
-    /// Internal ///
+    //internal
     #[aztec(public)]
     #[aztec(internal)]
-    fn _reduce_total_supply(amount: Field) {
-        // Only to be called from burn.
+    fn assert_issuer_and_mint(issuer: AztecAddress, amount: Field) {
+        assert(storage.issuers.at(issuer).read(), "caller is not issuer");
+        let supply = storage.total_supply.read().add(U128::from_integer(amount));
+        storage.total_supply.write(supply);
+    }
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn assert_issuer_and_burn(issuer: AztecAddress, amount: Field) {
+        assert(storage.issuers.at(issuer).read(), "caller is not issuer");
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
         storage.total_supply.write(new_supply);
     }
+
 
     /// Unconstrained ///
 
@@ -153,8 +146,8 @@ contract Token {
         storage.admin.read().to_field()
     }
 
-    unconstrained fn is_minter(minter: AztecAddress) -> pub bool {
-        storage.minters.at(minter).read()
+    unconstrained fn is_minter(issuer: AztecAddress) -> pub bool {
+        storage.issuers.at(issuer).read()
     }
 
     unconstrained fn total_supply() -> pub Field {
