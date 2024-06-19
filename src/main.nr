@@ -46,10 +46,6 @@ contract Token {
         storage.admin.write(new_admin);
     }
 
-    unconstrained fn un_get_name() -> pub [u8; 31] {
-        storage.name.read_public().to_bytes()
-    }
-
     #[aztec(public)]
     fn public_get_name() -> pub FieldCompressedString {
         storage.name.read_public()
@@ -60,10 +56,6 @@ contract Token {
         storage.name.read_private()
     }
 
-    unconstrained fn un_get_symbol() -> pub [u8; 31] {
-        storage.symbol.read_public().to_bytes()
-    }
-
     #[aztec(public)]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
@@ -72,10 +64,6 @@ contract Token {
     #[aztec(private)]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_private()
-    }
-
-    unconstrained fn un_get_decimals() -> pub u8 {
-        storage.decimals.read_public()
     }
 
     #[aztec(public)]
@@ -93,7 +81,6 @@ contract Token {
         assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
         storage.issuers.at(issuer).write(approve);
     }
-
 
     #[aztec(private)]
     fn mint(to: AztecAddress, amount: Field) {
@@ -156,5 +143,17 @@ contract Token {
 
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_integer()
+    }
+
+    unconstrained fn un_get_name() -> pub [u8; 31] {
+        storage.name.read_public().to_bytes()
+    }
+
+    unconstrained fn un_get_symbol() -> pub [u8; 31] {
+        storage.symbol.read_public().to_bytes()
+    }
+
+    unconstrained fn un_get_decimals() -> pub u8 {
+        storage.decimals.read_public()
     }
 }

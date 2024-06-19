@@ -222,7 +222,7 @@ describe("Token", () => {
 
     describe("Failure Cases", () => {
 
-        it("bob tries to send funds from Alice to Bob", async () => {
+        it("Bob tries to send funds from Alice to Bob", async () => {
             const transferQuantity = 1000n;
     
               //try to transfer funds from alice to bo  using bob contract
@@ -247,4 +247,29 @@ describe("Token", () => {
     })
 
 
-});
+    describe("Access Control Cases", () => {
+
+        it("Bob tries to set a new admin", async () => {
+            await expect(tokenContractBob.methods.set_admin(bob).send().wait()).rejects.toThrow("caller is not admin")
+        })
+
+        it("Bob tries to set a new issuer", async () => {
+            await expect(tokenContractBob.methods.set_issuer(bob, true).send().wait()).rejects.toThrow("caller is not admin")
+        })
+
+        it("Admin sets Bob as new issuer", async () => {
+            await tokenContractAlice.methods.set_issuer(bob, true).send().wait()
+            expect(await tokenContractAlice.methods.is_minter(bob).simulate()).toBe(true);
+
+        })
+
+        it("Admin removes Bob as issuer", async () => {
+            await tokenContractAlice.methods.set_issuer(bob, false).send().wait()
+            expect(await tokenContractAlice.methods.is_minter(bob).simulate()).toBe(false);
+
+        })
+
+    })
+
+})
+
