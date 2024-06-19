@@ -34,6 +34,7 @@ describe("Token", () => {
 
     })
 
+
     it("Deploys the contract", async () => {
         const salt = Fr.random();
 
@@ -91,6 +92,8 @@ describe("Token", () => {
         contractAddress = receiptAfterMined.contract.address
 
     }, 300_000)
+
+    describe("Normal user flow", () => {
 
 
     it("Mints initial token supply to Alice privately", async () => {
@@ -195,15 +198,6 @@ describe("Token", () => {
         await (await bobWallet.getNotes(notefilter)).forEach((n,i) => console.log(`Bob Note ${i}: ${n.note.toFriendlyJSON()} \n`))
     })
 
-    it("bob tries to send funds from Alice to Bob", async () => {
-        const transferQuantity = 1000n;
-
-          //try to transfer funds from alice to bo  using bob contract
-          console.log(`Transferring ${transferQuantity} tokens from alice to Bob using Bob account - should fail...`);
-          await expect(tokenContractBob.methods.transfer(alice, bob, transferQuantity, 0).send().wait()).rejects.toThrow();
-
-    })
-
 
     it("Alice, the issuer, is able to burn tokens of Bob", async () => {
         const burnTokens = 43n;
@@ -222,11 +216,34 @@ describe("Token", () => {
 
         const bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
         console.log(`Bob's balance ${bobBalance}`);
+    })
 
+    })
 
+    describe("Failure Cases", () => {
 
+        it("bob tries to send funds from Alice to Bob", async () => {
+            const transferQuantity = 1000n;
+    
+              //try to transfer funds from alice to bo  using bob contract
+              console.log(`Transferring ${transferQuantity} tokens from alice to Bob using Bob account - should fail...`);
+              await expect(tokenContractBob.methods.transfer(alice, bob, transferQuantity, 0).send().wait()).rejects.toThrow();
+    
+        })
 
-        
+        it("bob tries to mint some tokens", async () => {
+            const mintQuantity = 1000n;
+
+            await (expect(tokenContractBob.methods.mint(bob, mintQuantity).send().wait())).rejects.toThrow("caller is not issuer")
+
+        })
+
+        it("bob tries to burn some tokens", async () => {
+            const burnQuantity = 1000n;
+            await (expect(tokenContractBob.methods.mint(bob, burnQuantity).send().wait())).rejects.toThrow("caller is not issuer")
+
+        })
+
     })
 
 
