@@ -49,6 +49,7 @@ describe("Token", () => {
         console.log(`Loaded alice's account at ${alice.toShortString()}`);
         console.log(`Alice's secret key ${aliceWallet.getSecretKey()}`)
         console.log(`Loaded bob's account at ${bob.toShortString()}`);
+        console.log(`Bob's secret key ${bobWallet.getSecretKey()}`)
 
         // const tokenName = "TOKEN"
         // const tokenSymbol = "TKN"
