@@ -17,14 +17,17 @@ describe("Token", () => {
     let logger: DebugLogger;
     let wallets: AccountWalletWithSecretKey[] = [];
     let accounts: CompleteAddress[] = [];
+    let issuer: AztecAddress;
+    let issuerWallet: AccountWalletWithSecretKey;
     let alice: AztecAddress;
     let aliceWallet: AccountWalletWithSecretKey;
     let bob: AztecAddress;
     let bobWallet: AccountWalletWithSecretKey;
     let contractAddress: AztecAddress;
     //what is a tokenContract?
-    let tokenContractAlice: TokenContract;
+    let tokenContractIssuer: TokenContract;
     let tokenContractBob: TokenContract;
+    let tokenContractAlice: TokenContract;
 
     beforeAll(async () => {
         const sandbox = await setupSandbox();
@@ -38,36 +41,43 @@ describe("Token", () => {
     it("Deploys the contract", async () => {
         const salt = Fr.random();
 
-        aliceWallet = wallets[0]
-        alice = aliceWallet.getCompleteAddress().address
+        issuerWallet = wallets[0]
+        issuer = issuerWallet.getCompleteAddress().address
 
         bobWallet = wallets[1]
         bob = bobWallet.getCompleteAddress().address
 
+        aliceWallet = wallets[2]
+        alice = aliceWallet.getCompleteAddress().address
+
+        
+
 
         const nodeInfo = await pxe.getNodeInfo();
         console.log(format('Aztec Sandbox Info ', nodeInfo));
-        console.log(`Loaded alice's account at ${alice.toShortString()}`);
-        console.log(`Alice's secret key ${aliceWallet.getSecretKey()}`)
+        console.log(`Loaded issuer's account at ${issuer.toShortString()}`);
+        console.log(`issuer's secret key ${issuerWallet.getSecretKey()}`)
         console.log(`Loaded bob's account at ${bob.toShortString()}`);
         console.log(`Bob's secret key ${bobWallet.getSecretKey()}`)
+        console.log(`Loaded Alice's account at ${alice.toShortString()}`);
+        console.log(`Alice's secret key ${aliceWallet.getSecretKey()}`)
 
         // const tokenName = "TOKEN"
         // const tokenSymbol = "TKN"
         // const tokenDecimals = "6"
 
-        // const deployArgs = [alice, tokenName, tokenSymbol, tokenDecimals]
-        const deployArgs = alice
+        // const deployArgs = [issuer, tokenName, tokenSymbol, tokenDecimals]
+        const deployArgs = issuer
 
-        // Deploy the contract and set Alice as the admin while doing so
+        // Deploy the contract and set issuer as the admin while doing so
         const deploymentData = getContractInstanceFromDeployParams(TokenContractArtifact,
             {
                 constructorArgs: [deployArgs],
                 salt: salt,
-                deployer: alice
+                deployer: issuer
             });
 
-        const deployer = new ContractDeployer(TokenContractArtifact, aliceWallet);
+        const deployer = new ContractDeployer(TokenContractArtifact, issuerWallet);
         const tx = deployer.deploy(deployArgs).send({ contractAddressSalt: salt })
         const receipt = await tx.getReceipt();
 
@@ -91,71 +101,67 @@ describe("Token", () => {
         expect(receiptAfterMined.contract.instance.address).toEqual(deploymentData.address)
         contractAddress = receiptAfterMined.contract.address
 
+        console.log(`Contract successfully deployed at address ${contractAddress.toShortString()}`);
+        tokenContractIssuer = await TokenContract.at(contractAddress, issuerWallet);
+        tokenContractAlice = await TokenContract.at(contractAddress, aliceWallet);
+        tokenContractBob = await TokenContract.at(contractAddress, bobWallet);
+
+
     }, 300_000)
 
     describe("Normal user flow", () => {
 
 
-    it("Mints initial token supply to Alice privately", async () => {
-        // Create the contract abstraction and link it to Alice's wallet for future signing
-        //TODO understand what this does
+    it("Issuer privately mints initial token supply to Alice", async () => {
+  
         const initialSupply = 1_000_000n;
-        console.log(`Contract successfully deployed at address ${contractAddress.toShortString()}`);
-        tokenContractAlice = await TokenContract.at(contractAddress, aliceWallet);
 
-
-        console.log(`Minting tokens to Alice...`);
+        console.log(`Minting tokens to Alice ...`);
         // Mint the initial supply privately 
-        const receipt = await tokenContractAlice.methods.mint(alice,initialSupply).send().wait();
+        const receipt = await tokenContractIssuer.methods.mint(alice,initialSupply).send().wait();
         expect(receipt).toEqual(
             expect.objectContaining({
                 status: TxStatus.MINED,
             }),
         );
-        let aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
-        console.log(`Alice's balance ${aliceBalance}`);
+        const balanceAlice = await tokenContractAlice.methods.balance_of_private(alice).simulate();
+        expect(balanceAlice).toEqual(initialSupply)
 
-        const SupplyAfter = await tokenContractAlice.methods.total_supply().simulate()
-        console.log(`${SupplyAfter} tokens as initial supply minted by Alice`);
+        const supplyAfter = await tokenContractIssuer.methods.total_supply().simulate();
+        expect(supplyAfter).toEqual(initialSupply)
+        console.log(`${supplyAfter} tokens as initial supply minted by issuer`);
     })
 
-    it("Alice privately mints tokens to Bob", async () => {
+    it("Issuer privately mints tokens to Bob", async () => {
 
         const bobTokens = 1000;
-        const supplyBefore = await tokenContractAlice.methods.total_supply().simulate()
-        console.log(`Supply before mint: ${supplyBefore}`)
 
-        console.log("Alice minting tokens to Bob...")
+        console.log("issuer minting tokens to Bob...")
 
-        const receipt = await tokenContractAlice.methods.mint(bob, bobTokens).send().wait()
+        const receipt = await tokenContractIssuer.methods.mint(bob, bobTokens).send().wait()
         expect(receipt).toEqual(
             expect.objectContaining({
                 status: TxStatus.MINED,
             }),
         );
 
-        console.log(`Alice successfuly privately minted ${bobTokens} tokens to Bob`)
-        const supplyAfter = await tokenContractAlice.methods.total_supply().simulate()
+        console.log(`issuer successfuly privately minted ${bobTokens} tokens to Bob`)
+        const supplyAfter = await tokenContractIssuer.methods.total_supply().simulate()
 
         console.log(`Supply after mint: ${supplyAfter}`)
     })
 
     it("queries the token balance for each account", async () => {
-        // Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it his wallet
-        // Since we already have a token link, we can simply create a new instance of the contract linked to Bob's wallet
-        tokenContractBob = tokenContractAlice.withWallet(bobWallet);
-
+        
         let aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
-        console.log(`Alice's balance ${aliceBalance}`);
+        console.log(`issuer's balance ${aliceBalance}`);
 
         let bobBalance = await tokenContractBob.methods.balance_of_private(bob).simulate();
         console.log(`Bob's balance ${bobBalance}`);
     })
 
     it("transfers funds from Alice to Bob", async () => {
-        // We will now transfer tokens from Alice to Bob
 
-        tokenContractBob = tokenContractAlice.withWallet(bobWallet);
 
         const transferQuantity = 543n;
         console.log(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
@@ -165,11 +171,11 @@ describe("Token", () => {
         const aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
         console.log(`Alice's balance ${aliceBalance}`);
 
-        //Note: Bob should not be able to know the private balance of Alice
+        //Note: Bob should not be able to know the private balance of alice
         const bobTriesToAccessAliceBalance = await tokenContractBob.methods.balance_of_private(alice).simulate();
         console.log(`Alice's balance from Bob PoW ${bobTriesToAccessAliceBalance}`);
 
-        //Note: Alice should not be able to know the private balance of bob
+        //Note: issuer should not be able to know the private balance of bob
         const aliceTriesToAccessBobBalance = await tokenContractAlice.methods.balance_of_private(bob).simulate()
         console.log(`Bob's balance from Alice's PoW ${aliceTriesToAccessBobBalance}`);
 
@@ -177,7 +183,7 @@ describe("Token", () => {
         console.log(`Bob's balance ${bobBalance}`);
     })
 
-    it("transfers funds from Bob to Alice", async () => {
+    it("transfers funds from Bob to issuer", async () => {
 
         const transferQuantity = 1000n;
         console.log(`Transferring ${transferQuantity} tokens from Bob to Alice...`);
@@ -199,11 +205,11 @@ describe("Token", () => {
     })
 
 
-    it("Alice, the issuer, is able to burn tokens of Bob", async () => {
+    it("Issuer is able to burn tokens of Bob", async () => {
         const burnTokens = 43n;
     
-        console.log(`Alice burning ${burnTokens} from Bob...`);
-        const receipt = await tokenContractAlice.methods.burn(bob,burnTokens).send().wait();
+        console.log(`issuer burning ${burnTokens} from Bob...`);
+        const receipt = await tokenContractIssuer.methods.burn(bob,burnTokens).send().wait();
         expect(receipt).toEqual(
             expect.objectContaining({
                 status: TxStatus.MINED,
@@ -222,12 +228,12 @@ describe("Token", () => {
 
     describe("Failure Cases", () => {
 
-        it("Bob tries to send funds from Alice to Bob", async () => {
+        it("Bob tries to send funds from issuer to Bob", async () => {
             const transferQuantity = 1000n;
     
-              //try to transfer funds from alice to bo  using bob contract
-              console.log(`Transferring ${transferQuantity} tokens from alice to Bob using Bob account - should fail...`);
-              await expect(tokenContractBob.methods.transfer(alice, bob, transferQuantity, 0).send().wait()).rejects.toThrow();
+              //try to transfer funds from issuer to bob using bob contract
+              console.log(`Transferring ${transferQuantity} tokens from issuer to Bob using Bob account - should fail...`);
+              await expect(tokenContractBob.methods.transfer(issuer, bob, transferQuantity, 0).send().wait()).rejects.toThrow();
     
         })
 
@@ -258,14 +264,14 @@ describe("Token", () => {
         })
 
         it("Admin sets Bob as new issuer", async () => {
-            await tokenContractAlice.methods.set_issuer(bob, true).send().wait()
-            expect(await tokenContractAlice.methods.is_minter(bob).simulate()).toBe(true);
+            await tokenContractIssuer.methods.set_issuer(bob, true).send().wait()
+            expect(await tokenContractIssuer.methods.is_minter(bob).simulate()).toBe(true);
 
         })
 
         it("Admin removes Bob as issuer", async () => {
-            await tokenContractAlice.methods.set_issuer(bob, false).send().wait()
-            expect(await tokenContractAlice.methods.is_minter(bob).simulate()).toBe(false);
+            await tokenContractIssuer.methods.set_issuer(bob, false).send().wait()
+            expect(await tokenContractIssuer.methods.is_minter(bob).simulate()).toBe(false);
 
         })
 
