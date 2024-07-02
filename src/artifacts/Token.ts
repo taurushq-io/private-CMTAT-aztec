@@ -17,11 +17,14 @@ import {
   DeployMethod,
   EthAddress,
   EthAddressLike,
+  EventSelector,
   FieldLike,
   Fr,
   FunctionSelectorLike,
+  L1EventPayload,
   loadContractArtifact,
   NoirCompiledContract,
+  NoteSelector,
   Point,
   PublicKey,
   Wallet,
@@ -29,6 +32,8 @@ import {
 } from '@aztec/aztec.js';
 import TokenContractArtifactJson from '../../target/token_contract-Token.json' assert { type: 'json' };
 export const TokenContractArtifact = loadContractArtifact(TokenContractArtifactJson as NoirCompiledContract);
+
+
 
 /**
  * Type-safe interface for contract Token;
@@ -99,44 +104,37 @@ export class TokenContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'admin' | 'issuers' | 'balances' | 'total_supply' | 'symbol' | 'name' | 'decimals'> {
+  public static get storage(): ContractStorageLayout<'issuers' | 'balances' | 'total_supply' | 'roles' | 'symbol' | 'name' | 'decimals'> {
       return {
-        admin: {
+        issuers: {
       slot: new Fr(1n),
-      typ: "PublicMutable<AztecAddress, Context>",
-    },
-issuers: {
-      slot: new Fr(2n),
-      typ: "Map<AztecAddress, PublicMutable<bool, Context>, Context>",
     },
 balances: {
-      slot: new Fr(3n),
-      typ: "BalancesMap<TokenNote, Context>",
+      slot: new Fr(2n),
     },
 total_supply: {
+      slot: new Fr(3n),
+    },
+roles: {
       slot: new Fr(4n),
-      typ: "PublicMutable<U128, Context>",
     },
 symbol: {
       slot: new Fr(5n),
-      typ: "SharedImmutable<FieldCompressedString, Context>",
     },
 name: {
       slot: new Fr(6n),
-      typ: "SharedImmutable<FieldCompressedString, Context>",
     },
 decimals: {
       slot: new Fr(7n),
-      typ: "SharedImmutable<u8, Context>",
     }
-      } as ContractStorageLayout<'admin' | 'issuers' | 'balances' | 'total_supply' | 'symbol' | 'name' | 'decimals'>;
+      } as ContractStorageLayout<'issuers' | 'balances' | 'total_supply' | 'roles' | 'symbol' | 'name' | 'decimals'>;
     }
     
 
   public static get notes(): ContractNotes<'TokenNote'> {
     return {
       TokenNote: {
-          id: new Fr(8411110710111078111116101n),
+          id: new NoteSelector(3992089675),
         }
     } as ContractNotes<'TokenNote'>;
   }
@@ -145,64 +143,60 @@ decimals: {
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public override methods!: {
     
-    /** set_admin(new_admin: struct) */
-    set_admin: ((new_admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** compute_note_hash_and_nullifier(contract_address: struct, nonce: field, storage_slot: field, note_type_id: field, serialized_note: array) */
-    compute_note_hash_and_nullifier: ((contract_address: AztecAddressLike, nonce: FieldLike, storage_slot: FieldLike, note_type_id: FieldLike, serialized_note: FieldLike[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** public_get_decimals() */
-    public_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** public_get_symbol() */
-    public_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** un_get_decimals() */
-    un_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** get_roles(user: struct) */
+    get_roles: ((user: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** private_get_decimals() */
     private_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** un_get_symbol() */
-    un_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** balance_of_private(owner: struct) */
+    balance_of_private: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** public_get_name() */
-    public_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** compute_note_hash_and_optionally_a_nullifier(contract_address: struct, nonce: field, storage_slot: field, note_type_id: field, compute_nullifier: boolean, serialized_note: array) */
+    compute_note_hash_and_optionally_a_nullifier: ((contract_address: AztecAddressLike, nonce: FieldLike, storage_slot: FieldLike, note_type_id: FieldLike, compute_nullifier: boolean, serialized_note: FieldLike[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** transfer(from: struct, to: struct, amount: field, nonce: field) */
-    transfer: ((from: AztecAddressLike, to: AztecAddressLike, amount: FieldLike, nonce: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** is_minter(issuer: struct) */
-    is_minter: ((issuer: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** burn(from: struct, amount: field) */
+    burn: ((from: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** mint(to: struct, amount: field) */
     mint: ((to: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** constructor(admin: struct) */
-    constructor: ((admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** balance_of_private(owner: struct) */
-    balance_of_private: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** un_get_name() */
-    un_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** private_get_name() */
-    private_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** private_get_symbol() */
-    private_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** public_get_name() */
+    public_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** total_supply() */
     total_supply: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** set_issuer(issuer: struct, approve: boolean) */
-    set_issuer: ((issuer: AztecAddressLike, approve: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** private_get_name() */
+    private_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** admin() */
-    admin: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** public_get_symbol() */
+    public_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** burn(from: struct, amount: field) */
-    burn: ((from: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(admin: struct) */
+    constructor: ((admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** transfer(from: struct, to: struct, amount: field, nonce: field) */
+    transfer: ((from: AztecAddressLike, to: AztecAddressLike, amount: FieldLike, nonce: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** un_get_name() */
+    un_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** un_get_symbol() */
+    un_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** un_get_decimals() */
+    un_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** private_get_symbol() */
+    private_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** update_roles(user: struct, roles: struct) */
+    update_roles: ((user: AztecAddressLike, roles: { is_admin: boolean, is_issuer: boolean, is_blacklisted: boolean }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** public_get_decimals() */
+    public_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
+
+  
 }

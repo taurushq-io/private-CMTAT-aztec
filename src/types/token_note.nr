@@ -25,43 +25,30 @@ struct TokenNote {
     randomness: Field,
 }
 
-impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
-    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
+    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
+    // docs:end:nullifier
 
-    //Note: adding the secret to the nullifier is a pattern for nullifier randomization as per: 
-    // https://docs.aztec.network/guides/smart_contracts/writing_contracts/common_patterns#deterministic-nullifiers
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash([
+        let nullifier = poseidon2_hash([
             note_hash_for_nullify,
             secret,
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        ])
+        ]);
+        (note_hash_for_nullify, nullifier)
     }
 
-    // Broadcasts the note as an encrypted log on L1.
-    fn broadcast(self, context: &mut PrivateContext, slot: Field, ivpk_m: GrumpkinPoint) {
-      // We only bother inserting the note if non-empty to save funds on gas.
-      // TODO: (#5901) This will be changed a lot, as it should use the updated encrypted log format
-      if !(self.amount == U128::from_integer(0)) {
-          context.encrypt_and_emit_note(
-              (*context).this_address(),
-              slot,
-              Self::get_note_type_id(),
-              ivpk_m,
-              self,
-          );
-      }
-    }
 }
 
 impl OwnedNote for TokenNote {

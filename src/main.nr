@@ -1,3 +1,6 @@
+
+
+
 mod types;
 
 
@@ -8,19 +11,22 @@ contract Token {
 
     use dep::aztec::{
         hash::compute_secret_hash,
-        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress}
+        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable,SharedMutable, PrivateSet, AztecAddress}
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  roles::UserFlags};
+
+    // Changing an address' roles has a certain block delay before it goes into effect.
+    global CHANGE_ROLES_DELAY_BLOCKS = 2;
 
     #[aztec(storage)]
     struct Storage {
-        admin: PublicMutable<AztecAddress>,
         issuers: Map<AztecAddress, PublicMutable<bool>>,
         balances: BalancesMap<TokenNote>,
         total_supply: PublicMutable<U128>,
+        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS>>,
 
         symbol: SharedImmutable<FieldCompressedString>,
         name: SharedImmutable<FieldCompressedString>,
@@ -32,18 +38,25 @@ contract Token {
     //TODO a ABI encoding problem in core library doesn't allow us to input a tokenName, tokenSymbol and tokenDecimals for now
     fn constructor(admin: AztecAddress) {
         assert(!admin.is_zero(), "invalid admin");
-        storage.admin.write(admin);
-        storage.issuers.at(admin).write(true);
         storage.name.initialize(FieldCompressedString::from_string("TOKEN00000000000000000000000000"));
         storage.symbol.initialize(FieldCompressedString::from_string("TKN0000000000000000000000000000"));
         let decimal: u8 = 18;
         storage.decimals.initialize(decimal);
+        let admin_roles = UserFlags { is_admin: true, is_issuer: true, is_blacklisted: false };
+        storage.roles.at(admin).schedule_value_change(admin_roles);
     }
 
     #[aztec(public)]
-    fn set_admin(new_admin: AztecAddress) {
-        assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
-        storage.admin.write(new_admin);
+    fn get_roles(user: AztecAddress) -> UserFlags {
+        storage.roles.at(user).get_current_value_in_public()
+    }
+
+    #[aztec(public)]
+    fn update_roles(user: AztecAddress, roles: UserFlags) {
+        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
+        assert(caller_roles.is_admin, "caller is not admin");
+
+        storage.roles.at(user).schedule_value_change(roles);
     }
 
     #[aztec(public)]
@@ -76,21 +89,27 @@ contract Token {
         storage.decimals.read_private()
     }
 
-    #[aztec(public)]
-    fn set_issuer(issuer: AztecAddress, approve: bool) {
-        assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
-        storage.issuers.at(issuer).write(approve);
-    }
-
     #[aztec(private)]
     fn mint(to: AztecAddress, amount: Field) {
+        let issuer_role = storage.roles.at(context.msg_sender()).get_current_value_in_private();
+        assert(issuer_role.is_issuer, "Caller is not issuer");
+
+        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+
         storage.balances.add(to, U128::from_integer(amount));
-        Token::at(context.this_address()).assert_issuer_and_mint(context.msg_sender(), amount).enqueue(&mut context);
+        Token::at(context.this_address())._mint(amount).enqueue(&mut context);
     }
 
     //NOTE: in the docs, it is stated that the nonce should prevent replay attacks, but here it does strictly nothing
     #[aztec(private)]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+        let to_roles = storage.roles.at(to).get_current_value_in_private();
+        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+
+
         //the authwit is used to allow a thrid party to spend funds of a user upon approval
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -105,37 +124,33 @@ contract Token {
 
     #[aztec(private)]
     fn burn(from: AztecAddress, amount: Field) {
+        let issuer_role = storage.roles.at(context.msg_sender()).get_current_value_in_private();
+        assert(issuer_role.is_issuer, "Caller is not issuer");
+
+        let from_roles = storage.roles.at(from).get_current_value_in_private();
+        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+
         storage.balances.sub(from, U128::from_integer(amount));
-        Token::at(context.this_address()).assert_issuer_and_burn(context.msg_sender(),amount).enqueue(&mut context);
+        Token::at(context.this_address())._burn(amount).enqueue(&mut context);
     }
 
     //internal
     #[aztec(public)]
     #[aztec(internal)]
-    fn assert_issuer_and_mint(issuer: AztecAddress, amount: Field) {
-        assert(storage.issuers.at(issuer).read(), "caller is not issuer");
+    fn _mint(amount: Field) {
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
         storage.total_supply.write(supply);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
-    fn assert_issuer_and_burn(issuer: AztecAddress, amount: Field) {
-        assert(storage.issuers.at(issuer).read(), "caller is not issuer");
+    fn _burn(amount: Field) {
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
         storage.total_supply.write(new_supply);
     }
 
 
     /// Unconstrained ///
-
-    unconstrained fn admin() -> pub Field {
-        storage.admin.read().to_field()
-    }
-
-    unconstrained fn is_minter(issuer: AztecAddress) -> pub bool {
-        storage.issuers.at(issuer).read()
-    }
 
     unconstrained fn total_supply() -> pub Field {
         storage.total_supply.read().to_integer()
@@ -157,3 +172,4 @@ contract Token {
         storage.decimals.read_public()
     }
 }
+
