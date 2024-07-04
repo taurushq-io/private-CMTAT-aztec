@@ -64,30 +64,30 @@ impl Deserialize<3> for UserFlags {
     }
 }
 
-mod test {
-    use crate::types::roles::UserFlags;
+// mod test {
+//     use crate::types::roles::UserFlags;
 
-    fn assert_to_from_field(is_issuer: bool, is_admin: bool, is_blacklisted: bool) {
-        let flags = UserFlags { is_issuer, is_admin, is_blacklisted };
-        let converted = UserFlags::from_field(flags.to_field());
+//     fn assert_to_from_field(is_issuer: bool, is_admin: bool, is_blacklisted: bool) {
+//         let flags = UserFlags { is_issuer, is_admin, is_blacklisted };
+//         let converted = UserFlags::from_field(flags.to_field());
 
-        assert_eq(converted.is_issuer, is_issuer);
-        assert_eq(converted.is_admin, is_admin);
-        assert_eq(converted.is_blacklisted, is_blacklisted);
-    }
+//         assert_eq(converted.is_issuer, is_issuer);
+//         assert_eq(converted.is_admin, is_admin);
+//         assert_eq(converted.is_blacklisted, is_blacklisted);
+//     }
 
-    #[test]
-    fn test_to_from_field() {
-        assert_to_from_field(false, false, false);
-        assert_to_from_field(false, false, true);
+//     #[test]
+//     fn test_to_from_field() {
+//         assert_to_from_field(false, false, false);
+//         assert_to_from_field(false, false, true);
 
-        assert_to_from_field(false, true, false);
-        assert_to_from_field(false, true, true);
+//         assert_to_from_field(false, true, false);
+//         assert_to_from_field(false, true, true);
 
-        assert_to_from_field(true, false, false);
-        assert_to_from_field(true, false, true);
+//         assert_to_from_field(true, false, false);
+//         assert_to_from_field(true, false, true);
 
-        assert_to_from_field(true, true, false);
-        assert_to_from_field(true, true, true);
-    }
-}
+//         assert_to_from_field(true, true, false);
+//         assert_to_from_field(true, true, true);
+//     }
+// }

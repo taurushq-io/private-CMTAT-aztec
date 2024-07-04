@@ -143,59 +143,50 @@ decimals: {
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public override methods!: {
     
-    /** get_roles(user: struct) */
-    get_roles: ((user: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** private_get_decimals() */
-    private_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** balance_of_private(owner: struct) */
-    balance_of_private: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** compute_note_hash_and_optionally_a_nullifier(contract_address: struct, nonce: field, storage_slot: field, note_type_id: field, compute_nullifier: boolean, serialized_note: array) */
-    compute_note_hash_and_optionally_a_nullifier: ((contract_address: AztecAddressLike, nonce: FieldLike, storage_slot: FieldLike, note_type_id: FieldLike, compute_nullifier: boolean, serialized_note: FieldLike[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** burn(from: struct, amount: field) */
-    burn: ((from: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** mint(to: struct, amount: field) */
-    mint: ((to: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** public_get_name() */
-    public_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** total_supply() */
-    total_supply: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** private_get_name() */
-    private_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
     /** public_get_symbol() */
     public_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** constructor(admin: struct) */
-    constructor: ((admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** transfer(from: struct, to: struct, amount: field, nonce: field) */
     transfer: ((from: AztecAddressLike, to: AztecAddressLike, amount: FieldLike, nonce: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** un_get_name() */
-    un_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** balance_of_private(owner: struct) */
+    balance_of_private: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** un_get_symbol() */
-    un_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** un_get_decimals() */
-    un_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** public_get_name() */
+    public_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** private_get_symbol() */
     private_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** compute_note_hash_and_optionally_a_nullifier(contract_address: struct, nonce: field, storage_slot: field, note_type_id: field, compute_nullifier: boolean, serialized_note: array) */
+    compute_note_hash_and_optionally_a_nullifier: ((contract_address: AztecAddressLike, nonce: FieldLike, storage_slot: FieldLike, note_type_id: FieldLike, compute_nullifier: boolean, serialized_note: FieldLike[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** private_get_decimals() */
+    private_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** burn(from: struct, amount: field) */
+    burn: ((from: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** constructor(admin: struct) */
+    constructor: ((admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** update_roles(user: struct, roles: struct) */
     update_roles: ((user: AztecAddressLike, roles: { is_admin: boolean, is_issuer: boolean, is_blacklisted: boolean }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_get_decimals() */
     public_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** mint(to: struct, amount: field) */
+    mint: ((to: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** private_get_name() */
+    private_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** total_supply() */
+    total_supply: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_roles(user: struct) */
+    get_roles: ((user: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   

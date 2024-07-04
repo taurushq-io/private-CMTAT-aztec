@@ -11,8 +11,11 @@ contract Token {
 
     use dep::aztec::{
         hash::compute_secret_hash,
-        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable,SharedMutable, PrivateSet, AztecAddress}
+        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable,SharedMutable, PrivateSet, AztecAddress},
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys}
     };
+
+
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
@@ -46,9 +49,11 @@ contract Token {
         storage.roles.at(admin).schedule_value_change(admin_roles);
     }
 
+
     #[aztec(public)]
-    fn get_roles(user: AztecAddress) -> UserFlags {
-        storage.roles.at(user).get_current_value_in_public()
+    #[aztec(view)]
+    fn get_roles(user: AztecAddress) -> pub Field {
+        storage.roles.at(user).get_current_value_in_public().to_field()
     }
 
     #[aztec(public)]
@@ -60,44 +65,57 @@ contract Token {
     }
 
     #[aztec(public)]
+    #[aztec(view)]
     fn public_get_name() -> pub FieldCompressedString {
         storage.name.read_public()
     }
 
     #[aztec(private)]
+    #[aztec(view)]
     fn private_get_name() -> pub FieldCompressedString {
         storage.name.read_private()
     }
 
     #[aztec(public)]
+    #[aztec(view)]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
     }
 
     #[aztec(private)]
+    #[aztec(view)]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_private()
     }
 
     #[aztec(public)]
+    #[aztec(view)]
     fn public_get_decimals() -> pub u8 {
         storage.decimals.read_public()
     }
 
     #[aztec(private)]
+    #[aztec(view)]
     fn private_get_decimals() -> pub u8 {
         storage.decimals.read_private()
     }
 
+    #[aztec(public)]
+    #[aztec(view)]
+    fn total_supply() -> Field {
+        storage.total_supply.read().to_integer()
+    }
+
+
     #[aztec(private)]
     fn mint(to: AztecAddress, amount: Field) {
-        let issuer_role = storage.roles.at(context.msg_sender()).get_current_value_in_private();
-        assert(issuer_role.is_issuer, "Caller is not issuer");
-
         let to_roles = storage.roles.at(to).get_current_value_in_private();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.add(to, U128::from_integer(amount));
+        let issuer_role = storage.roles.at(context.msg_sender()).get_current_value_in_private();
+        assert(issuer_role.is_issuer, "Caller is not issuer");
+
+        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context,to,to));
         Token::at(context.this_address())._mint(amount).enqueue(&mut context);
     }
 
@@ -118,19 +136,19 @@ contract Token {
         }
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount);
-        storage.balances.add(to, amount);
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context,from,from));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note(&mut context,to,to));
     }
 
     #[aztec(private)]
     fn burn(from: AztecAddress, amount: Field) {
-        let issuer_role = storage.roles.at(context.msg_sender()).get_current_value_in_private();
-        assert(issuer_role.is_issuer, "Caller is not issuer");
-
         let from_roles = storage.roles.at(from).get_current_value_in_private();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        storage.balances.sub(from, U128::from_integer(amount));
+        let issuer_role = storage.roles.at(context.msg_sender()).get_current_value_in_private();
+        assert(issuer_role.is_issuer, "Caller is not issuer");
+
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
         Token::at(context.this_address())._burn(amount).enqueue(&mut context);
     }
 
@@ -152,24 +170,9 @@ contract Token {
 
     /// Unconstrained ///
 
-    unconstrained fn total_supply() -> pub Field {
-        storage.total_supply.read().to_integer()
-    }
-
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
-        storage.balances.balance_of(owner).to_integer()
+        storage.balances.balance_of(owner).to_field()
     }
 
-    unconstrained fn un_get_name() -> pub [u8; 31] {
-        storage.name.read_public().to_bytes()
-    }
-
-    unconstrained fn un_get_symbol() -> pub [u8; 31] {
-        storage.symbol.read_public().to_bytes()
-    }
-
-    unconstrained fn un_get_decimals() -> pub u8 {
-        storage.decimals.read_public()
-    }
 }
 
