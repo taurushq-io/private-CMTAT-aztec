@@ -303,8 +303,8 @@ describe("Token", () => {
         it("Admin sets Bob as new issuer", async () => {
             const newRole =  {is_admin: false,is_issuer: true,is_blacklisted: false};
             await tokenContractIssuer.methods.update_roles(bob,newRole).send().wait()
-            await expect(advanceBlocks(tokenContractIssuer, issuer)).toBeTruthy();
-            expect(await tokenContractIssuer.methods.get_roles(bob).simulate()).toEqual(2);
+            expect(await advanceBlocks(tokenContractIssuer, issuer)).toBeTruthy();
+            expect(await tokenContractIssuer.methods.get_roles(bob).simulate()).toEqual(2n);
 
 
         }, 300_000)
@@ -312,8 +312,8 @@ describe("Token", () => {
         it("Admin removes Bob as issuer", async () => {
             const newRole =  {is_admin: false,is_issuer: false,is_blacklisted: false};
             await tokenContractIssuer.methods.update_roles(bob,newRole).send().wait()
-            await expect(advanceBlocks(tokenContractIssuer, issuer)).toBeTruthy();
-             expect(await tokenContractIssuer.methods.get_roles(bob).simulate()).toEqual(0);
+            expect(await advanceBlocks(tokenContractIssuer, issuer)).toBeTruthy();
+            expect(await tokenContractIssuer.methods.get_roles(bob).simulate()).toEqual(0n);
         }, 300_000)
 
     })
