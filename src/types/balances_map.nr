@@ -62,7 +62,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         self: Self,
         owner: AztecAddress,
         addend: U128
-    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq{
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
         } else {
@@ -73,9 +73,10 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
             let owner_npk_m_hash = header.get_npk_m_hash(context, owner);
             let mut addend_note = T::new(addend, owner_npk_m_hash);
 
-            // docs:start:insert
+            //the insert method allows us to insert a note in anyones private set balance. Thus,
+            //when I send funds to someone, I can add a note to him in his private set. 
+            //We also need note emission so that user knows we sent him a note
             OuterNoteEmission::new(Option::some(self.map.at(owner).insert(&mut addend_note)))
-            // docs:end:insert
         }
     }
 
@@ -83,7 +84,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         self: Self,
         owner: AztecAddress,
         subtrahend: U128
-    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq{
         // docs:start:get_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let notes = self.map.at(owner).get_notes(options);
@@ -118,7 +119,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
 pub fn filter_notes_min_sum<T, T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
     notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128
-) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);
     for i in 0..notes.len() {

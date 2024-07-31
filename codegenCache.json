@@ -1,3 +1,6 @@
 {
-  "token_contract-Token.json": "9877c4e342e19cc14a2729a195050b42cf14ec1f3487426431a26ebbd44747cb"
+  "token_contract-Token.json": {
+    "contractName": "Token",
+    "hash": "aa6c36b619005bda69f37047011566765726657608585e0e3dc9dfa34e55160b"
+  }
 }

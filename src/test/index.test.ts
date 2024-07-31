@@ -6,11 +6,11 @@ import { format } from 'util';
 const setupSandbox = async () => {
     const { PXE_URL = 'http://localhost:8080' } = process.env;
     const pxe = createPXEClient(PXE_URL);
-    const ethRpcUrl = "http://localhost:8545";
-    const cc = await CheatCodes.create(ethRpcUrl, pxe);
-    const logger = createDebugLogger('token');
-    await waitForPXE(pxe, logger);
-    return {pxe,logger,cc};
+    //const ethRpcUrl = "http://localhost:8545";
+    //const cc = await CheatCodes.create(ethRpcUrl, pxe);
+    //const logger = createDebugLogger('token');
+    await waitForPXE(pxe);
+    return pxe;
 };
 
 const advanceBlocks = async (contract: TokenContract, addr: AztecAddress) : Promise<boolean> => {
@@ -25,8 +25,6 @@ const advanceBlocks = async (contract: TokenContract, addr: AztecAddress) : Prom
 
 describe("Token", () => {
     let pxe: PXE;
-    let logger: DebugLogger;
-    let cc :CheatCodes;
     let wallets: AccountWalletWithSecretKey[] = [];
     let accounts: CompleteAddress[] = [];
     let issuer: AztecAddress;
@@ -42,9 +40,8 @@ describe("Token", () => {
     let tokenContractAlice: TokenContract;
 
     beforeAll(async () => {
-        const sandbox = await setupSandbox();
-        ({ pxe, logger, cc } = sandbox);
-        wallets = await getDeployedTestAccountsWallets(pxe);
+        pxe = await setupSandbox();
+        wallets = await getInitialTestAccountsWallets(pxe);
         accounts = wallets.map(w => w.getCompleteAddress())
 
 
@@ -147,6 +144,8 @@ describe("Token", () => {
         console.log(`Minting tokens to Alice ...`);
         // Mint the initial supply privately 
 
+        // const paused = await tokenContractIssuer.methods.get(issuer).simulate();
+        // console.log(`ISSUER ROLES: ${roles}`)
 
         const receipt = await tokenContractIssuer.methods.mint(alice,initialSupply).send().wait();
         expect(receipt).toEqual(
@@ -204,8 +203,12 @@ describe("Token", () => {
 
         const transferQuantity = 543n;
         console.log(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
-        await tokenContractAlice.methods.transfer(alice, bob, transferQuantity, 0).send().wait();
-
+        const receipt = await tokenContractAlice.methods.transfer( bob, transferQuantity).send().wait();
+        expect(receipt).toEqual(
+            expect.objectContaining({
+                status: TxStatus.SUCCESS,
+            }),
+        );
         // Check the new balances
         const aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
         console.log(`Alice's balance ${aliceBalance}`);
@@ -218,7 +221,7 @@ describe("Token", () => {
 
         const transferQuantity = 1000n;
         console.log(`Transferring ${transferQuantity} tokens from Bob to Alice...`);
-        await tokenContractBob.methods.transfer(bob, alice, transferQuantity, 0).send().wait();
+        await tokenContractBob.methods.transfer( alice, transferQuantity).send().wait();
 
         // Check the new balances
         const aliceBalance = await tokenContractAlice.methods.balance_of_private(alice).simulate();
@@ -264,14 +267,6 @@ describe("Token", () => {
             console.log(`Bob's balance from Alice's PoW ${aliceTriesToAccessBobBalance}`);
         })
 
-        it("Bob tries to send funds from issuer to Bob", async () => {
-            const transferQuantity = 1000n;
-    
-              //try to transfer funds from issuer to bob using bob contract
-              console.log(`Transferring ${transferQuantity} tokens from issuer to Bob using Bob account - should fail...`);
-              await expect(tokenContractBob.methods.transfer(issuer, bob, transferQuantity, 0).send().wait()).rejects.toThrow();
-    
-        })
 
         it("bob tries to mint some tokens", async () => {
             const mintQuantity = 1000n;
@@ -316,6 +311,25 @@ describe("Token", () => {
             expect(await tokenContractIssuer.methods.get_roles(bob).simulate()).toEqual(0n);
         }, 300_000)
 
+    })
+
+    describe("Pause Module tests", () => {
+        it("Admin can pause the contract - no transactions can be done", async () => {
+            await tokenContractIssuer.methods.pause_contract().send().wait();
+            expect(await tokenContractIssuer.methods.public_get_pause().simulate()).toEqual(1n);
+            await expect(tokenContractBob.methods.transfer(alice,10).send().wait()).rejects.toThrow("(JSON-RPC PROPAGATED) Assertion failed: Error: token contract is paused");
+        })
+
+        it("Admin can unpause the contract", async () => {
+            await tokenContractIssuer.methods.unpause_contract().send().wait();
+            expect(await tokenContractIssuer.methods.public_get_pause().simulate()).toEqual(0n);
+            const receipt = await tokenContractBob.methods.transfer(alice,10).send().wait();
+            expect(receipt).toEqual(
+                expect.objectContaining({
+                    status: TxStatus.SUCCESS,
+                }),
+            );
+        })
     })
 
 })

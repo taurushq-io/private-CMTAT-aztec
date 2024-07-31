@@ -34,6 +34,22 @@ import TokenContractArtifactJson from '../../target/token_contract-Token.json' a
 export const TokenContractArtifact = loadContractArtifact(TokenContractArtifactJson as NoirCompiledContract);
 
 
+      export type Unpaused = {
+        account: Fr
+      }
+    
+
+      export type Paused = {
+        account: Fr
+      }
+    
+
+      export type Transfer = {
+        from: Fr
+to: Fr
+amount: Fr
+      }
+    
 
 /**
  * Type-safe interface for contract Token;
@@ -104,30 +120,30 @@ export class TokenContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'issuers' | 'balances' | 'total_supply' | 'roles' | 'symbol' | 'name' | 'decimals'> {
+  public static get storage(): ContractStorageLayout<'balances' | 'total_supply' | 'symbol' | 'name' | 'decimals' | 'roleModule' | 'pauseModule'> {
       return {
-        issuers: {
+        balances: {
       slot: new Fr(1n),
     },
-balances: {
+total_supply: {
       slot: new Fr(2n),
     },
-total_supply: {
+symbol: {
       slot: new Fr(3n),
     },
-roles: {
+name: {
       slot: new Fr(4n),
     },
-symbol: {
+decimals: {
       slot: new Fr(5n),
     },
-name: {
+roleModule: {
       slot: new Fr(6n),
     },
-decimals: {
+pauseModule: {
       slot: new Fr(7n),
     }
-      } as ContractStorageLayout<'issuers' | 'balances' | 'total_supply' | 'roles' | 'symbol' | 'name' | 'decimals'>;
+      } as ContractStorageLayout<'balances' | 'total_supply' | 'symbol' | 'name' | 'decimals' | 'roleModule' | 'pauseModule'>;
     }
     
 
@@ -143,23 +159,50 @@ decimals: {
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public override methods!: {
     
+    /** update_roles(user: struct, roleModule: struct) */
+    update_roles: ((user: AztecAddressLike, roleModule: { is_admin: boolean, is_issuer: boolean, is_blacklisted: boolean }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** transfer_from(from: struct, to: struct, amount: field, nonce: field) */
+    transfer_from: ((from: AztecAddressLike, to: AztecAddressLike, amount: FieldLike, nonce: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** total_supply() */
+    total_supply: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_roles(user: struct) */
+    get_roles: ((user: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** public_get_symbol() */
     public_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** transfer(from: struct, to: struct, amount: field, nonce: field) */
-    transfer: ((from: AztecAddressLike, to: AztecAddressLike, amount: FieldLike, nonce: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** balance_of_private(owner: struct) */
-    balance_of_private: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_get_name() */
     public_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** private_get_symbol() */
-    private_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** balance_of_private(owner: struct) */
+    balance_of_private: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** compute_note_hash_and_optionally_a_nullifier(contract_address: struct, nonce: field, storage_slot: field, note_type_id: field, compute_nullifier: boolean, serialized_note: array) */
     compute_note_hash_and_optionally_a_nullifier: ((contract_address: AztecAddressLike, nonce: FieldLike, storage_slot: FieldLike, note_type_id: FieldLike, compute_nullifier: boolean, serialized_note: FieldLike[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** private_get_name() */
+    private_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** pause_contract() */
+    pause_contract: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** private_get_symbol() */
+    private_get_symbol: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** mint(to: struct, amount: field) */
+    mint: ((to: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** public_get_decimals() */
+    public_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** cancel_authwit(inner_hash: field) */
+    cancel_authwit: ((inner_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** public_get_pause() */
+    public_get_pause: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** private_get_decimals() */
     private_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -167,27 +210,60 @@ decimals: {
     /** burn(from: struct, amount: field) */
     burn: ((from: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** transfer(to: struct, amount: field) */
+    transfer: ((to: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** unpause_contract() */
+    unpause_contract: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** constructor(admin: struct) */
     constructor: ((admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** update_roles(user: struct, roles: struct) */
-    update_roles: ((user: AztecAddressLike, roles: { is_admin: boolean, is_issuer: boolean, is_blacklisted: boolean }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** public_get_decimals() */
-    public_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** mint(to: struct, amount: field) */
-    mint: ((to: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** private_get_name() */
-    private_get_name: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** total_supply() */
-    total_supply: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_roles(user: struct) */
-    get_roles: ((user: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
+  
+    // Partial application is chosen is to avoid the duplication of so much codegen.
+  private static decodeEvent<T>(fieldsLength: number, eventSelector: EventSelector, fields: string[]): (payload: L1EventPayload | undefined) => T | undefined {
+    return (payload: L1EventPayload | undefined): T | undefined => {
+      if (payload === undefined) {
+        return undefined;
+      }
+      if (!eventSelector.equals(payload.eventTypeId)) {
+        return undefined;
+      }
+      if (payload.event.items.length !== fieldsLength) {
+        throw new Error(
+          'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
+        );
+      }
+
+      return fields.reduce(
+        (acc, curr, i) => ({
+          ...acc,
+          [curr]: payload.event.items[i],
+        }),
+        {} as T,
+      );
+    };
+  }
+
+  public static get events(): { Unpaused: {decode: (payload: L1EventPayload | undefined) => Unpaused | undefined, eventSelector: EventSelector, fieldNames: string[] }, Paused: {decode: (payload: L1EventPayload | undefined) => Paused | undefined, eventSelector: EventSelector, fieldNames: string[] }, Transfer: {decode: (payload: L1EventPayload | undefined) => Transfer | undefined, eventSelector: EventSelector, fieldNames: string[] } } {
+    return {
+      Unpaused: {
+        decode: this.decodeEvent(1, EventSelector.fromSignature('Unpaused(Field)'), ["account"]),
+      eventSelector: EventSelector.fromSignature('Unpaused(Field)'),
+      fieldNames: ["account"],
+      },
+Paused: {
+        decode: this.decodeEvent(1, EventSelector.fromSignature('Paused(Field)'), ["account"]),
+      eventSelector: EventSelector.fromSignature('Paused(Field)'),
+      fieldNames: ["account"],
+      },
+Transfer: {
+        decode: this.decodeEvent(3, EventSelector.fromSignature('Transfer(Field,Field,Field)'), ["from","to","amount"]),
+      eventSelector: EventSelector.fromSignature('Transfer(Field,Field,Field)'),
+      fieldNames: ["from","to","amount"],
+      }
+    };
+  }
   
 }

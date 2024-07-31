@@ -13,15 +13,15 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
   },
   "dependencies": {
-    "@aztec/accounts": "0.44.0",
-    "@aztec/aztec.js": "0.44.0",
-    "@aztec/builder": "0.44.0",
-    "@aztec/noir-contracts.js": "0.44.0",
+    "@aztec/accounts": "0.47.0",
+    "@aztec/aztec.js": "0.47.0",
+    "@aztec/builder": "0.47.0",
+    "@aztec/noir-contracts.js": "0.47.0",
     "@types/jest": "^29.5.12",
     "@types/mocha": "^10.0.6",
-    "@types/node": "^20.14.2",
+    "@types/node": "^20.14.10",
     "ts-jest": "^29.1.4",
-    "typescript": "^5.4.5"
+    "typescript": "^5.5.3"
   },
   "devDependencies": {
     "jest": "^29.7.0"
