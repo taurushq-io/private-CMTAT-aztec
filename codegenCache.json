@@ -1,6 +1,10 @@
 {
   "token_contract-Token.json": {
     "contractName": "Token",
-    "hash": "aa6c36b619005bda69f37047011566765726657608585e0e3dc9dfa34e55160b"
+    "hash": "89af1e5409fbc6bf7d7701735715a35a2415a3dea9a78c100f478f2db5fe8c00"
+  },
+  "auth_registry_contract-AuthRegistry.json": {
+    "contractName": "AuthRegistry",
+    "hash": "9e1efd7067066c2bc9a27331dcd195fbbd3e3cde10bcb9b3aa63520881228ecd"
   }
 }
