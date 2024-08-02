@@ -72,44 +72,14 @@ describe("Token", () => {
         console.log(`Loaded Alice's account at ${alice.toShortString()}`);
         console.log(`Alice's secret key ${aliceWallet.getSecretKey()}`)
 
-        // const tokenName = "TOKEN"
-        // const tokenSymbol = "TKN"
-        // const tokenDecimals = "6"
+        const tokenName = 'TEST'
+        const tokenSymbol = 'TT'
+        const tokenDecimals = 18n
 
-        // const deployArgs = [issuer, tokenName, tokenSymbol, tokenDecimals]
-        const deployArgs = issuer
-
-        // Deploy the contract and set issuer as the admin while doing so
-        const deploymentData = getContractInstanceFromDeployParams(TokenContractArtifact,
-            {
-                constructorArgs: [deployArgs],
-                salt: salt,
-                deployer: issuer
-            });
-
-        const deployer = new ContractDeployer(TokenContractArtifact, issuerWallet);
-        const tx = deployer.deploy(deployArgs).send({ contractAddressSalt: salt })
-        const receipt = await tx.getReceipt();
-
-        expect(receipt).toEqual(
-            expect.objectContaining({
-                status: TxStatus.PENDING,
-                error: ''
-            }),
-        );
-
-        const receiptAfterMined = await tx.wait({ wallet: wallets[0] });
-
-        expect(await pxe.getContractInstance(deploymentData.address)).toBeDefined();
-        expect(await pxe.isContractPubliclyDeployed(deploymentData.address)).toBeDefined();
-        expect(receiptAfterMined).toEqual(
-            expect.objectContaining({
-                status: TxStatus.SUCCESS,
-            }),
-        );
-
-        expect(receiptAfterMined.contract.instance.address).toEqual(deploymentData.address)
-        contractAddress = receiptAfterMined.contract.address
+        const asset = await TokenContract.deploy(issuerWallet, issuer, tokenName, tokenSymbol, tokenDecimals)
+            .send()
+            .deployed();
+        contractAddress = asset.address
 
 
         console.log(`Contract successfully deployed at address ${contractAddress.toShortString()}`);
@@ -137,7 +107,7 @@ describe("Token", () => {
         console.log(`Whitelisting Alice ...`);
 
         const newRole =  {is_admin: false,is_issuer: false,is_blacklisted: false};
-        const roles = await tokenContractIssuer.methods.update_roles(alice,newRole)
+        const roles = await tokenContractIssuer.methods.grant_roles(alice,newRole)
         expect(await advanceBlocks(tokenContractIssuer, issuer)).toBeTruthy();
 
 
@@ -168,7 +138,7 @@ describe("Token", () => {
         console.log(`Whitelisting Bob ...`);
 
         const newRole =  {is_admin: false,is_issuer: false,is_blacklisted: false};
-        const roles = await tokenContractIssuer.methods.update_roles(bob,newRole).send().wait()
+        const roles = await tokenContractIssuer.methods.grant_roles(bob,newRole).send().wait()
         expect(await advanceBlocks(tokenContractIssuer, issuer)).toBeTruthy();
 
         console.log("issuer minting tokens to Bob...")
@@ -287,17 +257,17 @@ describe("Token", () => {
     describe("Access Control Cases", () => {
         it("Bob tries to set itself as a new admin", async () => {
             const newRole =  {is_admin: true,is_issuer: false,is_blacklisted: false};
-            await expect(tokenContractBob.methods.update_roles(bob,newRole).send().wait()).rejects.toThrow("(JSON-RPC PROPAGATED) Assertion failed: caller is not admin 'caller_roles.is_admin'")
+            await expect(tokenContractBob.methods.grant_roles(bob,newRole).send().wait()).rejects.toThrow("(JSON-RPC PROPAGATED) Assertion failed: caller is not admin 'caller_roles.is_admin'")
         })
 
         it("Bob tries to set a new issuer", async () => {
             const newRole =  {is_admin: false,is_issuer: true,is_blacklisted: false};
-            await expect(tokenContractBob.methods.update_roles(bob,newRole).send().wait()).rejects.toThrow("(JSON-RPC PROPAGATED) Assertion failed: caller is not admin 'caller_roles.is_admin'")
+            await expect(tokenContractBob.methods.grant_roles(bob,newRole).send().wait()).rejects.toThrow("(JSON-RPC PROPAGATED) Assertion failed: caller is not admin 'caller_roles.is_admin'")
         })
 
         it("Admin sets Bob as new issuer", async () => {
             const newRole =  {is_admin: false,is_issuer: true,is_blacklisted: false};
-            await tokenContractIssuer.methods.update_roles(bob,newRole).send().wait()
+            await tokenContractIssuer.methods.grant_roles(bob,newRole).send().wait()
             expect(await advanceBlocks(tokenContractIssuer, issuer)).toBeTruthy();
             expect(await tokenContractIssuer.methods.get_roles(bob).simulate()).toEqual(2n);
 
@@ -306,7 +276,7 @@ describe("Token", () => {
 
         it("Admin removes Bob as issuer", async () => {
             const newRole =  {is_admin: false,is_issuer: false,is_blacklisted: false};
-            await tokenContractIssuer.methods.update_roles(bob,newRole).send().wait()
+            await tokenContractIssuer.methods.grant_roles(bob,newRole).send().wait()
             expect(await advanceBlocks(tokenContractIssuer, issuer)).toBeTruthy();
             expect(await tokenContractIssuer.methods.get_roles(bob).simulate()).toEqual(0n);
         }, 300_000)
