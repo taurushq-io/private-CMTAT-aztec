@@ -11,24 +11,24 @@ use crate::{types::{token_note::TokenNote}, Token};
 pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
-    let (owner, recipient) = if with_account_contracts {
-        let owner = env.create_account_contract(1);
-        let recipient = env.create_account_contract(2);
+    let (issuer, user1) = if with_account_contracts {
+        let issuer = env.create_account_contract(1);
+        let user1 = env.create_account_contract(2);        
         // Deploy canonical auth registry
         let _auth_registry = env.deploy("./@auth_registry_contract", "AuthRegistry").without_initializer();
-        (owner, recipient)
+        (issuer, user1)
     } else {
-        let owner = env.create_account();
-        let recipient = env.create_account();
-        (owner, recipient)
+        let issuer = env.create_account();
+        let user1 = env.create_account();
+        (issuer, user1)
     };
 
     // Start the test in the account contract address
-    env.impersonate(owner);
+    env.impersonate(issuer);
 
     // Deploy token contract
     let initializer_call_interface = Token::interface().constructor(
-        owner,
+        issuer,
         "TestToken0000000000000000000000",
         "TT00000000000000000000000000000",
         18
@@ -36,23 +36,23 @@ pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddres
     let token_contract = env.deploy_self("Token").with_public_initializer(initializer_call_interface);
     let token_contract_address = token_contract.to_address();
     env.advance_block_by(3);
-    (&mut env, token_contract_address, owner, recipient)
+    (&mut env, token_contract_address, issuer, user1)
 }
 
 pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
-    let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
+    let (env, token_contract_address, issuer, user1) = setup(with_account_contracts);
     let mint_amount = 10000;
 
-    env.impersonate(owner);
-    let mint_private_call_interface = Token::at(token_contract_address).mint(owner, mint_amount);
+    env.impersonate(issuer);
+    let mint_private_call_interface = Token::at(token_contract_address).mint(issuer, mint_amount);
     env.call_private_void(mint_private_call_interface);
 
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 
 
-    (env, token_contract_address, owner, recipient, mint_amount)
+    (env, token_contract_address, issuer, user1, mint_amount)
 }
 
 // docs:start:txe_test_call_unconstrained
