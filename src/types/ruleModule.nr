@@ -1,15 +1,7 @@
 use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
 use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet};
 use dep::aztec::context::{PublicContext, PrivateContext};
-use crate::types::{token_note::{TokenNote, OwnedNote}};
-use dep::aztec::{
-    context::{ UnconstrainedContext}, hash::pedersen_hash,
-    protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{
-    note_getter::view_notes, note_getter_options::SortOrder,
-    note_emission::{NoteEmission, OuterNoteEmission}
-}
-};
+
 
 global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
