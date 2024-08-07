@@ -1,4 +1,6 @@
 mod token_note;
 mod balances_map;
-mod authorizations;
-mod pausable;
+//mod authorizationModule;
+mod ruleModule;
+mod pauseModule;
+//mod enforcementModule;
