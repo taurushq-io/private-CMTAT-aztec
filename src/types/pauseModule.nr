@@ -1,23 +1,45 @@
-    use dep::aztec::{prelude::{AztecAddress}, unencrypted_logs::unencrypted_event_emission,  context::PublicContext};
+    use dep::aztec::{prelude::{AztecAddress, PublicMutable}, unencrypted_logs::unencrypted_event_emission,  context::PublicContext};
     use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-    
+
+use crate::types::authorizationModule::AccessControl;
+
     global PAUSED_FLAG: u64 = 1;
 
-    struct Pausable{
+    global T_SERIALIZED_LEN = 1;
+
+    trait BoolEmulTrait {
+        fn get_pause(self) -> bool;
+        fn set_pause(&mut self, arg: bool);
+    }
+
+    struct BoolEmul {
         is_paused: bool,
     }
 
-//TODO: is it okay to not have a context? SHouldn't we do a PublicContext implementation?
-impl Pausable{
+    struct Pausable<T,Context>{
+        is_paused: PublicMutable<T, Context>,
+        access_control: AccessControl<Context>,
+    }
 
-    pub fn new() -> Self {
-        Self{
-            is_paused: false,
+impl<T,Context> Pausable<T,Context> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait{
+
+    pub fn new(context: Context, storage_slot: Field) -> Self {
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        Self {
+            is_paused:  PublicMutable::new(context,storage_slot),
+            access_control:AccessControl::new(context, storage_slot)
+            
         }
     }
 
+}
+
+impl<T> Pausable<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait{
+
+
     pub fn is_paused(self: Self) -> bool{
-        self.is_paused
+        let val: T = self.is_paused.read();
+        val.get_pause()
     }
 
     /**
@@ -27,9 +49,11 @@ impl Pausable{
      *
      * - The contract must not be paused.
      */
-    pub fn pause(&mut self){
+    pub fn pause(self: Self, caller: AztecAddress){
         self._require_not_paused();
-        self.is_paused = true;
+        let mut val: T = self.is_paused.read();
+        val.set_pause(true);
+        self.is_paused.write(val);
     }
 
     /**
@@ -39,62 +63,76 @@ impl Pausable{
      *
      * - The contract must be paused.
      */
-    pub fn unpause(&mut self){
+    pub fn unpause(self: Self, caller: AztecAddress){
         self._require_paused();
-        self.is_paused = false; 
+        let mut val: T = self.is_paused.read();
+        val.set_pause(false);
+        self.is_paused.write(val); 
     }
 
     #[aztec(internal)]
     fn _require_not_paused(self: Self) {
-        assert(self.is_paused == false, "error: contract already paused");
+        assert(self.is_paused.read().get_pause() == false, "error: contract already paused");
     }
 
     #[aztec(internal)]
     fn _require_paused(self: Self) {
-        assert(self.is_paused == true, "error: contract already unpaused");
+        assert(self.is_paused.read().get_pause() == true, "error: contract already unpaused");
     }
 
 }
 
-impl FromField for Pausable {
-    fn from_field(value: Field) -> Pausable {
-        let value: u64 = value as u64;
-        let is_paused = ((value & PAUSED_FLAG) == PAUSED_FLAG);
+impl BoolEmulTrait for BoolEmul {
+    fn get_pause(self) -> bool{
+        self.is_paused
+    }
 
+    fn set_pause(&mut self, arg: bool) {
+        self.is_paused = arg;
+    }
+}
+impl FromField for BoolEmul {
+    fn from_field(value: Field) -> BoolEmul {
+        let value: u64 = value as u64;
+        let is_paused = (value & PAUSED_FLAG) == PAUSED_FLAG;
         Self { is_paused }
     }
 }
 
-impl ToField for Pausable {
+impl ToField for BoolEmul {
     fn to_field(self) -> Field {
         let mut value: u64 = 0;
 
         if self.is_paused {
             value = value | PAUSED_FLAG;
         }
-
         value.to_field()
     }
 }
 
-impl Eq for Pausable {
+impl Eq for BoolEmul {
     fn eq(self, other: Self) -> bool {
-        (self.is_paused == other.is_paused)
+        (self.is_paused == other.is_paused) 
     }
 }
 
-impl Serialize<1> for Pausable {
-    fn serialize(self) -> [Field; 1] {
+// We implement this as it is used when serializing the state variable into return values
+// This is very inefficient if used to store the state variable.
+// We are currently "abusing" that the `to_field` is called in the `scheduled_value_change`
+// where we are using this value.
+impl Serialize<T_SERIALIZED_LEN> for BoolEmul {
+    fn serialize(self) -> [Field; T_SERIALIZED_LEN] {
         [self.is_paused.to_field()]
-        // [self.to_field()]
     }
 }
 
-
-impl Deserialize<1> for Pausable {
-    fn deserialize(fields: [Field; 1]) -> Self {
+// We implement this as it is required for other contracts to be able to "rebuild" the variable
+// after having received the serialized value as a return-value
+impl Deserialize<T_SERIALIZED_LEN> for BoolEmul {
+    fn deserialize(fields: [Field; T_SERIALIZED_LEN]) -> Self {
         Self {
             is_paused: fields[0] as bool,
         }
     }
 }
+

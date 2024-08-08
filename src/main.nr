@@ -15,7 +15,7 @@ contract Token {
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  authorizations::UserFlags, pausable::Pausable};
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  ruleModule::{UserFlags, Rules}, pauseModule::{Pausable, BoolEmul}};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
@@ -39,6 +39,10 @@ contract Token {
 
     #[aztec(storage)]
     struct Storage {
+
+        pause_module: Pausable<BoolEmul>,
+        rule_module: Rules<UserFlags>,
+
         balances: BalancesMap<TokenNote>,
         total_supply: PublicMutable<U128>,
 
@@ -46,8 +50,8 @@ contract Token {
         name: SharedImmutable<FieldCompressedString>,
         decimals: SharedImmutable<u8>,
 
-        authorizationModule: Map<AztecAddress, SharedMutable<UserFlags,CHANGE_ROLES_DELAY_BLOCKS >>,
-        pauseModule: PublicMutable<Pausable>,
+
+
         //freezeModule: Freezable,
     }
 
@@ -60,27 +64,32 @@ contract Token {
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         storage.decimals.initialize(decimals);
         let admin_roles = UserFlags { is_admin: true, is_issuer: true, is_blacklisted: false };
-        storage.authorizationModule.at(admin).schedule_value_change(admin_roles);
+        storage.rule_module.map.at(admin).schedule_value_change(admin_roles);
     }
 
+//############ AUTHORIZATION MODULE ############
+
+
+
+//############ RULE MODULE ############
 
     #[aztec(public)]
     #[aztec(view)]
     fn get_roles(user: AztecAddress) -> pub Field {
-        storage.authorizationModule.at(user).get_current_value_in_public().to_field()
+        storage.rule_module.get_roles(user)
     }
 
     #[aztec(public)]
-    fn grant_roles(user: AztecAddress, authorizationModule: UserFlags) {
-        let caller_roles = storage.authorizationModule.at(context.msg_sender()).get_current_value_in_public();
-        assert(caller_roles.is_admin, "caller is not admin");
-        storage.authorizationModule.at(user).schedule_value_change(authorizationModule);
+    fn grant_roles(user: AztecAddress, ruleModule: UserFlags) {
+        storage.rule_module.grant_roles(context.msg_sender(), user, ruleModule);
     }
+
+//############ PAUSE MODULE ############
 
     #[aztec(public)]
     #[aztec(view)]
     fn public_get_pause() -> pub Field {
-        storage.pauseModule.read().is_paused.to_field()
+        storage.pause_module.is_paused().to_field()
     }
 
     /**
@@ -91,24 +100,18 @@ contract Token {
     #[aztec(public)]
     fn pause_contract() {
         let admin = context.msg_sender();
-        let caller_roles = storage.authorizationModule.at(admin).get_current_value_in_public();
-        assert(caller_roles.is_admin, "caller is not admin");
-
-        let mut pause_val = storage.pauseModule.read();
-        pause_val.pause();
-        storage.pauseModule.write(pause_val);
+        storage.pause_module.pause(admin);
     }
 
      #[aztec(public)]
     fn unpause_contract() {
         let admin = context.msg_sender();
-        let caller_roles = storage.authorizationModule.at(admin).get_current_value_in_public();
-        assert(caller_roles.is_admin, "caller is not admin");
+        storage.pause_module.unpause(admin);
 
-        let mut pause_val = storage.pauseModule.read();
-        pause_val.unpause();
-        storage.pauseModule.write(pause_val);
     }
+
+//############ ENFORCEMENT MODULE ############
+
 
     #[aztec(public)]
     #[aztec(view)]
@@ -160,11 +163,8 @@ contract Token {
     */
     #[aztec(private)]
     fn mint(to: AztecAddress, amount: Field) {
-        let to_roles = storage.authorizationModule.at(to).get_current_value_in_private();
-        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
-
-        let issuer_role = storage.authorizationModule.at(context.msg_sender()).get_current_value_in_private();
-        assert(issuer_role.is_issuer, "Caller is not issuer");
+        assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
+        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
 
         let note = storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context,to,to));
         Token::at(context.this_address())._mint(amount).enqueue(&mut context);
@@ -179,10 +179,9 @@ contract Token {
     fn transfer( to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
 
-        let from_roles = storage.authorizationModule.at(from).get_current_value_in_private();
-        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = storage.authorizationModule.at(to).get_current_value_in_private();
-        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+        assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
+        assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
+
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context,from,from));
@@ -200,10 +199,8 @@ contract Token {
         //the authwit is used to allow a thrid party to spend funds of a user upon approval. 
         //should we check if the 3rd party initiating this transaction is able to do the transfer? 
 
-        let from_roles = storage.authorizationModule.at(from).get_current_value_in_private();
-        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = storage.authorizationModule.at(to).get_current_value_in_private();
-        assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
+        assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
+        assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
 
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -234,13 +231,16 @@ contract Token {
     }
 
     #[aztec(private)]
-    fn burn(from: AztecAddress, amount: Field) {
+    fn burn(from: AztecAddress, amount: Field, nonce: Field) {
 
-        let from_roles = storage.authorizationModule.at(from).get_current_value_in_private();
-        assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
+        assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
+        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
 
-        let issuer_role = storage.authorizationModule.at(context.msg_sender()).get_current_value_in_private();
-        assert(issuer_role.is_issuer, "Caller is not issuer");
+        if (!from.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit(&mut context, from);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
 
         storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
         Token::at(context.this_address())._burn(amount).enqueue(&mut context);
@@ -251,7 +251,7 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _mint(amount: Field) {
-        assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
+       // assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
         storage.total_supply.write(supply);
     }
@@ -259,7 +259,7 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _burn(amount: Field) {
-        assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
+       // assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
 
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
         storage.total_supply.write(new_supply);
@@ -268,13 +268,13 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _transfer() {
-        assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
+        //assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
     }
 
     #[aztec(public)]
     #[aztec(internal)]
     fn _transferFrom() {
-        assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
+        //assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
     }
 
 
