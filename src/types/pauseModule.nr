@@ -1,7 +1,8 @@
     use dep::aztec::{prelude::{AztecAddress, PublicMutable}, unencrypted_logs::unencrypted_event_emission,  context::PublicContext};
     use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
 
-use crate::types::authorizationModule::AccessControl;
+use crate::types::access_control::AccessControl;
+use crate::types::access_control::{PAUSE_ROLE, Role};
 
     global PAUSED_FLAG: u64 = 1;
 
@@ -26,8 +27,8 @@ impl<T,Context> Pausable<T,Context> where T: Eq + Serialize<T_SERIALIZED_LEN> + 
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self {
-            is_paused:  PublicMutable::new(context,storage_slot),
-            access_control:AccessControl::new(context, storage_slot)
+            is_paused: PublicMutable::new(context,storage_slot),
+            access_control: AccessControl::new(context, storage_slot)
             
         }
     }
@@ -50,6 +51,7 @@ impl<T> Pausable<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN>
      * - The contract must not be paused.
      */
     pub fn pause(self: Self, caller: AztecAddress){
+        self.access_control.only_role(PAUSE_ROLE, caller);
         self._require_not_paused();
         let mut val: T = self.is_paused.read();
         val.set_pause(true);
@@ -64,10 +66,19 @@ impl<T> Pausable<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN>
      * - The contract must be paused.
      */
     pub fn unpause(self: Self, caller: AztecAddress){
+        self.access_control.only_role(PAUSE_ROLE, caller);
         self._require_paused();
         let mut val: T = self.is_paused.read();
         val.set_pause(false);
         self.is_paused.write(val); 
+    }
+
+    pub fn get_is_pause_role(self: Self, address: AztecAddress) -> bool{
+        self.access_control.has_role(2,address)
+    }
+
+    pub fn grant_pause_role(self: Self, role: Role, address: AztecAddress) {
+        self.access_control.grant_role(role,address);
     }
 
     #[aztec(internal)]

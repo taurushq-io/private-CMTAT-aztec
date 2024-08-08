@@ -15,7 +15,7 @@ contract Token {
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  ruleModule::{UserFlags, Rules}, pauseModule::{Pausable, BoolEmul}};
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  ruleModule::{UserFlags, Rules}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl}};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
@@ -109,6 +109,17 @@ contract Token {
         storage.pause_module.unpause(admin);
 
     }
+
+    #[aztec(public)]
+    fn get_is_pause_role(address: AztecAddress) -> pub Field {
+        storage.pause_module.get_is_pause_role(address).to_field()
+    }
+
+    #[aztec(public)]
+    fn grant_pause_role(address: AztecAddress) {
+        storage.pause_module.grant_pause_role(2, address);
+    }
+
 
 //############ ENFORCEMENT MODULE ############
 
