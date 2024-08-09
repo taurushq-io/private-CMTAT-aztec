@@ -120,6 +120,11 @@ contract Token {
         storage.pause_module.grant_pause_role(2, address);
     }
 
+    #[aztec(public)]
+    fn revoke_pause_role(address: AztecAddress) {
+        storage.pause_module.revoke_pause_role(2, address);
+    }
+
 
 //############ ENFORCEMENT MODULE ############
 
@@ -178,6 +183,7 @@ contract Token {
         assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
 
         let note = storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context,to,to));
+        std::println("cc mint");
         Token::at(context.this_address())._mint(amount).enqueue(&mut context);
     }
 
@@ -262,7 +268,8 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _mint(amount: Field) {
-       // assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
+        std::println("cc _mint");
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
         storage.total_supply.write(supply);
     }
@@ -270,7 +277,7 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _burn(amount: Field) {
-       // assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
+    assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
 
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
         storage.total_supply.write(new_supply);
@@ -279,13 +286,13 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _transfer() {
-        //assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
     }
 
     #[aztec(public)]
     #[aztec(internal)]
     fn _transferFrom() {
-        //assert(!storage.pauseModule.read().is_paused, "Error: token contract is paused");
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
     }
 
 

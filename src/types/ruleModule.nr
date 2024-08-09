@@ -2,7 +2,6 @@ use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserial
 use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet};
 use dep::aztec::context::{PublicContext, PrivateContext};
 
-
 global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
 global BLACKLIST_FLAG: u64 = 4;
@@ -20,7 +19,6 @@ trait UserFlagsTrait {
     fn get_issuer(self) -> bool;
     fn get_blacklisted(self) -> bool;
 }
-
 
 struct Rules<T,Context> {
     map: Map<AztecAddress, SharedMutable<T,CHANGE_ROLES_DELAY_BLOCKS ,Context>, Context>
@@ -136,38 +134,3 @@ impl Deserialize<3> for UserFlags {
         }
     }
 }
-
-
-
-// We implement this as it is used when serializing the state variable into return values
-// This is very inefficient if used to store the state variable.
-// We are currently "abusing" that the `to_field` is called in the `scheduled_value_change`
-// where we are using this value.
-
-// mod test {
-//     use crate::types::Rules::UserFlags;
-
-//     fn assert_to_from_field(is_issuer: bool, is_admin: bool, is_blacklisted: bool) {
-//         let flags = UserFlags { is_issuer, is_admin, is_blacklisted };
-//         let converted = UserFlags::from_field(flags.to_field());
-
-//         assert_eq(converted.is_issuer, is_issuer);
-//         assert_eq(converted.is_admin, is_admin);
-//         assert_eq(converted.is_blacklisted, is_blacklisted);
-//     }
-
-//     #[test]
-//     fn test_to_from_field() {
-//         assert_to_from_field(false, false, false);
-//         assert_to_from_field(false, false, true);
-
-//         assert_to_from_field(false, true, false);
-//         assert_to_from_field(false, true, true);
-
-//         assert_to_from_field(true, false, false);
-//         assert_to_from_field(true, false, true);
-
-//         assert_to_from_field(true, true, false);
-//         assert_to_from_field(true, true, true);
-//     }
-// }
