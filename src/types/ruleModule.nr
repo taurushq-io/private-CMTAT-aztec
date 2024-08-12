@@ -38,7 +38,7 @@ impl<T,Context> Rules<T,Context> where T: Eq + ToField + FromField + UserFlagsTr
 }
 
 impl<T> Rules<T, &mut PublicContext> where T: Eq + ToField + FromField + UserFlagsTrait{
-    fn get_roles(self: Self, user: AztecAddress) -> pub Field {
+    fn get_roles(self: Self, user: AztecAddress) -> Field {
         let user_roles: T = self.map.at(user).get_current_value_in_public();
         user_roles.to_field()
     }

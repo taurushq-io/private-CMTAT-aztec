@@ -15,10 +15,11 @@ contract Token {
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  ruleModule::{UserFlags, Rules}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl}};
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  ruleModule::{UserFlags, Rules}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl},  enforcementModule::{Freezable, FreezableFlag}};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
+    global MAX_ADDR_PER_CALL = 10;
 
     #[aztec(event)]
     struct Paused {
@@ -42,17 +43,16 @@ contract Token {
 
         pause_module: Pausable<BoolEmul>,
         rule_module: Rules<UserFlags>,
+        enforcement_module: Freezable<FreezableFlag>,
+
 
         balances: BalancesMap<TokenNote>,
         total_supply: PublicMutable<U128>,
 
         symbol: SharedImmutable<FieldCompressedString>,
         name: SharedImmutable<FieldCompressedString>,
-        decimals: SharedImmutable<u8>,
+        decimals: SharedImmutable<u8>,        
 
-
-
-        //freezeModule: Freezable,
     }
 
     #[aztec(public)]
@@ -67,11 +67,15 @@ contract Token {
         storage.rule_module.map.at(admin).schedule_value_change(admin_roles);
     }
 
+
+
 //############ AUTHORIZATION MODULE ############
 
 
 
 //############ RULE MODULE ############
+
+
 
     #[aztec(public)]
     #[aztec(view)]
@@ -84,7 +88,11 @@ contract Token {
         storage.rule_module.grant_roles(context.msg_sender(), user, ruleModule);
     }
 
+
+
 //############ PAUSE MODULE ############
+
+
 
     #[aztec(public)]
     #[aztec(view)]
@@ -126,7 +134,31 @@ contract Token {
     }
 
 
+
 //############ ENFORCEMENT MODULE ############
+
+
+
+    #[aztec(public)]
+    #[aztec(view)]
+    fn get_frozen(user: AztecAddress) -> pub Field{
+        storage.enforcement_module.is_frozen(user)
+    }
+
+    #[aztec(public)]
+    fn freeze(user: AztecAddress, value: FreezableFlag) {
+        storage.enforcement_module.freeze(user, value);
+    }
+
+    #[aztec(public)]
+    fn unfreeze(user: AztecAddress, value: FreezableFlag) {
+        storage.enforcement_module.unfreeze(user, value);
+    }
+
+
+
+//############ GETTERS ############
+
 
 
     #[aztec(public)]
@@ -172,6 +204,11 @@ contract Token {
     }
 
 
+
+//############ MINT ############
+
+
+
     /*
     * @info : wether the contract is paused or not is checked in the _mint function
     * @TODO: should we restrict the "to" address to not be the issuer, in order to prevent a "malicious" issuer from not
@@ -183,9 +220,28 @@ contract Token {
         assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
 
         let note = storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context,to,to));
-        std::println("cc mint");
         Token::at(context.this_address())._mint(amount).enqueue(&mut context);
     }
+
+
+    #[aztec(private)]
+    fn mint_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL]) {
+        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        assert(accounts.len() != 0,"Mint module empty" );
+        assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
+
+        for i in 0..MAX_ADDR_PER_CALL {
+            //who is the caller here? contract or issuer, bc if it's the contract, it will fail
+            Token::at(context.this_address()).mint(accounts[i], amount[i]);
+        }
+    }
+
+
+
+
+//############ TRANSFER ############
+
+
 
     /*
     * @info : wether the contract is paused or not is checked in the _mint function
@@ -199,6 +255,7 @@ contract Token {
         assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
         assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
 
+        assert(!storage.enforcement_module.is_frozen(from), "Blacklisted: Recipient");
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context,from,from));
@@ -209,6 +266,20 @@ contract Token {
         Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_unconstrained(&mut context, from, to));
 
     }
+
+    #[aztec(private)]
+    //nonce can be the same?
+    fn transfer_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
+        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        assert(accounts.len() != 0,"Mint module empty" );
+        assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
+
+        for i in 0..MAX_ADDR_PER_CALL {
+            //who is the caller here? contract or issuer, bc if it's the contract, it will fail
+            Token::at(context.this_address()).transfer_from(context.msg_sender(),accounts[i], amount[i], nonce);
+        }
+    }
+
 
     //Same pattern as ERC20. 
     #[aztec(private)]
@@ -247,6 +318,12 @@ contract Token {
         context.push_nullifier(nullifier, 0);
     }
 
+
+
+//############ BURN ############
+
+
+
     #[aztec(private)]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
 
@@ -262,13 +339,28 @@ contract Token {
         storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
         Token::at(context.this_address())._burn(amount).enqueue(&mut context);
     }
+    
+    //can nonce be the same for all accounts?
+    #[aztec(private)]
+    fn burn_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
+        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        assert(accounts.len() != 0,"Mint module empty" );
+        assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
+
+        for i in 0..MAX_ADDR_PER_CALL {
+            //who is the caller here? contract or issuer, bc if it's the contract, it will fail
+            Token::at(context.this_address()).burn(accounts[i], amount[i], nonce);
+        }
+    }
 
 
-    //internal
+//############ INTERNAL ############
+
+
+
     #[aztec(public)]
     #[aztec(internal)]
     fn _mint(amount: Field) {
-        std::println("cc _mint");
         assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
         storage.total_supply.write(supply);
@@ -297,8 +389,9 @@ contract Token {
 
 
 
+//############ UNCONSTRAINED ############
 
-    /// Unconstrained ///
+
 
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()

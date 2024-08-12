@@ -9,15 +9,13 @@ struct FreezableFlag {
 }
 
 trait FreezableFlagTrait {
-    fn get_is_freezed(self) -> bool;
+    fn get_is_frozen(self) -> bool;
 }
 
 struct Freezable<T,Context>{
     map: Map<AztecAddress, SharedMutable<T, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>
 }
 
-//Note: pas le bon paradigm de faire ça je pense, il faut implémenter le PublicMutable au niveau du contrat et pas de la librairie
-//reste a voir pq j'arrive pas a faire comme BalancesMap, qui utilise un PrivateSet dans la librairie
 impl<T,Context> Freezable<T,Context> where T: Eq + ToField + FromField + FreezableFlagTrait{
 
     pub fn new(context: Context, storage_slot: Field) -> Self {
@@ -34,7 +32,7 @@ impl<T,Context> Freezable<T,Context> where T: Eq + ToField + FromField + Freezab
 
 impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
 
-    pub fn is_freezed(self: Self, address: AztecAddress) -> pub Field{
+    pub fn is_frozen(self: Self, address: AztecAddress) -> pub Field{
         self.map.at(address).get_current_value_in_public().to_field()
     }
 
@@ -45,40 +43,40 @@ impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + Fre
      *
      * - The account must not be already frozen
      */
-    pub fn freeze(&mut self, address: AztecAddress, val: T){
+    pub fn freeze(self: Self, address: AztecAddress, val: T){
         self._require_not_freezed(address);
         self.map.at(address).schedule_value_change(val);
     }
 
 
-    pub fn unfreeze(&mut self, address: AztecAddress, val: T){
+    pub fn unfreeze(self: Self, address: AztecAddress, val: T){
         self._require_freezed(address);
         self.map.at(address).schedule_value_change(val);
     }
 
     #[aztec(internal)]
     fn _require_not_freezed(self: Self, address: AztecAddress) {
-        assert(self.map.at(address).get_current_value_in_public().get_is_freezed() == false, "error: address already freezed");
+        assert(self.map.at(address).get_current_value_in_public().get_is_frozen() == false, "error: address already freezed");
     }
 
     #[aztec(internal)]
     fn _require_freezed(self: Self, address: AztecAddress) {
-        assert(self.map.at(address).get_current_value_in_public().get_is_freezed() == true, "error: address already unfreezed");
+        assert(self.map.at(address).get_current_value_in_public().get_is_frozen() == true, "error: address already unfreezed");
     }
 
 }
 
 impl<T> Freezable<T,&mut PrivateContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
 
-    fn is_freezed(self: Self, user: AztecAddress) -> bool {
+    fn is_frozen(self: Self, user: AztecAddress) -> bool {
         let user_roles: T = self.map.at(user).get_current_value_in_private();
-        user_roles.get_is_freezed()
+        user_roles.get_is_frozen()
     }
 
 }
 
 impl FreezableFlagTrait for FreezableFlag {
-    fn get_is_freezed(self) -> bool {
+    fn get_is_frozen(self) -> bool {
         self.is_freezed
     }
 }
