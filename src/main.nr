@@ -15,7 +15,7 @@ contract Token {
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  ruleModule::{UserFlags, Rules}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl},  enforcementModule::{Freezable, FreezableFlag}};
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl},  enforcementModule::{Freezable, FreezableFlag}};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
@@ -43,7 +43,7 @@ contract Token {
     struct Storage {
 
         pause_module: Pausable<BoolEmul>,
-        rule_module: Rules<UserFlags>,
+        validation_module: ValidationModule<UserFlags>,
         enforcement_module: Freezable<FreezableFlag>,
 
 
@@ -64,8 +64,6 @@ contract Token {
         storage.name.initialize(FieldCompressedString::from_string(name));
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         storage.decimals.initialize(decimals);
-        let admin_roles = UserFlags { is_admin: true, is_issuer: true, is_blacklisted: false };
-        storage.rule_module.map.at(admin).schedule_value_change(admin_roles);
     }
 
 
@@ -74,19 +72,27 @@ contract Token {
 
 
 
-//############ RULE MODULE ############
-
-
+//############ VALIDATION MODULE ############
 
     #[aztec(public)]
     #[aztec(view)]
-    fn get_roles(user: AztecAddress) -> pub Field {
-        storage.rule_module.get_roles(user)
+    fn get_operations() -> pub Field {
+        storage.validation_module.get_operations()
     }
 
     #[aztec(public)]
-    fn grant_roles(user: AztecAddress, ruleModule: UserFlags) {
-        storage.rule_module.grant_roles(context.msg_sender(), user, ruleModule);
+    fn set_operations(operations: SetFlag) {
+        storage.validation_module.set_operations(operations);
+    }
+
+    #[aztec(public)]
+    fn add_to_list(newListAddress: AztecAddress, userFlag: UserFlags) {
+        storage.validation_module.add_to_list(newListAddress, userFlag);
+    }
+
+    #[aztec(public)]
+    fn remove_from_list( removeListAddress: AztecAddress, userFlag: UserFlags) {
+        storage.validation_module.remove_from_list(removeListAddress, userFlag);
     }
 
 
@@ -219,8 +225,7 @@ contract Token {
     fn mint(to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
-        assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
-        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
 
         let note = storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context,to,to));
         Token::at(context.this_address())._mint(amount).enqueue(&mut context);
@@ -229,7 +234,7 @@ contract Token {
 
     #[aztec(private)]
     fn mint_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL]) {
-        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0,"Mint module empty" );
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
@@ -258,10 +263,8 @@ contract Token {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
-        assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
-        assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
+        storage.validation_module.operateOnTransfer(context.msg_sender(),to);
 
-        assert(!storage.enforcement_module.is_frozen(from), "Blacklisted: Recipient");
 
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context,from,from));
@@ -276,7 +279,7 @@ contract Token {
     #[aztec(private)]
     //nonce can be the same?
     fn transfer_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
-        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0,"Mint module empty" );
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
@@ -295,8 +298,7 @@ contract Token {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
-        assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
-        assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
+        storage.validation_module.operateOnTransfer(from,to);
 
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -336,8 +338,8 @@ contract Token {
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
 
-        assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
-        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        // assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
+        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
 
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -352,7 +354,7 @@ contract Token {
     //can nonce be the same for all accounts?
     #[aztec(private)]
     fn burn_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
-        assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0,"Mint module empty" );
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
