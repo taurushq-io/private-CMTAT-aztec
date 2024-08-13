@@ -19,6 +19,7 @@ contract Token {
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
+    //This global is used when doing batching. We set a 
     global MAX_ADDR_PER_CALL = 10;
 
     #[aztec(event)]
@@ -142,7 +143,7 @@ contract Token {
     #[aztec(public)]
     #[aztec(view)]
     fn get_frozen(user: AztecAddress) -> pub Field{
-        storage.enforcement_module.is_frozen(user)
+        storage.enforcement_module.is_frozen(user).to_field()
     }
 
     #[aztec(public)]
@@ -216,6 +217,8 @@ contract Token {
     */
     #[aztec(private)]
     fn mint(to: AztecAddress, amount: Field) {
+        assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
+
         assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
         assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
 
@@ -252,6 +255,9 @@ contract Token {
     fn transfer( to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
 
+        assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
+        assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
+
         assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
         assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
 
@@ -286,6 +292,8 @@ contract Token {
     fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         //the authwit is used to allow a thrid party to spend funds of a user upon approval. 
         //should we check if the 3rd party initiating this transaction is able to do the transfer? 
+        assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
+        assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
         assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
         assert(!storage.rule_module.is_blacklisted(to), "Blacklisted: Recipient");
@@ -326,6 +334,7 @@ contract Token {
 
     #[aztec(private)]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
+        assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
 
         assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
         assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");

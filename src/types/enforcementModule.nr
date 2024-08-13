@@ -32,8 +32,8 @@ impl<T,Context> Freezable<T,Context> where T: Eq + ToField + FromField + Freezab
 
 impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
 
-    pub fn is_frozen(self: Self, address: AztecAddress) -> pub Field{
-        self.map.at(address).get_current_value_in_public().to_field()
+    pub fn is_frozen(self: Self, address: AztecAddress) -> pub bool{
+        self.map.at(address).get_current_value_in_public().get_is_frozen()
     }
 
     /**
