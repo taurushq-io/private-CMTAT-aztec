@@ -15,7 +15,7 @@ contract Token {
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl},  enforcementModule::{Freezable, FreezableFlag}};
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl, Role, RoleData, DEFAULT_ADMIN_ROLE},  enforcementModule::{Freezable, FreezableFlag}};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
@@ -45,7 +45,7 @@ contract Token {
         pause_module: Pausable<BoolEmul>,
         validation_module: ValidationModule<UserFlags>,
         enforcement_module: Freezable<FreezableFlag>,
-
+        access_control: AccessControl<bool>,
 
         balances: BalancesMap<TokenNote>,
         total_supply: PublicMutable<U128>,
@@ -64,12 +64,33 @@ contract Token {
         storage.name.initialize(FieldCompressedString::from_string(name));
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         storage.decimals.initialize(decimals);
+        storage.access_control._grant_role(DEFAULT_ADMIN_ROLE, admin);
     }
 
 
 
 //############ AUTHORIZATION MODULE ############
 
+    #[aztec(public)]
+    // #[aztec(view)]
+    fn has_role( role: Field, account: AztecAddress) -> pub Field {
+        storage.access_control.has_role(role,account).to_field()
+    }
+
+    #[aztec(public)]
+    fn only_role(role: Field, caller: AztecAddress) {
+        storage.access_control.only_role(role,caller);
+    }
+
+    #[aztec(public)]
+    fn grant_role( role: Field, account: AztecAddress) {
+         storage.access_control.grant_role(role,account);
+    }
+
+    #[aztec(public)]
+    fn revoke_role(role: Field, account: AztecAddress) {
+        storage.access_control.revoke_role(role,account)
+    }
 
 
 //############ VALIDATION MODULE ############
@@ -115,31 +136,15 @@ contract Token {
     #[aztec(public)]
     fn pause_contract() {
         let admin = context.msg_sender();
-        storage.pause_module.pause(admin);
+        storage.pause_module.pause(admin, storage.access_control);
     }
 
      #[aztec(public)]
     fn unpause_contract() {
         let admin = context.msg_sender();
-        storage.pause_module.unpause(admin);
+        storage.pause_module.unpause(admin, storage.access_control);
 
     }
-
-    #[aztec(public)]
-    fn get_is_pause_role(address: AztecAddress) -> pub Field {
-        storage.pause_module.get_is_pause_role(address).to_field()
-    }
-
-    #[aztec(public)]
-    fn grant_pause_role(address: AztecAddress) {
-        storage.pause_module.grant_pause_role(2, address);
-    }
-
-    #[aztec(public)]
-    fn revoke_pause_role(address: AztecAddress) {
-        storage.pause_module.revoke_pause_role(2, address);
-    }
-
 
 
 //############ ENFORCEMENT MODULE ############

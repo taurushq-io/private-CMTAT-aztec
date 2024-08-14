@@ -2,6 +2,8 @@ use crate::test::utils;
 use dep::aztec::{test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, protocol_types::address::AztecAddress};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
+use crate::types::access_control::{DEFAULT_ADMIN_ROLE, PAUSE_ROLE};
+
 
 
 
@@ -20,19 +22,18 @@ unconstrained fn pause_test(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
 
     //check if issuer has pause role
-    let get_is_pause_roles_call_interface = Token::at(token_contract_address).get_is_pause_role(issuer);
+    let get_is_pause_roles_call_interface = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer);
     let ret = env.call_public(get_is_pause_roles_call_interface);
-
 
     //issuer does not have pause role
     assert(ret == 0);
 
     //give pause role to issuer
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_pause_role(issuer);
+    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
     env.call_public(grant_pause_roles_call_interface);
 
     //checks that issuer has pause role
-    let get_is_pause_roles_call_interface = Token::at(token_contract_address).get_is_pause_role(issuer);
+    let get_is_pause_roles_call_interface = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer);
     let ret = env.call_public(get_is_pause_roles_call_interface);
 
     assert(ret == 1);
@@ -68,7 +69,7 @@ unconstrained fn mint_when_paused_fails(){
     let mint_amount = 10000;
     env.impersonate(issuer);
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_pause_role(issuer);
+    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
     env.call_public(grant_pause_roles_call_interface);
 
     let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
@@ -95,7 +96,7 @@ unconstrained fn pause_twice_throws(){
 
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
     
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_pause_role(issuer);
+    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
     env.call_public(grant_pause_roles_call_interface);
 
 
@@ -121,7 +122,7 @@ unconstrained fn test_pause_roles(){
 unconstrained fn test_pause_role_2(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
     
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_pause_role(issuer);
+    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
     env.call_public(grant_pause_roles_call_interface);
 
 
@@ -133,7 +134,7 @@ unconstrained fn test_pause_role_2(){
     let ret = env.call_public(get_pause_call_interface);
     assert(ret == 1);
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).revoke_pause_role(issuer);
+    let grant_pause_roles_call_interface = Token::at(token_contract_address).revoke_role(PAUSE_ROLE, issuer);
     env.call_public(grant_pause_roles_call_interface);
 
     let set_pause_call_interface = Token::at(token_contract_address).unpause_contract();

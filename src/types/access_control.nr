@@ -16,11 +16,11 @@ struct RoleData<Context> {
 }
 
 //Define the AccessControl storage
-struct AccessControl<Context> {
+struct AccessControl<T,Context> {
     roles: Map<Role, RoleData<Context>, Context>,
 }
 
-impl<Context> AccessControl<Context> {
+impl<T,Context> AccessControl<T,Context> {
 
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -35,8 +35,9 @@ impl<Context> AccessControl<Context> {
     }
 
 
-impl AccessControl<&mut PublicContext> {
+impl<T> AccessControl<T, &mut PublicContext> {
     // Get role storage
+    #[aztec(internal)]
     fn get_role_storage(self: Self, role: Role) -> RoleData<&mut PublicContext>{
         self.roles.at(role)
     }
@@ -48,6 +49,7 @@ impl AccessControl<&mut PublicContext> {
     }
 
     // Check role internally
+    #[aztec(internal)]
     fn check_role(self: Self, role: Role, account: AztecAddress) {
         assert(self.has_role(role, account),"AccessControlUnauthorizedAccount");
     }
@@ -57,15 +59,24 @@ impl AccessControl<&mut PublicContext> {
         self.check_role(role, caller);
     }
 
-    // Grant a role to an account
-    fn grant_role( self, role: Role, account: AztecAddress) {
+    fn getRoleAdmin(self: Self, role: Role) -> Role {
+        self.roles.at(role).admin_role
+    }
+
+    fn _grant_role( self, role: Role, account: AztecAddress) {
         let mut role_data = self.get_role_storage(role);
         role_data.has_role.at(account).write(true);
+    }
 
+    // Grant a role to an account
+    fn grant_role( self, role: Role, account: AztecAddress) {
+        self.only_role(self.getRoleAdmin(role), account);
+        self._grant_role(role,account);
     }
 
     // Revoke a role from an account
     fn revoke_role(self, role: Role, account: AztecAddress) {
+        self.only_role(self.getRoleAdmin(role), account);
         let mut role_data = self.get_role_storage(role);
         role_data.has_role.at(account).write(false);
     }
