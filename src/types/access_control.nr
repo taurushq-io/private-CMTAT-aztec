@@ -8,7 +8,11 @@ type Role = Field;
 
 global DEFAULT_ADMIN_ROLE = 1;
 global PAUSE_ROLE = 2;
-global ENFORCEMENT_ROLE =  4;
+global ENFORCEMENT_ROLE =  3;
+global VALIDATION_ROLE = 4;
+global ADDRESS_LIST_ADD_ROLE = 5;
+global ADDRESS_LIST_REMOVE_ROLE = 6;
+
 
 // Define the storage for role data
 struct RoleData<Context> {

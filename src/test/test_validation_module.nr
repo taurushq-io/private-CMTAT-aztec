@@ -3,7 +3,7 @@ use dep::aztec::{test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, pr
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 use crate::types::validationModule::{SetFlag, UserFlags, ValidationModule};
-
+use crate::types::access_control::{DEFAULT_ADMIN_ROLE, VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
 
 
 
@@ -20,6 +20,9 @@ unconstrained fn get_operations_test(){
 unconstrained fn set_operations_test(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
 
+    let grant_operations_roles_call_interface = Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer);
+    env.call_public(grant_operations_roles_call_interface);
+
     let operations = SetFlag {    operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
     let set_operations_call_interface = Token::at(token_contract_address).set_operations(operations);
     env.call_public(set_operations_call_interface);
@@ -34,6 +37,9 @@ unconstrained fn set_operations_test(){
 unconstrained fn transfer_when_blacklisted(){
     let (env, token_contract_address, issuer, user) = utils::setup_and_mint(/* with_account_contracts */ false);
 
+    let grant_operations_roles_call_interface = Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer);
+    env.call_public(grant_operations_roles_call_interface);
+
     let operations = SetFlag {    operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
     let set_operations_call_interface = Token::at(token_contract_address).set_operations(operations);
     env.call_public(set_operations_call_interface);
@@ -42,6 +48,9 @@ unconstrained fn transfer_when_blacklisted(){
     let get_operations_call_interface = Token::at(token_contract_address).get_operations();
     let ret = env.call_public(get_operations_call_interface);
     assert(ret == 1);
+
+    let grant_operations_roles_call_interface = Token::at(token_contract_address).grant_role(ADDRESS_LIST_ADD_ROLE, issuer);
+    env.call_public(grant_operations_roles_call_interface);
 
     let userFlag = UserFlags {is_blacklisted: true,is_whitelisted: false,is_in_sanction_list: false,};
     let add_toList_call = Token::at(token_contract_address).add_to_list(user, userFlag);
@@ -57,6 +66,9 @@ unconstrained fn transfer_when_blacklisted(){
 #[test(should_fail_with="The sender is not in the whitelist")]
 unconstrained fn transfer_when_not_whitelisted(){
     let (env, token_contract_address, issuer, user) = utils::setup_and_mint(/* with_account_contracts */ false);
+
+    let grant_operations_roles_call_interface = Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer);
+    env.call_public(grant_operations_roles_call_interface);
 
     let operations = SetFlag {    operate_blacklist: false,operate_whitelist: true,operate_sanctionlist: false,};
     let set_operations_call_interface = Token::at(token_contract_address).set_operations(operations);
@@ -86,4 +98,46 @@ unconstrained fn transfer_when_no_operations(){
     let transfer_private_call_interface = Token::at(token_contract_address).transfer(user, transfer_amount);
     env.call_private_void(transfer_private_call_interface);
 
+}
+
+#[test(should_fail_with="The recipient is not in the whitelist")]
+unconstrained fn can_remove_from_list_when_role(){
+    let (env, token_contract_address, issuer, user) = utils::setup_and_mint(/* with_account_contracts */ false);
+
+    let grant_operations_roles_call_interface = Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer);
+    env.call_public(grant_operations_roles_call_interface);
+
+    let operations = SetFlag {operate_blacklist: false,operate_whitelist: true,operate_sanctionlist: false,};
+    let set_operations_call_interface = Token::at(token_contract_address).set_operations(operations);
+    env.call_public(set_operations_call_interface);
+    env.advance_block_by(3);
+
+    let get_operations_call_interface = Token::at(token_contract_address).get_operations();
+    let ret = env.call_public(get_operations_call_interface);
+    assert(ret == 2);
+
+    let grant_operations_roles_call_interface = Token::at(token_contract_address).grant_role(ADDRESS_LIST_ADD_ROLE, issuer);
+    env.call_public(grant_operations_roles_call_interface);
+
+    let grant_operations_roles_call_interface = Token::at(token_contract_address).grant_role(ADDRESS_LIST_REMOVE_ROLE, issuer);
+    env.call_public(grant_operations_roles_call_interface);
+
+    let userFlag = UserFlags {is_blacklisted: false,is_whitelisted: true,is_in_sanction_list: false,};
+    let add_toList_call = Token::at(token_contract_address).add_to_list(issuer, userFlag);
+    env.call_public(add_toList_call);
+    env.advance_block_by(3);
+
+    let userFlag = UserFlags {is_blacklisted: false,is_whitelisted: true,is_in_sanction_list: false,};
+    let add_toList_call = Token::at(token_contract_address).add_to_list(user, userFlag);
+    env.call_public(add_toList_call);
+    env.advance_block_by(3);
+
+    let userFlag = UserFlags {is_blacklisted: false,is_whitelisted: false,is_in_sanction_list: false,};
+    let remove_from_list_call = Token::at(token_contract_address).remove_from_list(user, userFlag);
+    env.call_public(remove_from_list_call);
+    env.advance_block_by(3);
+
+    let transfer_amount = 100;
+    let transfer_private_call_interface = Token::at(token_contract_address).transfer(user, transfer_amount);
+    env.call_private_void(transfer_private_call_interface);
 }

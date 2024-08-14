@@ -103,17 +103,17 @@ contract Token {
 
     #[aztec(public)]
     fn set_operations(operations: SetFlag) {
-        storage.validation_module.set_operations(operations);
+        storage.validation_module.set_operations(context.msg_sender(), operations, storage.access_control);
     }
 
     #[aztec(public)]
     fn add_to_list(newListAddress: AztecAddress, userFlag: UserFlags) {
-        storage.validation_module.add_to_list(newListAddress, userFlag);
+        storage.validation_module.add_to_list(context.msg_sender(), newListAddress, userFlag, storage.access_control);
     }
 
     #[aztec(public)]
     fn remove_from_list( removeListAddress: AztecAddress, userFlag: UserFlags) {
-        storage.validation_module.remove_from_list(removeListAddress, userFlag);
+        storage.validation_module.remove_from_list(context.msg_sender(), removeListAddress, userFlag, storage.access_control);
     }
 
 

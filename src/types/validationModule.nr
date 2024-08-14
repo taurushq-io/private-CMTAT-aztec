@@ -2,6 +2,8 @@ use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserial
 use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet, PublicMutable};
 use dep::aztec::context::{PublicContext, PrivateContext};
 
+use crate::types::access_control::{AccessControl,VALIDATION_ROLE, Role, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
+
 global BLACKLIST_FLAG: u64 = 1;
 global WHITELIST_FLAG: u64 = 2;
 global SANCTIONLIST_FLAG: u64 = 4;
@@ -56,15 +58,18 @@ impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromFiel
         operations.to_field()
     }
 
-    fn set_operations(self: Self, operations: SetFlag) {
+    fn set_operations(self: Self, caller: AztecAddress, operations: SetFlag, access_control: AccessControl<bool, &mut PublicContext>) {
+        access_control.only_role(VALIDATION_ROLE, caller);
         self.operationsFlag.schedule_value_change(operations);
     }
-
-    fn add_to_list(self:Self, newListAddress: AztecAddress, userFlag: T) {
+    //problem: here the one that has the ADDRESS_LIST_ADD_ROLE can also remove from list by overwritting userFlag
+    fn add_to_list(self:Self,  caller: AztecAddress, newListAddress: AztecAddress, userFlag: T, access_control: AccessControl<bool, &mut PublicContext>) {
+        access_control.only_role(ADDRESS_LIST_ADD_ROLE, caller);
         self.map.at(newListAddress).schedule_value_change(userFlag);
     }
 
-    fn remove_from_list(self:Self, removeListAddress: AztecAddress, userFlag: T) {
+    fn remove_from_list(self:Self, caller: AztecAddress, removeListAddress: AztecAddress, userFlag: T, access_control: AccessControl<bool, &mut PublicContext>) {
+        access_control.only_role(ADDRESS_LIST_REMOVE_ROLE, caller);
         self.map.at(removeListAddress).schedule_value_change(userFlag);
     }
 }
