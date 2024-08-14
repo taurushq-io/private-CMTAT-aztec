@@ -159,12 +159,12 @@ contract Token {
 
     #[aztec(public)]
     fn freeze(user: AztecAddress, value: FreezableFlag) {
-        storage.enforcement_module.freeze(user, value);
+        storage.enforcement_module.freeze(context.msg_sender(), user, value, storage.access_control);
     }
 
     #[aztec(public)]
     fn unfreeze(user: AztecAddress, value: FreezableFlag) {
-        storage.enforcement_module.unfreeze(user, value);
+        storage.enforcement_module.unfreeze(context.msg_sender(), user, value, storage.access_control);
     }
 
 

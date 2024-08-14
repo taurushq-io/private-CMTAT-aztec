@@ -1,5 +1,6 @@
 use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map}, unencrypted_logs::unencrypted_event_emission,  context::PublicContext, context::PrivateContext};
 use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
+use crate::types::access_control::{AccessControl,ENFORCEMENT_ROLE, Role};
 
 global FREEZED_FLAG: u64 = 1;
 global CHANGE_ROLES_DELAY_BLOCKS = 2;
@@ -43,13 +44,15 @@ impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + Fre
      *
      * - The account must not be already frozen
      */
-    pub fn freeze(self: Self, address: AztecAddress, val: T){
+    pub fn freeze(self: Self,caller:AztecAddress, address: AztecAddress, val: T, ac: AccessControl<bool, &mut PublicContext>){
+        ac.only_role(ENFORCEMENT_ROLE, caller);
         self._require_not_freezed(address);
         self.map.at(address).schedule_value_change(val);
     }
 
 
-    pub fn unfreeze(self: Self, address: AztecAddress, val: T){
+    pub fn unfreeze(self: Self, caller: AztecAddress, address: AztecAddress, val: T, ac: AccessControl<bool, &mut PublicContext>){
+        ac.only_role(ENFORCEMENT_ROLE, caller);
         self._require_freezed(address);
         self.map.at(address).schedule_value_change(val);
     }
