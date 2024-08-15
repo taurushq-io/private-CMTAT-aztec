@@ -19,6 +19,33 @@ unconstrained fn mint_private_success() {
     assert(total_supply == mint_amount);
 }
 
+#[test]
+unconstrained fn mint_private_batch_success() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, token_contract_address, issuer, user1,user2,user3) = utils::setup_and_more_addresses(/* with_account_contracts */ false);
+
+    let mint_amount = [10000,1000,0,0];
+    let addresses = [issuer, user1,user2,user2];
+
+    let mint_private_call_interface = Token::at(token_contract_address).mint_batch(addresses, mint_amount);
+    env.call_private_void(mint_private_call_interface);
+
+    utils::check_private_balance(token_contract_address, addresses[0], mint_amount[0]);
+    utils::check_private_balance(token_contract_address, addresses[1], mint_amount[1]);
+
+    let total_supply_call_interface = Token::at(token_contract_address).total_supply();
+    let total_supply = env.call_public(total_supply_call_interface);
+
+    let mut total_mint_amount = 0;
+    for i in 0..4 {
+        total_mint_amount += mint_amount[i];
+    }
+
+    assert(total_supply == total_mint_amount);
+}
+
+
+
 #[test(should_fail_with="Caller is not issuer")]
 unconstrained fn mint_private_failure_non_minter() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
