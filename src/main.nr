@@ -15,12 +15,12 @@ contract Token {
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl, Role, RoleData, DEFAULT_ADMIN_ROLE},  enforcementModule::{Freezable, FreezableFlag}};
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl, Role, RoleData, DEFAULT_ADMIN_ROLE, MINTER_ROLE, BURNER_ROLE},  enforcementModule::{Freezable, FreezableFlag}};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
     //This global is used when doing batching. We set a 
-    global MAX_ADDR_PER_CALL = 10;
+    global MAX_ADDR_PER_CALL = 4;
 
     #[aztec(event)]
     struct Paused {
@@ -90,6 +90,11 @@ contract Token {
     #[aztec(public)]
     fn revoke_role(role: Field, account: AztecAddress) {
         storage.access_control.revoke_role(role,account)
+    }
+
+    #[aztec(public)]
+    fn renounce_role(role: Field, callerConfirmation: AztecAddress) {
+        storage.access_control.renounce_role(role,context.msg_sender(), callerConfirmation);
     }
 
 
@@ -230,22 +235,20 @@ contract Token {
     fn mint(to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
-        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
-
         let note = storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context,to,to));
         Token::at(context.this_address())._mint(amount).enqueue(&mut context);
+
     }
 
-
+    //everyone can call this function, but will revert in _mint if not minter role
     #[aztec(private)]
     fn mint_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL]) {
-        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0,"Mint module empty" );
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
-        for i in 0..MAX_ADDR_PER_CALL {
+        for i in 0..accounts.len() {
             //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address()).mint(accounts[i], amount[i]);
+            Token::at(context.this_address()).mint(accounts[i], amount[i]).call(&mut context);
         }
     }
 
@@ -377,6 +380,7 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _mint(amount: Field) {
+        storage.access_control.only_role(MINTER_ROLE, context.msg_sender());
         assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
         storage.total_supply.write(supply);
@@ -385,8 +389,8 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _burn(amount: Field) {
-    assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
-
+        storage.access_control.only_role(BURNER_ROLE, context.msg_sender());
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
         storage.total_supply.write(new_supply);
     }

@@ -12,6 +12,8 @@ global ENFORCEMENT_ROLE =  3;
 global VALIDATION_ROLE = 4;
 global ADDRESS_LIST_ADD_ROLE = 5;
 global ADDRESS_LIST_REMOVE_ROLE = 6;
+global MINTER_ROLE = 7;
+global BURNER_ROLE = 8;
 
 
 // Define the storage for role data
@@ -68,23 +70,32 @@ impl<T> AccessControl<T, &mut PublicContext> {
         self.roles.at(role).admin_role
     }
 
-    fn _grant_role( self, role: Role, account: AztecAddress) {
-        let mut role_data = self.get_role_storage(role);
-        role_data.has_role.at(account).write(true);
+    fn renounce_role(self:Self, role: Field, caller: AztecAddress, callerConfirmation: AztecAddress) {
+        assert(caller == callerConfirmation, "Renounce Role: Addresses do not match");
+        self._revoke_role(role, callerConfirmation)   
     }
 
     // Grant a role to an account
-    fn grant_role( self, role: Role, account: AztecAddress) {
+    fn grant_role( self: Self, role: Role, account: AztecAddress) {
         self.only_role(self.getRoleAdmin(role), account);
         self._grant_role(role,account);
     }
 
     // Revoke a role from an account
-    fn revoke_role(self, role: Role, account: AztecAddress) {
+    fn revoke_role(self:Self, role: Role, account: AztecAddress) {
         self.only_role(self.getRoleAdmin(role), account);
+        self._revoke_role(role,account);
+    }
+
+    fn _grant_role( self:Self, role: Role, account: AztecAddress) {
+        let mut role_data = self.get_role_storage(role);
+        role_data.has_role.at(account).write(true);
+    }
+
+    fn _revoke_role(self:Self, role: Role, account: AztecAddress) {
         let mut role_data = self.get_role_storage(role);
         role_data.has_role.at(account).write(false);
-    }
+    }  
 }
 
 impl<Context> RoleData<Context> {

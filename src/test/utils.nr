@@ -39,6 +39,16 @@ pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddres
     (&mut env, token_contract_address, issuer, user1)
 }
 
+pub fn setup_and_more_addresses(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress,AztecAddress,AztecAddress) {
+    // Setup
+    let (env, token_contract_address, issuer, user1) = setup(with_account_contracts);
+
+        let user2 = env.create_account_contract(3);
+        let user3 = env.create_account_contract(4); 
+
+    (env, token_contract_address, issuer, user1,user2,user3)
+}
+
 pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, token_contract_address, issuer, user1) = setup(with_account_contracts);
