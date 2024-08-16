@@ -7,15 +7,17 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable,SharedMutable, PrivateSet, AztecAddress},
-        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note},
-        encrypted_event_emission::{encode_and_encrypt_event_unconstrained}}
+        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note},encrypted_event_emission::{encode_and_encrypt_event_unconstrained}},
+        unencrypted_logs::{unencrypted_event_emission::{emit, encode_event}},
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
     use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl, Role, RoleData, DEFAULT_ADMIN_ROLE, MINTER_ROLE, BURNER_ROLE},  enforcementModule::{Freezable, FreezableFlag}};
+
+    use crate::types::extensions::{creditEventsModule::{CreditEventsStruct, CreditEvents}, debtBaseModule::{DebtBase, DebtBaseStruct}};
+    
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
@@ -39,6 +41,8 @@ contract Token {
         amount: Field,
     }
 
+
+
     #[aztec(storage)]
     struct Storage {
 
@@ -46,6 +50,8 @@ contract Token {
         validation_module: ValidationModule<UserFlags>,
         enforcement_module: Freezable<FreezableFlag>,
         access_control: AccessControl<bool>,
+        credit_event_module: CreditEvents<bool>,
+        debt_base_module: DebtBase<bool>,
 
         balances: BalancesMap<TokenNote>,
         total_supply: PublicMutable<U128>,
@@ -174,6 +180,27 @@ contract Token {
 
 
 
+//############ CREDIT EVENTS MODULE ############
+
+
+    //Note: as events are only allowed in the main contract, we have decided not to put them yet for this function. 
+    #[aztec(public)]
+    fn set_credit_events(flagDefault_: bool, flagRedeemed_: bool, rating_: str<31>) {
+        storage.credit_event_module.setCreditEvents(flagDefault_, flagRedeemed_, rating_);
+    }
+
+
+//############ DEBT BASE MODULE ############
+
+
+
+    #[aztec(public)]
+    fn set_debt_base(debt_base_: DebtBaseStruct) {
+        storage.debt_base_module.setDebt(debt_base_);
+    }
+
+
+
 //############ GETTERS ############
 
 
@@ -254,7 +281,6 @@ contract Token {
 
 
 
-
 //############ TRANSFER ############
 
 
@@ -267,6 +293,7 @@ contract Token {
     #[aztec(private)]
     fn transfer( to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
+        std::println(from);
 
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
@@ -285,7 +312,7 @@ contract Token {
     }
 
     #[aztec(private)]
-    //nonce can be the same?
+    //does nonce need to change?
     fn transfer_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
         // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0,"Mint module empty" );
@@ -293,7 +320,7 @@ contract Token {
 
         for i in 0..MAX_ADDR_PER_CALL {
             //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address()).transfer_from(context.msg_sender(),accounts[i], amount[i], nonce);
+            Token::at(context.this_address()).transfer_from(context.msg_sender(), accounts[i], amount[i], nonce).call(&mut context);
         }
     }
 

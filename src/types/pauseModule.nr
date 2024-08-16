@@ -70,18 +70,6 @@ impl<T> Pausable<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN>
         self.is_paused.write(val); 
     }
 
-    // pub fn get_is_pause_role(self: Self, address: AztecAddress) -> bool{
-    //     self.access_control.has_role(2,address)
-    // }
-
-    // pub fn grant_pause_role(self: Self, role: Role, address: AztecAddress) {
-    //     self.access_control.grant_role(role,address);
-    // }
-
-    // pub fn revoke_pause_role(self: Self, role: Role, address: AztecAddress) {
-    //     self.access_control.revoke_role(role,address);
-    // }
-
     #[aztec(internal)]
     fn _require_not_paused(self: Self) {
         assert(self.is_paused.read().get_pause() == false, "error: contract already paused");
