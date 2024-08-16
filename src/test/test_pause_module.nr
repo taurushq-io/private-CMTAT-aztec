@@ -1,11 +1,8 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, protocol_types::address::AztecAddress};
+use dep::aztec::{test::helpers::cheatcodes};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 use crate::types::access_control::{DEFAULT_ADMIN_ROLE, PAUSE_ROLE};
-
-
-
 
 
 #[test]

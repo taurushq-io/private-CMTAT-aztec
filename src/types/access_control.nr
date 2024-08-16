@@ -14,6 +14,8 @@ global ADDRESS_LIST_ADD_ROLE = 5;
 global ADDRESS_LIST_REMOVE_ROLE = 6;
 global MINTER_ROLE = 7;
 global BURNER_ROLE = 8;
+global DEBT_ROLE = 9;
+global DEBT_CREDIT_EVENT_ROLE = 10;
 
 
 // Define the storage for role data

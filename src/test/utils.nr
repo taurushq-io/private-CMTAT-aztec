@@ -2,8 +2,8 @@ use dep::aztec::{
     hash::compute_secret_hash, prelude::AztecAddress,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
-    note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}, note_viewer_options::NoteViewerOptions},
-    oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
+    note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}},
+    oracle::{execution::{get_block_number, get_contract_address}}
 };
 
 use crate::{types::{token_note::TokenNote}, Token};

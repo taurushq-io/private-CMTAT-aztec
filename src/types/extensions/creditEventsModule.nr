@@ -1,12 +1,17 @@
 use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
 use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet, PublicMutable};
 use dep::aztec::context::{PublicContext, PrivateContext};
-use crate::types::access_control::{AccessControl, Role};
 use dep::aztec::{
         unencrypted_logs::{unencrypted_event_emission::{emit, encode_event}},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-    };
-    use dep::compressed_string::FieldCompressedString;
+    }; 
+use dep::compressed_string::FieldCompressedString;
+use crate::types::access_control::{AccessControl,DEBT_CREDIT_EVENT_ROLE};
+
+
+global FLAG_DEFAULT_FLAG = 1;
+global FLAG_REDEEMED_FLAG = 2;
+
 
 global T_SERIALIZED_LEN = 3; 
 
@@ -52,13 +57,9 @@ impl<T> CreditEvents<T, &mut PublicContext> {
     * @notice Set all attributes of creditEvents
     * The values of all attributes will be changed even if the new values are the same as the current ones
     */
-    fn setCreditEvents(
-        self: Self,
-        flagDefault_: bool,
-        flagRedeemed_: bool,
-        rating_: str<31>){
-        //onlyRole
-        let creditEvents = CreditEventsStruct {flagDefault: flagDefault_, flagRedeemed: flagRedeemed_, rating: FieldCompressedString::from_string(rating_)};
+    fn setCreditEvents( self: Self, credit_events: CreditEventsStruct, caller: AztecAddress, ac: AccessControl<bool,  &mut PublicContext>){
+        ac.only_role(DEBT_CREDIT_EVENT_ROLE, caller);
+        let creditEvents = CreditEventsStruct {flagDefault: credit_events.flagDefault, flagRedeemed: credit_events.flagRedeemed, rating: credit_events.rating};
         self.credit_event.write(creditEvents);
             
         //the below works here
@@ -66,6 +67,22 @@ impl<T> CreditEvents<T, &mut PublicContext> {
         //context.emit_unencrypted_log(  flagDefault_);
         //the below only works in main contract
         //FlagDefault{newFlagDefault: flagDefault_}.emit(encode_event(&mut context));
+    }
+
+    // fn get_flag_default(self: Self) -> Field {
+    //      self.credit_event.read().flagDefault.to_field()
+    // }
+
+    // fn get_flag_redeemed(self: Self) -> Field {
+    //      self.credit_event.read().flagRedeemed.to_field()
+    // }
+
+    // fn get_rating(self: Self) -> Field {
+    //     self.credit_event.read().rating.serialize()[0]
+    // }
+
+    fn get_credit_events(self: Self) -> [Field; T_SERIALIZED_LEN]{
+        self.credit_event.read().serialize()
     }
 }
 

@@ -9,15 +9,11 @@ contract Token {
     use dep::aztec::{
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable,SharedMutable, PrivateSet, AztecAddress},
         encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note},encrypted_event_emission::{encode_and_encrypt_event_unconstrained}},
-        unencrypted_logs::{unencrypted_event_emission::{emit, encode_event}},
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl, Role, RoleData, DEFAULT_ADMIN_ROLE, MINTER_ROLE, BURNER_ROLE},  enforcementModule::{Freezable, FreezableFlag}};
-
-    use crate::types::extensions::{creditEventsModule::{CreditEventsStruct, CreditEvents}, debtBaseModule::{DebtBase, DebtBaseStruct}};
-    
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl, Role, RoleData, DEFAULT_ADMIN_ROLE, MINTER_ROLE, BURNER_ROLE},  enforcementModule::{Freezable, FreezableFlag}, extensions::{creditEventsModule::{CreditEventsStruct, CreditEvents}, debtBaseModule::{DebtBase, DebtBaseStruct}}};    
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
@@ -185,8 +181,13 @@ contract Token {
 
     //Note: as events are only allowed in the main contract, we have decided not to put them yet for this function. 
     #[aztec(public)]
-    fn set_credit_events(flagDefault_: bool, flagRedeemed_: bool, rating_: str<31>) {
-        storage.credit_event_module.setCreditEvents(flagDefault_, flagRedeemed_, rating_);
+    fn set_credit_events(credit_events: CreditEventsStruct) {
+        storage.credit_event_module.setCreditEvents(credit_events, context.msg_sender(), storage.access_control);
+    }
+
+    #[aztec(public)]
+    fn get_credit_events() -> [Field; 3]{
+        storage.credit_event_module.get_credit_events()
     }
 
 
@@ -196,7 +197,7 @@ contract Token {
 
     #[aztec(public)]
     fn set_debt_base(debt_base_: DebtBaseStruct) {
-        storage.debt_base_module.setDebt(debt_base_);
+        storage.debt_base_module.setDebt(debt_base_, context.msg_sender(), storage.access_control);
     }
 
 

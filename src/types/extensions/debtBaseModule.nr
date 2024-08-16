@@ -1,9 +1,9 @@
 use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
 use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet, PublicMutable};
 use dep::aztec::context::{PublicContext, PrivateContext};
-use crate::types::access_control::{AccessControl,VALIDATION_ROLE, Role, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
 
     use dep::compressed_string::FieldCompressedString;
+use crate::types::access_control::{AccessControl,DEBT_ROLE};
 
 
 global T_SERIALIZED_LEN = 12; 
@@ -40,7 +40,8 @@ impl<T,Context> DebtBase<T,Context> {
 
 impl<T> DebtBase<T, &mut PublicContext> {
 
-  fn setDebt(self: Self, debt_base_: DebtBaseStruct) {
+  fn setDebt(self: Self, debt_base_: DebtBaseStruct, caller: AztecAddress, ac: AccessControl<bool,  &mut PublicContext>) {
+    ac.only_role(DEBT_ROLE, caller);
     self.debt_base.write(debt_base_);
   }
 }
