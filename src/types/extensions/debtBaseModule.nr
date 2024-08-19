@@ -44,6 +44,10 @@ impl<T> DebtBase<T, &mut PublicContext> {
     ac.only_role(DEBT_ROLE, caller);
     self.debt_base.write(debt_base_);
   }
+
+  fn get_debt_base(self: Self) -> [Field; T_SERIALIZED_LEN] {
+    self.debt_base.read().serialize()
+  }
 }
 
 

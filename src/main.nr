@@ -200,6 +200,11 @@ contract Token {
         storage.debt_base_module.setDebt(debt_base_, context.msg_sender(), storage.access_control);
     }
 
+    #[aztec(public)]
+    fn get_debt_base()  -> [Field; 12]{
+        storage.debt_base_module.get_debt_base()
+    }
+
 
 
 //############ GETTERS ############
