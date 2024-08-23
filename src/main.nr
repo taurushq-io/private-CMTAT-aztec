@@ -13,7 +13,7 @@ contract Token {
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{Pausable, BoolEmul}, access_control::{AccessControl, Role, RoleData, DEFAULT_ADMIN_ROLE, MINTER_ROLE, BURNER_ROLE},  enforcementModule::{Freezable, FreezableFlag}, extensions::{creditEventsModule::{CreditEventsStruct, CreditEvents}, debtBaseModule::{DebtBase, DebtBaseStruct}}};    
+    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{PauseModule, BoolEmul}, access_controlModule::{AccessControlModule, Role, RoleData, DEFAULT_ADMIN_ROLE, MINTER_ROLE, BURNER_ROLE},  enforcementModule::{Freezable, FreezableFlag}, extensions::{creditEventsModule::{CreditEventsStruct, CreditEvents}, debtBaseModule::{DebtBase, DebtBaseStruct}}};    
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
@@ -42,12 +42,14 @@ contract Token {
     #[aztec(storage)]
     struct Storage {
 
-        pause_module: Pausable<BoolEmul>,
+        pause_module: PauseModule<BoolEmul>,
         validation_module: ValidationModule<UserFlags>,
         enforcement_module: Freezable<FreezableFlag>,
-        access_control: AccessControl<bool>,
+        access_control: AccessControlModule<bool>,
         credit_event_module: CreditEvents<bool>,
         debt_base_module: DebtBase<bool>,
+
+        issuer_address: SharedMutable<AztecAddress, CHANGE_ROLES_DELAY_BLOCKS>,
 
         balances: BalancesMap<TokenNote>,
         total_supply: PublicMutable<U128>,
@@ -67,6 +69,7 @@ contract Token {
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         storage.decimals.initialize(decimals);
         storage.access_control._grant_role(DEFAULT_ADMIN_ROLE, admin);
+        storage.issuer_address.schedule_value_change(admin);
     }
 
 
@@ -268,7 +271,13 @@ contract Token {
     fn mint(to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
-        let note = storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context,to,to));
+        let issuer = storage.issuer_address.get_current_value_in_private();
+        let note = storage.balances.add(to, U128::from_integer(amount));
+
+        note.emit(encode_and_encrypt_note(&mut context,to,to));
+        //encrypt the note for the issuer
+        note.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
+
         Token::at(context.this_address())._mint(amount).enqueue(&mut context);
 
     }
@@ -306,10 +315,18 @@ contract Token {
 
         storage.validation_module.operateOnTransfer(context.msg_sender(),to);
 
-
+        let issuer = storage.issuer_address.get_current_value_in_private();
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context,from,from));
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note(&mut context,from,to));
+
+        let note_sub = storage.balances.sub(from, amount);
+        note_sub.emit(encode_and_encrypt_note(&mut context,from,from));
+        //encrypt the note for the issuer
+        note_sub.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
+
+        let note_add = storage.balances.add(to, amount);
+        note_add.emit(encode_and_encrypt_note(&mut context,from,to));
+        //encrypt the note for the issuer
+        note_add.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
 
         Token::at(context.this_address())._transfer().enqueue(&mut context);
 
@@ -319,6 +336,7 @@ contract Token {
 
     #[aztec(private)]
     //does nonce need to change?
+    //as the max number of encrypted logs is 4 per call, and a transfer has 4 encrypted logs, batching the transfers won't work for more than one call, equivalent as not batching.
     fn transfer_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
         // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0,"Mint module empty" );
@@ -374,7 +392,7 @@ contract Token {
 //############ BURN ############
 
 
-
+    //we need an authwit from the user that has the notes to burn his notes.
     #[aztec(private)]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
@@ -387,8 +405,13 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
+        let issuer = storage.issuer_address.get_current_value_in_private();
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from, from));
+        let note = storage.balances.sub(from, U128::from_integer(amount));
+        note.emit(encode_and_encrypt_note(&mut context, from, from));
+        //encrypt the note for the issuer 
+        note.emit(encode_and_encrypt_note(&mut context, issuer, issuer));
+
         Token::at(context.this_address())._burn(amount).enqueue(&mut context);
     }
     

@@ -25,11 +25,11 @@ struct RoleData<Context> {
 }
 
 //Define the AccessControl storage
-struct AccessControl<T,Context> {
+struct AccessControlModule<T,Context> {
     roles: Map<Role, RoleData<Context>, Context>,
 }
 
-impl<T,Context> AccessControl<T,Context> {
+impl<T,Context> AccessControlModule<T,Context> {
 
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -44,7 +44,7 @@ impl<T,Context> AccessControl<T,Context> {
     }
 
 
-impl<T> AccessControl<T, &mut PublicContext> {
+impl<T> AccessControlModule<T, &mut PublicContext> {
     // Get role storage
     #[aztec(internal)]
     fn get_role_storage(self: Self, role: Role) -> RoleData<&mut PublicContext>{

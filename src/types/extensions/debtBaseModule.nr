@@ -3,7 +3,7 @@ use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet, PublicMu
 use dep::aztec::context::{PublicContext, PrivateContext};
 
     use dep::compressed_string::FieldCompressedString;
-use crate::types::access_control::{AccessControl,DEBT_ROLE};
+use crate::types::access_controlModule::{AccessControlModule,DEBT_ROLE};
 
 
 global T_SERIALIZED_LEN = 12; 
@@ -40,7 +40,7 @@ impl<T,Context> DebtBase<T,Context> {
 
 impl<T> DebtBase<T, &mut PublicContext> {
 
-  fn setDebt(self: Self, debt_base_: DebtBaseStruct, caller: AztecAddress, ac: AccessControl<bool,  &mut PublicContext>) {
+  fn setDebt(self: Self, debt_base_: DebtBaseStruct, caller: AztecAddress, ac: AccessControlModule<bool,  &mut PublicContext>) {
     ac.only_role(DEBT_ROLE, caller);
     self.debt_base.write(debt_base_);
   }

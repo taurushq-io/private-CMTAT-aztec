@@ -1,11 +1,8 @@
-    use dep::aztec::{prelude::{AztecAddress, PublicMutable}, unencrypted_logs::unencrypted_event_emission,  context::PublicContext};
-    use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-
-use crate::types::access_control::AccessControl;
-use crate::types::access_control::{PAUSE_ROLE, Role};
+use dep::aztec::{prelude::{AztecAddress, PublicMutable},  context::PublicContext};
+use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
+use crate::types::access_controlModule::{AccessControlModule, PAUSE_ROLE, Role};
 
     global PAUSED_FLAG: u64 = 1;
-
     global T_SERIALIZED_LEN = 1;
 
     trait BoolEmulTrait {
@@ -17,11 +14,11 @@ use crate::types::access_control::{PAUSE_ROLE, Role};
         is_paused: bool,
     }
 
-    struct Pausable<T,Context>{
+    struct PauseModule<T,Context>{
         is_paused: PublicMutable<T, Context>,
     }
 
-impl<T,Context> Pausable<T,Context> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait{
+impl<T,Context> PauseModule<T,Context> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait{
 
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -32,7 +29,7 @@ impl<T,Context> Pausable<T,Context> where T: Eq + Serialize<T_SERIALIZED_LEN> + 
 
 }
 
-impl<T> Pausable<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait{
+impl<T> PauseModule<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait{
 
 
     pub fn is_paused(self: Self) -> bool{
@@ -47,7 +44,7 @@ impl<T> Pausable<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN>
      *
      * - The contract must not be paused.
      */
-    pub fn pause(self: Self, caller: AztecAddress, ac: AccessControl<bool, &mut  PublicContext>){
+    pub fn pause(self: Self, caller: AztecAddress, ac: AccessControlModule<bool, &mut  PublicContext>){
         ac.only_role(PAUSE_ROLE, caller);
         self._require_not_paused();
         let mut val: T = self.is_paused.read();
@@ -62,7 +59,7 @@ impl<T> Pausable<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN>
      *
      * - The contract must be paused.
      */
-    pub fn unpause(self: Self, caller: AztecAddress, ac: AccessControl<bool, &mut  PublicContext>){
+    pub fn unpause(self: Self, caller: AztecAddress, ac: AccessControlModule<bool, &mut  PublicContext>){
         ac.only_role(PAUSE_ROLE, caller);
         self._require_paused();
         let mut val: T = self.is_paused.read();

@@ -3,10 +3,9 @@ use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet, PublicMu
 use dep::aztec::context::{PublicContext, PrivateContext};
 use dep::aztec::{
         unencrypted_logs::{unencrypted_event_emission::{emit, encode_event}},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
     }; 
 use dep::compressed_string::FieldCompressedString;
-use crate::types::access_control::{AccessControl,DEBT_CREDIT_EVENT_ROLE};
+use crate::types::access_controlModule::{AccessControlModule,DEBT_CREDIT_EVENT_ROLE};
 
 
 global FLAG_DEFAULT_FLAG = 1;
@@ -57,7 +56,7 @@ impl<T> CreditEvents<T, &mut PublicContext> {
     * @notice Set all attributes of creditEvents
     * The values of all attributes will be changed even if the new values are the same as the current ones
     */
-    fn setCreditEvents( self: Self, credit_events: CreditEventsStruct, caller: AztecAddress, ac: AccessControl<bool,  &mut PublicContext>){
+    fn setCreditEvents( self: Self, credit_events: CreditEventsStruct, caller: AztecAddress, ac: AccessControlModule<bool,  &mut PublicContext>){
         ac.only_role(DEBT_CREDIT_EVENT_ROLE, caller);
         let creditEvents = CreditEventsStruct {flagDefault: credit_events.flagDefault, flagRedeemed: credit_events.flagRedeemed, rating: credit_events.rating};
         self.credit_event.write(creditEvents);
@@ -68,18 +67,6 @@ impl<T> CreditEvents<T, &mut PublicContext> {
         //the below only works in main contract
         //FlagDefault{newFlagDefault: flagDefault_}.emit(encode_event(&mut context));
     }
-
-    // fn get_flag_default(self: Self) -> Field {
-    //      self.credit_event.read().flagDefault.to_field()
-    // }
-
-    // fn get_flag_redeemed(self: Self) -> Field {
-    //      self.credit_event.read().flagRedeemed.to_field()
-    // }
-
-    // fn get_rating(self: Self) -> Field {
-    //     self.credit_event.read().rating.serialize()[0]
-    // }
 
     fn get_credit_events(self: Self) -> [Field; T_SERIALIZED_LEN]{
         self.credit_event.read().serialize()

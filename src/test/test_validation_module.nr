@@ -3,7 +3,7 @@ use dep::aztec::{test::helpers::cheatcodes};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 use crate::types::validationModule::{SetFlag, UserFlags, ValidationModule};
-use crate::types::access_control::{DEFAULT_ADMIN_ROLE, VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
+use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
 
 
 

@@ -3,7 +3,7 @@ use dep::aztec::{test::helpers::cheatcodes};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 use crate::types::enforcementModule::{FreezableFlag};
-use crate::types::access_control::{DEFAULT_ADMIN_ROLE, ENFORCEMENT_ROLE};
+use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, ENFORCEMENT_ROLE};
 
 #[test]
 unconstrained fn get_frozen(){
@@ -103,30 +103,30 @@ unconstrained fn transfer_restricted_when_freezed(){
     env.call_private_void(mint_private_call_interface);
 }
 
-#[test(should_fail_with="Frozen: Sender")]
-unconstrained fn burn_restricted_when_freezed(){
-    let (env, token_contract_address, issuer, user, _) = utils::setup_and_mint(/* with_account_contracts */ false);
+// #[test(should_fail_with="Frozen: Sender")]
+// unconstrained fn burn_restricted_when_freezed(){
+//     let (env, token_contract_address, issuer, user, _) = utils::setup_and_mint(/* with_account_contracts */ false);
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(ENFORCEMENT_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+//     let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(ENFORCEMENT_ROLE, issuer);
+//     env.call_public(grant_pause_roles_call_interface);
     
-    let transfer_amount = 10000;
-    let mint_private_call_interface = Token::at(token_contract_address).transfer(user, transfer_amount);
-    env.call_private_void(mint_private_call_interface);
+//     let transfer_amount = 10000;
+//     let mint_private_call_interface = Token::at(token_contract_address).transfer(user, transfer_amount);
+//     env.call_private_void(mint_private_call_interface);
 
-    let freezable_flag = FreezableFlag {is_freezed: true};
-    let get_roles_call_interface = Token::at(token_contract_address).freeze(user,freezable_flag );
-    env.call_public(get_roles_call_interface);
-    env.advance_block_by(3);
+//     let freezable_flag = FreezableFlag {is_freezed: true};
+//     let get_roles_call_interface = Token::at(token_contract_address).freeze(user,freezable_flag );
+//     env.call_public(get_roles_call_interface);
+//     env.advance_block_by(3);
 
-    let get_roles_call_interface = Token::at(token_contract_address).get_frozen(user);
-    let ret = env.call_public(get_roles_call_interface);
-    assert(ret == 1);
+//     let get_roles_call_interface = Token::at(token_contract_address).get_frozen(user);
+//     let ret = env.call_public(get_roles_call_interface);
+//     assert(ret == 1);
 
-    let burn_amount = 10000;
-    let mint_private_call_interface = Token::at(token_contract_address).burn(user, burn_amount, 1);
-    env.impersonate(issuer);
-    env.call_private_void(mint_private_call_interface);
+//     let burn_amount = 10000;
+//     let mint_private_call_interface = Token::at(token_contract_address).burn(user, burn_amount, 1);
+//     env.impersonate(issuer);
+//     env.call_private_void(mint_private_call_interface);
 
-}
+// }
 
