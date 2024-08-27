@@ -18,7 +18,7 @@ contract Token {
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
     //This global is used when doing batching. We set a 
-    global MAX_ADDR_PER_CALL = 4;
+    global MAX_ADDR_PER_CALL = 1;
 
     #[aztec(event)]
     struct Paused {
@@ -319,20 +319,12 @@ contract Token {
 
 //############ TRANSFER ############
 
-
-
-    /*
-    * @info : wether the contract is paused or not is checked in the _mint function
-    * NOTE: the nonce here is used to prevent replay attacks. By constraining it to be equal to 0 afterwards,
-    * we assure that the signature of this function call can only be done once 
-    */
     #[aztec(private)]
-    fn transfer( to: AztecAddress, amount: Field) {
-        let from = context.msg_sender();
-
+    #[aztec(internal)]   
+    fn _transfer_internal(from: AztecAddress, to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
-        storage.validation_module.operateOnTransfer(context.msg_sender(),to);
+        storage.validation_module.operateOnTransfer(from,to);
 
         let issuer = storage.issuer_address.get_current_value_in_private();
         let from_keys = get_current_public_keys(&mut context, from);
@@ -349,25 +341,35 @@ contract Token {
         note_add.emit(encode_and_encrypt_note(&mut context,from,to));
         //encrypt the note for the issuer
         note_add.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
-
-        Token::at(context.this_address())._transfer().enqueue(&mut context);
-
-        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_unconstrained(&mut context, from, to));
-
     }
 
+    /*
+    * @info : wether the contract is paused or not is checked in the _mint function
+    * NOTE: the nonce here is used to prevent replay attacks. By constraining it to be equal to 0 afterwards,
+    * we assure that the signature of this function call can only be done once 
+    */
     #[aztec(private)]
-    //does nonce need to change?
-    //as the max number of encrypted logs is 4 per call, and a transfer has 4 encrypted logs, batching the transfers won't work for more than one call, equivalent as not batching.
+    fn transfer( to: AztecAddress, amount: Field) {
+        let from = context.msg_sender();
+        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);        
+        Token::at(context.this_address())._transfer().enqueue(&mut context);
+        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_unconstrained(&mut context, from, to));
+    }
+
+
+    /*
+    * as the max number of encrypted logs is 4 per call, and a transfer has 4 encrypted logs, batching the transfers won't work for more than one call, equivalent as not batching.
+    */
+    #[aztec(private)]
     fn transfer_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
         // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0,"Mint module empty" );
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
         for i in 0..MAX_ADDR_PER_CALL {
-            //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address()).transfer_from(context.msg_sender(), accounts[i], amount[i], nonce).call(&mut context);
+            Token::at(context.this_address())._transfer_internal(context.msg_sender(), accounts[i], amount[i]).call(&mut context);
         }
+        Token::at(context.this_address())._transferFrom().enqueue(&mut context);
     }
 
 
@@ -376,27 +378,14 @@ contract Token {
     fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         //the authwit is used to allow a thrid party to spend funds of a user upon approval. 
         //should we check if the 3rd party initiating this transaction is able to do the transfer? 
-        assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
-        assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
-
-        storage.validation_module.operateOnTransfer(from,to);
 
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        let from_keys = get_current_public_keys(&mut context, from);
-        let to_keys = get_current_public_keys(&mut context, to);
-
-        let amount = U128::from_integer(amount);
-
-        storage.balances.sub(from,from_keys.npk_m, amount).emit(encode_and_encrypt_note(&mut context, from, from));
-        storage.balances.add(to,to_keys.npk_m, amount).emit(encode_and_encrypt_note(&mut context, from, to));
-
-
+        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);        
         Token::at(context.this_address())._transferFrom().enqueue(&mut context);
-
         Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_unconstrained(&mut context, from, to));
     }
 
@@ -458,7 +447,6 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _mint(caller: AztecAddress, amount: Field) {
-         std::println("cc");
         storage.access_control.only_role(MINTER_ROLE, caller);
         assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let supply = storage.total_supply.read().add(U128::from_integer(amount));

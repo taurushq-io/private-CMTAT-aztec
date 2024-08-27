@@ -89,33 +89,33 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
     env.call_private_void(transfer_private_from_call_interface);
 }
 
-// #[test]
-// unconstrained fn transfer_private_batch_success() {
-//     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-//     let (env, token_contract_address, issuer, user1, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
-//     let user2 = env.create_account_contract(3);
-//     let user3 = env.create_account_contract(4); 
 
-//     env.impersonate(issuer);
-//     let transfer_amount = [100,100,0,0];
-//     let addresses = [user1, user2,user3,user3];
+/*
+*
+* the below test is only done with an array of 1 value, as otherwise private calls would exceed protocol limitations
+*/
 
-//     let transfer_batch_private_from_call_interface = Token::at(token_contract_address).transfer_batch(addresses, transfer_amount, 0);
-//     env.call_private_void(transfer_batch_private_from_call_interface);
+#[test]
+unconstrained fn transfer_private_batch_success() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, token_contract_address, issuer, user1, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let user2 = env.create_account_contract(3);
+    let user3 = env.create_account_contract(4); 
 
-//     let mut total_transfer_amount = 0;
-//     for i in 0..4 {
-//         total_transfer_amount += transfer_amount[i];
-//     }
+    env.impersonate(issuer);
 
-//     std::println("ici 1");
-//     utils::check_private_balance(token_contract_address, issuer, mint_amount - total_transfer_amount);
-//         std::println("ici 2");
-//     utils::check_private_balance(token_contract_address, addresses[0], transfer_amount[0]);
-//         std::println("ici 3");
 
-//     utils::check_private_balance(token_contract_address, addresses[1], transfer_amount[1]);
-// }
+    let mut total_transfer_amount = 100;
+
+
+    let transfer_batch_private_from_call_interface = Token::at(token_contract_address).transfer_batch([user1], [100], 0);
+    env.call_private_void(transfer_batch_private_from_call_interface);
+
+
+    utils::check_private_balance(token_contract_address, issuer, mint_amount - total_transfer_amount);
+    utils::check_private_balance(token_contract_address, user1, total_transfer_amount);
+
+}
 
 
 #[test(should_fail_with="Balance too low")]
@@ -143,7 +143,6 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_without_approval() 
     env.impersonate(recipient);
     // Transfer tokens
     env.assert_private_call_fails(transfer_private_from_call_interface);
-
 }
 
 #[test]
