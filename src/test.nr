@@ -1,7 +1,7 @@
 mod utils;
-mod transfer_private;
+//mod transfer_private;
 // mod reading_constants;
-// mod test_mint;
+mod test_mint;
 // mod test_burn;
 
 //mod test_validation_module;

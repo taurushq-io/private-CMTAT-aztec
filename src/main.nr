@@ -273,14 +273,9 @@ contract Token {
 //############ MINT ############
 
 
-
-    /*
-    * @info : wether the contract is paused or not is checked in the _mint function
-    * @TODO: should we restrict the "to" address to not be the issuer, in order to prevent a "malicious" issuer from not
-    * revealing the "real" supply of the token, ex: by minting 100% of tokens to himself, he can hide the supply held by users
-    */
     #[aztec(private)]
-    fn mint(to: AztecAddress, amount: Field) {
+    #[aztec(internal)]    
+    fn _mint_internal(to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
         let issuer = storage.issuer_address.get_current_value_in_private();
@@ -291,7 +286,16 @@ contract Token {
         note.emit(encode_and_encrypt_note(&mut context,to,to));
         //encrypt the note for the issuer
         note.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
+    }
 
+    /*
+    * @info : wether the contract is paused or not is checked in the _mint function
+    * @TODO: should we restrict the "to" address to not be the issuer, in order to prevent a "malicious" issuer from not
+    * revealing the "real" supply of the token, ex: by minting 100% of tokens to himself, he can hide the supply held by users
+    */
+    #[aztec(private)]
+    fn mint(to: AztecAddress, amount: Field) {
+        Token::at(context.this_address())._mint_internal(to,amount).call(&mut context);
         Token::at(context.this_address())._mint(context.msg_sender(),amount).enqueue(&mut context);
     }
 
@@ -300,11 +304,15 @@ contract Token {
     fn mint_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL]) {
         assert(accounts.len() != 0,"Mint module empty" );
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
+        let mut acc = 0;
 
         for i in 0..accounts.len() {
             //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address()).mint(accounts[i], amount[i]).call(&mut context);
+            Token::at(context.this_address())._mint_internal(accounts[i], amount[i]).call(&mut context);
+            acc += amount[i];
         }
+
+        Token::at(context.this_address())._mint(context.msg_sender(),acc).enqueue(&mut context);
     }
 
 
@@ -450,6 +458,7 @@ contract Token {
     #[aztec(public)]
     #[aztec(internal)]
     fn _mint(caller: AztecAddress, amount: Field) {
+         std::println("cc");
         storage.access_control.only_role(MINTER_ROLE, caller);
         assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
