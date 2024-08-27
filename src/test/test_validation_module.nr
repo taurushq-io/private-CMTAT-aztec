@@ -1,9 +1,9 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes};
+use dep::aztec::{test::helpers::cheatcodes, oracle::{execution::{get_block_number, get_contract_address}}};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 use crate::types::validationModule::{SetFlag, UserFlags, ValidationModule};
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
+use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE, MINTER_ROLE};
 
 
 

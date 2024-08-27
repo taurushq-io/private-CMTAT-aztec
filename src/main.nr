@@ -5,13 +5,13 @@ contract Token {
     // Libs
  
     use dep::compressed_string::FieldCompressedString;
+    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
     use dep::aztec::{
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable,SharedMutable, PrivateSet, AztecAddress},
         encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note},encrypted_event_emission::{encode_and_encrypt_event_unconstrained}},
+        keys::getters::get_current_public_keys
     };
-
-    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
     use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{PauseModule, BoolEmul}, access_controlModule::{AccessControlModule, Role, RoleData, DEFAULT_ADMIN_ROLE, MINTER_ROLE, BURNER_ROLE},  enforcementModule::{Freezable, FreezableFlag}, extensions::{creditEventsModule::{CreditEventsStruct, CreditEvents}, debtBaseModule::{DebtBase, DebtBaseStruct}}};    
 
@@ -256,6 +256,18 @@ contract Token {
         storage.total_supply.read().to_integer()
     }
 
+    #[aztec(public)]
+    #[aztec(view)]
+    fn public_get_issuer() -> pub AztecAddress {
+        storage.issuer_address.get_current_value_in_public()
+    }
+
+    #[aztec(private)]
+     #[aztec(view)]
+    fn private_get_issuer() -> pub AztecAddress {
+        storage.issuer_address.get_current_value_in_private()
+    }
+
 
 
 //############ MINT ############
@@ -272,14 +284,15 @@ contract Token {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
         let issuer = storage.issuer_address.get_current_value_in_private();
-        let note = storage.balances.add(to, U128::from_integer(amount));
+        let to_keys = get_current_public_keys(&mut context, to);
+
+        let note = storage.balances.add(to, to_keys.npk_m, U128::from_integer(amount));
 
         note.emit(encode_and_encrypt_note(&mut context,to,to));
         //encrypt the note for the issuer
         note.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
 
-        Token::at(context.this_address())._mint(amount).enqueue(&mut context);
-
+        Token::at(context.this_address())._mint(context.msg_sender(),amount).enqueue(&mut context);
     }
 
     //everyone can call this function, but will revert in _mint if not minter role
@@ -308,22 +321,23 @@ contract Token {
     #[aztec(private)]
     fn transfer( to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
-        std::println(from);
 
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
-
         storage.validation_module.operateOnTransfer(context.msg_sender(),to);
 
         let issuer = storage.issuer_address.get_current_value_in_private();
+        let from_keys = get_current_public_keys(&mut context, from);
+        let to_keys = get_current_public_keys(&mut context, to);
+
         let amount = U128::from_integer(amount);
 
-        let note_sub = storage.balances.sub(from, amount);
+        let note_sub = storage.balances.sub(from,from_keys.npk_m , amount);
         note_sub.emit(encode_and_encrypt_note(&mut context,from,from));
         //encrypt the note for the issuer
         note_sub.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
 
-        let note_add = storage.balances.add(to, amount);
+        let note_add = storage.balances.add(to, to_keys.npk_m, amount);
         note_add.emit(encode_and_encrypt_note(&mut context,from,to));
         //encrypt the note for the issuer
         note_add.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
@@ -364,11 +378,13 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
+        let from_keys = get_current_public_keys(&mut context, from);
+        let to_keys = get_current_public_keys(&mut context, to);
 
         let amount = U128::from_integer(amount);
 
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note(&mut context, from, to));
+        storage.balances.sub(from,from_keys.npk_m, amount).emit(encode_and_encrypt_note(&mut context, from, from));
+        storage.balances.add(to,to_keys.npk_m, amount).emit(encode_and_encrypt_note(&mut context, from, to));
 
 
         Token::at(context.this_address())._transferFrom().enqueue(&mut context);
@@ -384,7 +400,7 @@ contract Token {
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = context.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-        context.push_nullifier(nullifier, 0);
+        context.push_nullifier(nullifier);
     }
 
 
@@ -397,22 +413,20 @@ contract Token {
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
 
-        // assert(!storage.rule_module.is_blacklisted(from), "Blacklisted: Sender");
-        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
-
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
         let issuer = storage.issuer_address.get_current_value_in_private();
+        let from_keys = get_current_public_keys(&mut context, from);
 
-        let note = storage.balances.sub(from, U128::from_integer(amount));
+        let note = storage.balances.sub(from,from_keys.npk_m, U128::from_integer(amount));
         note.emit(encode_and_encrypt_note(&mut context, from, from));
         //encrypt the note for the issuer 
         note.emit(encode_and_encrypt_note(&mut context, issuer, issuer));
 
-        Token::at(context.this_address())._burn(amount).enqueue(&mut context);
+        Token::at(context.this_address())._burn(context.msg_sender(), amount).enqueue(&mut context);
     }
     
     //can nonce be the same for all accounts?
@@ -435,8 +449,8 @@ contract Token {
 
     #[aztec(public)]
     #[aztec(internal)]
-    fn _mint(amount: Field) {
-        storage.access_control.only_role(MINTER_ROLE, context.msg_sender());
+    fn _mint(caller: AztecAddress, amount: Field) {
+        storage.access_control.only_role(MINTER_ROLE, caller);
         assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
         storage.total_supply.write(supply);
@@ -444,8 +458,8 @@ contract Token {
 
     #[aztec(public)]
     #[aztec(internal)]
-    fn _burn(amount: Field) {
-        storage.access_control.only_role(BURNER_ROLE, context.msg_sender());
+    fn _burn(caller: AztecAddress, amount: Field) {
+        storage.access_control.only_role(BURNER_ROLE, caller);
         assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
         storage.total_supply.write(new_supply);
@@ -472,6 +486,7 @@ contract Token {
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()
     }
+
 
 }
 

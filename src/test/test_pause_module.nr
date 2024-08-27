@@ -2,7 +2,7 @@ use crate::test::utils;
 use dep::aztec::{test::helpers::cheatcodes};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, PAUSE_ROLE};
+use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, PAUSE_ROLE, MINTER_ROLE};
 
 
 #[test]
@@ -59,7 +59,8 @@ unconstrained fn pause_test(){
     assert(ret == 0);
 }
 
-#[test(should_fail_with="Private balance is not correct")]
+
+#[test(should_fail_with="Error: token contract is paused")]
 unconstrained fn mint_when_paused_fails(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
 
@@ -69,6 +70,9 @@ unconstrained fn mint_when_paused_fails(){
     let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
     env.call_public(grant_pause_roles_call_interface);
 
+    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer);
+    env.call_public(grant_pause_roles_call_interface);
+
     let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
     env.call_public(set_pause_call_interface);
 
@@ -76,18 +80,11 @@ unconstrained fn mint_when_paused_fails(){
     let ret = env.call_public(get_pause_call_interface);
     assert(ret == 1);
 
-    //there is no revert because of paused contract, which is weird
     let mint_private_call_interface = Token::at(token_contract_address).mint(issuer, mint_amount);
     env.call_private_void(mint_private_call_interface);
-
-    let total_supply_call_interface = Token::at(token_contract_address).total_supply();
-    let total_supply = env.call_public(total_supply_call_interface);
-
-    assert(total_supply == 0);
-
-    utils::check_private_balance(token_contract_address, issuer, mint_amount);
-
 }
+
+
 #[test(should_fail_with="error: contract already paused")]
 unconstrained fn pause_twice_throws(){
 

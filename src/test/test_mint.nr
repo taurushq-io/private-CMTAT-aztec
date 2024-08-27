@@ -60,7 +60,7 @@ unconstrained fn mint_private_batch_success() {
 }
 
 
-#[test(should_fail_with="Caller is not issuer")]
+#[test(should_fail_with="Assertion failed: AccessControlUnauthorizedAccount")]
 unconstrained fn mint_private_failure_non_minter() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, user1) = utils::setup(/* with_account_contracts */ false);

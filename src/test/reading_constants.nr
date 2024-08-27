@@ -27,3 +27,23 @@ unconstrained fn check_decimals_public() {
 
     assert(result == 18 as u8);
 }
+
+#[test]
+unconstrained fn check_issuer_addr_public() {
+    let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
+
+    let issuer_call_interface = Token::at(token_contract_address).public_get_issuer();
+    let issuer_addr = env.call_public(issuer_call_interface);
+
+    assert(issuer == issuer_addr);
+}
+
+#[test]
+unconstrained fn check_issuer_addr_private() {
+    let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
+
+    let issuer_priv_call_interface = Token::at(token_contract_address).private_get_issuer();
+    let issuer_addr_priv = env.call_private(issuer_priv_call_interface);
+
+    assert(issuer == issuer_addr_priv);
+}

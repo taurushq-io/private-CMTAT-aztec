@@ -6,7 +6,7 @@ use dep::aztec::{
     oracle::{execution::{get_block_number, get_contract_address}}
 };
 
-use crate::{types::{token_note::TokenNote}, Token};
+use crate::{types::{token_note::TokenNote, access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE}}, Token};
 
 pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -54,12 +54,11 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
     let (env, token_contract_address, issuer, user1) = setup(with_account_contracts);
     let mint_amount = 10000;
 
-    env.impersonate(issuer);
+    let mint_role_call_interface = Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer);
+    env.call_public(mint_role_call_interface);
+
     let mint_private_call_interface = Token::at(token_contract_address).mint(issuer, mint_amount);
     env.call_private_void(mint_private_call_interface);
-
-    // Time travel so we can read keys from the registry
-    env.advance_block_by(6);
 
 
     (env, token_contract_address, issuer, user1, mint_amount)
