@@ -1,10 +1,14 @@
-Private token prototype (with Aztec/Noir)
-https://github.com/taurusgroup/private-tokens
-TODO Gustave Charles-Saigne
-Introduction:
+### Private token prototype (with Aztec/Noir)
+
+
+## Introduction:
+
 Institutions are finally understanding the power of blockchain and the disruptive potential it has for their financial applications, storage and payments, among others. While they are now focusing on riding the wave, and going “onchain“, their next logical question will be: “how can I guarantee the privacy that I had before on this new public and open software?“. This is what certain protocols and teams have thrived to achieve for the past few years: a public and open blockchain that maintains the privacy of its users. Thanks to recent breakthroughs in cryptography, blockchains like Aztec are able to bring enshrined privacy into blockchain. The aim of this project is to leverage the Aztec blockchain to create a private version of the CMTAT, pioneering and getting ahead of the trend.
-Aztec and Noir concepts
- Users addresses and keys 
+
+## Aztec and Noir concepts
+
+# Users addresses and keys 
+
 Keys can be pinned to a certain block so that key rotation doesn’t impact the validity of an authentication at any given time.
 4 keys for each account in Aztec:
 •	nullifier key pair: used for note nullifier computation, comprising the master nullifier secret key (nsk_m) and master nullifier public key (Npk_m). Rotating nullifier keys requires the nullifier public key, or at least an identifier of it, to be stored as part of the note.
@@ -22,6 +26,7 @@ ovskm MAY enter the kernel circuit.
 •	tskm MUST NOT enter an app circuit.
 •	Tpk_m = derive_public_key(tskm)
 •	signing key pair: as there is account abstraction, this will/must be implemented by the wallet provider.
+
 Authentication witness: Scheme for authentication actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf. It is defined for a specific action. For example: allowing an app to transfer funds on your behalf.
 In private context, the authwit is created by the user who is making the action. “I want Defi_protocol to send X tokens on my behalf in private“ → I will call Defi_protocol transfer function, which will call the transfer function of token, which will check with a private execution oracle call if I have authwited the Defi_protocol to send my tokens on its behalf.
 In public context, account contracts will/should store in the account storage the 3rd party authorisations made by a user. When a user makes a call through a 3rd party, it will send in a batch the signature (authwit) to the account contract.
