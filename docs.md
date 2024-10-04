@@ -350,28 +350,34 @@ Questions:
 •	Ask about changes in TokenNote interface from version 0.48.0. What does the TokenNoteHidingPoint mean? What is the compute_note_hiding_point function? Where is it used?
 •	If I emit twice the same note, one for the user and one for the issuer, what do I put instead of the oak_m of the second encryption? I don’t necessarily want the user to end up with two notes that are the same
 •	what happens if I change computer and my PXE is stored on my device?
-TODO:
+
+
+## TODO:
 •	Key rotation: https://docs.aztec.network/guides/smart_contracts/writing_contracts/common_patterns/key_rotation
 •	implement a proof for proving that you own less/more than a certain amount.
 •	look into overflow and test
 •	shareable key
 •	explore the new [contract_library_method] macro on Aztec
-Examples:
-aztec’s example of private token contract with public and private transfers: https://docs.aztec.network/tutorials/contract_tutorials/token_contract
-DEX built on Aztec: https://github.com/porco-rosso-j/aztec-dex-build
-Homomorphic encryption? https://github.com/jat9292/noir-elgamal/ https://github.com/defi-wonderland/aztec-coin-toss-pvp we don’t support FHE on Aztec yet as per: https://forum.aztec.network/t/sharing-private-data-with-authentication-witness/2551 Based on recent discussions, it seems it’d be viable to have shared private state using FHE. But FHE is already fairly expensive on its own, and creating a ZKP over FHE becomes prohibitive, in particular if we expect end-users to be generating these proofs.
-Token transfers flows: https://forum.aztec.network/t/transferring-someone-elses-notes/2586
-Private token using Aztec: https://medium.com/@jat9292/zksnarks-homomorphic-encryption-ethereums-privacy-new-frontier-b30357236a7a
-Aztec explorer:https://github.com/olehmisar/shieldswap?tab=readme-ov-file
-Other ways of doing encryption:
-Zcash Shielded Assets (ZSA):
-•	implemented by https://qed-it.com
-•	In this video: https://www.youtube.com/watch?v=L_ZtZCUvDqw the following question is asked with the following answer: Question: Does the ZSA issuer has any way to track assets and transactions once owners have included the ZSAs in shielded transactions? Answer: Basically, no.
-•	Their proposal has been reject by Zcash community
-Polygon Miden:
-Encrypted notes are not live yet on Miden. There are only private and public notes for now. “Support for encrypted notes will be added later on.” from their Discord server.
-ZAMA:
-https://www.zama.ai
+
+## Examples:
+- aztec’s example of private token contract with public and private transfers: https://docs.aztec.network/tutorials/contract_tutorials/token_contract
+- DEX built on Aztec: https://github.com/porco-rosso-j/aztec-dex-build
+- Homomorphic encryption? https://github.com/jat9292/noir-elgamal/ https://github.com/defi-wonderland/aztec-coin-toss-pvp we don’t support FHE on Aztec yet as per: https://forum.aztec.network/t/sharing-private-data-with-authentication-witness/2551 Based on recent discussions, it seems it’d be viable to have shared private state using FHE. But FHE is already fairly expensive on its own, and creating a ZKP over FHE becomes prohibitive, in particular if we expect end-users to be generating these proofs.
+- Token transfers flows: https://forum.aztec.network/t/transferring-someone-elses-notes/2586
+- Private token using Aztec: https://medium.com/@jat9292/zksnarks-homomorphic-encryption-ethereums-privacy-new-frontier-b30357236a7a
+- Aztec explorer:https://github.com/olehmisar/shieldswap?tab=readme-ov-file
+
+## Other ways of doing encryption:
+- Zcash Shielded Assets (ZSA):
+  • implemented by https://qed-it.com
+  •	In this video: https://www.youtube.com/watch?v=L_ZtZCUvDqw the following question is asked with the following answer: Question: Does the ZSA issuer has any way to track assets and transactions once owners have included the ZSAs in shielded transactions? Answer: Basically, no.
+  •	Their proposal has been reject by Zcash community
+
+- Polygon Miden:
+  Encrypted notes are not live yet on Miden. There are only private and public notes for now. “Support for encrypted notes will be added later on.” from their Discord server.
+- ZAMA:
+  https://www.zama.ai
+
 https://aleo.org
 https://ergoplatform.org/en/
 Silent data:
