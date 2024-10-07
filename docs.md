@@ -256,16 +256,6 @@ Since any data that is moving from one chain to another will, at some point, res
 
 - Details on messages from L2 to L1 were not provided.
 
-## Additional Resources
-
-- **Aztec’s Thursday Presentations**: [Link](https://drive.google.com/drive/folders/1bS0hZ2oVpY3okZ0XFdG7aipa0Th9rOPy)
-- **Aztec Development Notes**: [Link](https://github.com/AztecProtocol/engineering-designs)
-- **Protocol Limitations**: [Link](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.49.1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr)
-- **Testnet Information**:
-  - 10 TPS/second on testnet.
-  - Testnet coming in December/January.
-  - Noir compiler audit in January 2025.
-
 
 ## Private Token Implementation
 
