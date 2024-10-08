@@ -620,7 +620,7 @@ Refer to contract instances and contract classes to understand this better. See 
 - **Generate TypeScript Artifacts**:
 
   ```bash
-  aztec-builder codegen -o src/artifacts target
+  aztec codegen -o src/artifacts target
   ```
 
 - **Note**:

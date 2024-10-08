@@ -84,6 +84,30 @@ unconstrained fn mint_when_paused_fails(){
     env.call_private_void(mint_private_call_interface);
 }
 
+#[test(should_fail_with="Error: token contract is paused")]
+unconstrained fn transfer_when_paused_fails(){
+    let (env, token_contract_address, issuer, user) = utils::setup_and_mint(/* with_account_contracts */ false);
+
+    let mint_amount = 100;
+    env.impersonate(issuer);
+
+    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
+    env.call_public(grant_pause_roles_call_interface);
+
+    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer);
+    env.call_public(grant_pause_roles_call_interface);
+
+    let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
+    env.call_public(set_pause_call_interface);
+
+    let get_pause_call_interface = Token::at(token_contract_address).public_get_pause();
+    let ret = env.call_public(get_pause_call_interface);
+    assert(ret == 1);
+
+    let mint_private_call_interface = Token::at(token_contract_address).transfer(issuer, mint_amount);
+    env.call_private_void(mint_private_call_interface);
+}
+
 
 #[test(should_fail_with="error: contract already paused")]
 unconstrained fn pause_twice_throws(){
