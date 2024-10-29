@@ -1,0 +1,16 @@
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# Following Teams will be requested for
+# review when someone opens a pull request.
+* @taurusgroup/taurus-solutions
+* @taurusgroup/taurus-platform-and-services
+* @taurusgroup/taurus-security
+* @taurusgroup/taurus-r-and-d
+* @taurusgroup/taurus-protect-core
+* @taurusgroup/taurus-protect-blockchain
+* @taurusgroup/taurus-protect-frontend
+* @taurusgroup/taurus-tdx-backend
+* @taurusgroup/taurus-tdx-frontend
+* @taurusgroup/taurus-uiux-and-frontend
+
+.github/CODEOWNERS @taurusgroup/taurus-secops
