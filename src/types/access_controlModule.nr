@@ -26,7 +26,7 @@ struct RoleData<Context> {
 
 //Define the AccessControl storage
 struct AccessControlModule<T,Context> {
-    roles: Map<Role, RoleData<Context>, Context>,
+    pub roles: Map<Role, RoleData<Context>, Context>,
 }
 
 impl<T,Context> AccessControlModule<T,Context> {

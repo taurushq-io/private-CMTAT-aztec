@@ -1,68 +1,92 @@
 mod types;
-mod test;
+//mod test;
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Token {
     // Libs
- 
     use dep::compressed_string::FieldCompressedString;
-    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier}};
 
+    use dep::authwit::auth::{
+        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+        compute_authwit_nullifier,
+    };
     use dep::aztec::{
-        prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable,SharedMutable, PrivateSet, AztecAddress},
-        encrypted_logs::{encrypted_note_emission::{encode_and_encrypt_note},encrypted_event_emission::{encode_and_encrypt_event_unconstrained}},
-        keys::getters::get_current_public_keys
+        macros::{
+            functions::{initializer, internal, private, public, view},
+            storage::storage,
+        },
+        prelude::{
+            AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedImmutable,
+            SharedMutable,
+        },
     };
 
-    use crate::types::{ token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap,  validationModule::{SetFlag, UserFlags, ValidationModule}, pauseModule::{PauseModule, BoolEmul}, access_controlModule::{AccessControlModule, Role, RoleData, DEFAULT_ADMIN_ROLE, MINTER_ROLE, BURNER_ROLE},  enforcementModule::{Freezable, FreezableFlag}, extensions::{creditEventsModule::{CreditEventsStruct, CreditEvents}, debtBaseModule::{DebtBase, DebtBaseStruct}}};    
+    use crate::types::{
+        access_controlModule::{
+            AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE, Role, RoleData,
+        },
+        balances_map::BalancesMap,
+        enforcementModule::{Freezable, FreezableFlag},
+        extensions::{
+            creditEventsModule::{CreditEvents, CreditEventsStruct},
+            debtBaseModule::{DebtBase, DebtBaseStruct},
+        },
+        pauseModule::{BoolEmul, PauseModule},
+        validationModule::{SetFlag, UserFlags, ValidationModule},
+        balance_set::BalanceSet,
+    };
+    use dep::value_note::{balance_utils, utils::{decrement, increment}, value_note::ValueNote};
+    
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 2;
-    //This global is used when doing batching. We set a 
+    //This global is used when doing batching. We set a
     global MAX_ADDR_PER_CALL = 1;
 
-    #[aztec(event)]
-    struct Paused {
-        account: AztecAddress
+    // #[derive(Serialize)]
+    // #[event]
+    // struct Paused {
+    //     account: AztecAddress
+    // }
+
+    // #[event]
+    // struct Unpaused {
+    //     account: AztecAddress
+    // }
+
+    // #[event]
+    // struct Transfer {
+    //     from: AztecAddress,
+    //     to: AztecAddress,
+    //     amount: Field,
+    // }
+
+
+
+    #[storage]
+    struct Storage<Context> {
+
+        pause_module: PauseModule<BoolEmul, Context>,
+        validation_module: ValidationModule<UserFlags, Context>,
+        enforcement_module: Freezable<FreezableFlag, Context>,
+        access_control: AccessControlModule<bool, Context>,
+        credit_event_module: CreditEvents<bool, Context>,
+        debt_base_module: DebtBase<bool, Context>,
+
+        issuer_address: SharedMutable<AztecAddress, CHANGE_ROLES_DELAY_BLOCKS, Context>,
+
+        balances: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+        total_supply: PublicMutable<U128, Context>,
+
+        symbol: SharedImmutable<FieldCompressedString, Context>,
+        name: SharedImmutable<FieldCompressedString, Context>,
+        decimals: SharedImmutable<u8, Context>,
     }
 
-    #[aztec(event)]
-    struct Unpaused {
-        account: AztecAddress
-    }
-
-    #[aztec(event)]
-    struct Transfer {
-        from: AztecAddress,
-        to: AztecAddress,
-        amount: Field,
-    }
-
-
-
-    #[aztec(storage)]
-    struct Storage {
-
-        pause_module: PauseModule<BoolEmul>,
-        validation_module: ValidationModule<UserFlags>,
-        enforcement_module: Freezable<FreezableFlag>,
-        access_control: AccessControlModule<bool>,
-        credit_event_module: CreditEvents<bool>,
-        debt_base_module: DebtBase<bool>,
-
-        issuer_address: SharedMutable<AztecAddress, CHANGE_ROLES_DELAY_BLOCKS>,
-
-        balances: BalancesMap<TokenNote>,
-        total_supply: PublicMutable<U128>,
-
-        symbol: SharedImmutable<FieldCompressedString>,
-        name: SharedImmutable<FieldCompressedString>,
-        decimals: SharedImmutable<u8>,        
-
-    }
-
-    #[aztec(public)]
-    #[aztec(initializer)]
-    //TODO a ABI encoding problem in core library doesn't allow us to input a tokenName, tokenSymbol and tokenDecimals for now
+    #[public]
+    #[initializer]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
         assert(!admin.is_zero(), "invalid admin");
         storage.name.initialize(FieldCompressedString::from_string(name));
@@ -72,72 +96,79 @@ contract Token {
         storage.issuer_address.schedule_value_change(admin);
     }
 
+    //############ AUTHORIZATION MODULE ############
 
-
-//############ AUTHORIZATION MODULE ############
-
-    #[aztec(public)]
+    #[public]
     // #[aztec(view)]
-    fn has_role( role: Field, account: AztecAddress) -> pub Field {
-        storage.access_control.has_role(role,account).to_field()
+    fn has_role(role: Field, account: AztecAddress) -> pub Field {
+        storage.access_control.has_role(role, account).to_field()
     }
 
-    #[aztec(public)]
+    #[public]
     fn only_role(role: Field, caller: AztecAddress) {
-        storage.access_control.only_role(role,caller);
+        storage.access_control.only_role(role, caller);
     }
 
-    #[aztec(public)]
-    fn grant_role( role: Field, account: AztecAddress) {
-         storage.access_control.grant_role(role,account);
+    #[public]
+    fn grant_role(role: Field, account: AztecAddress) {
+        storage.access_control.grant_role(role, account);
     }
 
     /**
      * @roles: onlyAdmin
      * @notice: revoking a pause contract role when the contract is paused can cause the contract to be stuck in a paused state.
      */
-    #[aztec(public)]
+    #[public]
     fn revoke_role(role: Field, account: AztecAddress) {
-        storage.access_control.revoke_role(role,account)
+        storage.access_control.revoke_role(role, account)
     }
 
-    #[aztec(public)]
+    #[public]
     fn renounce_role(role: Field, callerConfirmation: AztecAddress) {
-        storage.access_control.renounce_role(role,context.msg_sender(), callerConfirmation);
+        storage.access_control.renounce_role(role, context.msg_sender(), callerConfirmation);
     }
 
+    //############ VALIDATION MODULE ############
 
-//############ VALIDATION MODULE ############
-
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn get_operations() -> pub Field {
         storage.validation_module.get_operations()
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_operations(operations: SetFlag) {
-        storage.validation_module.set_operations(context.msg_sender(), operations, storage.access_control);
+        storage.validation_module.set_operations(
+            context.msg_sender(),
+            operations,
+            storage.access_control,
+        );
     }
 
-    #[aztec(public)]
+    #[public]
     fn add_to_list(newListAddress: AztecAddress, userFlag: UserFlags) {
-        storage.validation_module.add_to_list(context.msg_sender(), newListAddress, userFlag, storage.access_control);
+        storage.validation_module.add_to_list(
+            context.msg_sender(),
+            newListAddress,
+            userFlag,
+            storage.access_control,
+        );
     }
 
-    #[aztec(public)]
-    fn remove_from_list( removeListAddress: AztecAddress, userFlag: UserFlags) {
-        storage.validation_module.remove_from_list(context.msg_sender(), removeListAddress, userFlag, storage.access_control);
+    #[public]
+    fn remove_from_list(removeListAddress: AztecAddress, userFlag: UserFlags) {
+        storage.validation_module.remove_from_list(
+            context.msg_sender(),
+            removeListAddress,
+            userFlag,
+            storage.access_control,
+        );
     }
 
+    //############ PAUSE MODULE ############
 
-
-//############ PAUSE MODULE ############
-
-
-
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn public_get_pause() -> pub Field {
         storage.pause_module.is_paused().to_field()
     }
@@ -146,149 +177,142 @@ contract Token {
      * @roles: onlyAdmin
      * @notice: The contract must not be paused.
      */
-    #[aztec(public)]
+    #[public]
     fn pause_contract() {
         let admin = context.msg_sender();
         storage.pause_module.pause(admin, storage.access_control);
     }
 
-     #[aztec(public)]
+    #[public]
     fn unpause_contract() {
         let admin = context.msg_sender();
         storage.pause_module.unpause(admin, storage.access_control);
-
     }
 
+    //############ ENFORCEMENT MODULE ############
 
-//############ ENFORCEMENT MODULE ############
-
-
-
-    #[aztec(public)]
-    #[aztec(view)]
-    fn get_frozen(user: AztecAddress) -> pub Field{
+    #[public]
+    #[view]
+    fn get_frozen(user: AztecAddress) -> pub Field {
         storage.enforcement_module.is_frozen(user).to_field()
     }
 
-    #[aztec(public)]
+    #[public]
     fn freeze(user: AztecAddress, value: FreezableFlag) {
         storage.enforcement_module.freeze(context.msg_sender(), user, value, storage.access_control);
     }
 
-    #[aztec(public)]
+    #[public]
     fn unfreeze(user: AztecAddress, value: FreezableFlag) {
-        storage.enforcement_module.unfreeze(context.msg_sender(), user, value, storage.access_control);
+        storage.enforcement_module.unfreeze(
+            context.msg_sender(),
+            user,
+            value,
+            storage.access_control,
+        );
     }
 
+    //############ CREDIT EVENTS MODULE ############
 
-
-//############ CREDIT EVENTS MODULE ############
-
-
-    //Note: as events are only allowed in the main contract, we have decided not to put them yet for this function. 
-    #[aztec(public)]
+    //Note: as events are only allowed in the main contract, we have decided not to put them yet for this function.
+    #[public]
     fn set_credit_events(credit_events: CreditEventsStruct) {
-        storage.credit_event_module.setCreditEvents(credit_events, context.msg_sender(), storage.access_control);
+        storage.credit_event_module.setCreditEvents(
+            credit_events,
+            context.msg_sender(),
+            storage.access_control,
+        );
     }
 
-    #[aztec(public)]
-    fn get_credit_events() -> [Field; 3]{
+    #[public]
+    fn get_credit_events() -> [Field; 3] {
         storage.credit_event_module.get_credit_events()
     }
 
+    //############ DEBT BASE MODULE ############
 
-//############ DEBT BASE MODULE ############
-
-
-
-    #[aztec(public)]
+    #[public]
     fn set_debt_base(debt_base_: DebtBaseStruct) {
         storage.debt_base_module.setDebt(debt_base_, context.msg_sender(), storage.access_control);
     }
 
-    #[aztec(public)]
-    fn get_debt_base()  -> [Field; 12]{
+    #[public]
+    fn get_debt_base() -> [Field; 12] {
         storage.debt_base_module.get_debt_base()
     }
 
+    //############ GETTERS ############
 
-
-//############ GETTERS ############
-
-
-
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn public_get_name() -> pub FieldCompressedString {
         storage.name.read_public()
     }
 
-    #[aztec(private)]
-    #[aztec(view)]
+    #[private]
+    #[view]
     fn private_get_name() -> pub FieldCompressedString {
         storage.name.read_private()
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_public()
     }
 
-    #[aztec(private)]
-    #[aztec(view)]
+    #[private]
+    #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read_private()
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn public_get_decimals() -> pub u8 {
         storage.decimals.read_public()
     }
 
-    #[aztec(private)]
-    #[aztec(view)]
+    #[private]
+    #[view]
     fn private_get_decimals() -> pub u8 {
         storage.decimals.read_private()
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn total_supply() -> Field {
         storage.total_supply.read().to_integer()
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn public_get_issuer() -> pub AztecAddress {
         storage.issuer_address.get_current_value_in_public()
     }
 
-    #[aztec(private)]
-     #[aztec(view)]
+    #[private]
+    #[view]
     fn private_get_issuer() -> pub AztecAddress {
         storage.issuer_address.get_current_value_in_private()
     }
 
+    //############ MINT ############
 
-
-//############ MINT ############
-
-
-    #[aztec(private)]
-    #[aztec(internal)]    
+    #[private]
+    #[internal]
+    //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
     fn _mint_internal(to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
         let issuer = storage.issuer_address.get_current_value_in_private();
-        let to_keys = get_current_public_keys(&mut context, to);
 
-        let note = storage.balances.add(to, to_keys.npk_m, U128::from_integer(amount));
+        increment(storage.balances.at(to), amount,to,to,to)
 
-        note.emit(encode_and_encrypt_note(&mut context,to,to));
+
+        //note.emit(encode_and_encrypt_note(&mut context, to, to));
         //encrypt the note for the issuer
-        note.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
+        //note.emit(encode_and_encrypt_note(&mut context, issuer, issuer));
     }
 
     /*
@@ -296,54 +320,51 @@ contract Token {
     * @TODO: should we restrict the "to" address to not be the issuer, in order to prevent a "malicious" issuer from not
     * revealing the "real" supply of the token, ex: by minting 100% of tokens to himself, he can hide the supply held by users
     */
-    #[aztec(private)]
+    #[private]
     fn mint(to: AztecAddress, amount: Field) {
-        Token::at(context.this_address())._mint_internal(to,amount).call(&mut context);
-        Token::at(context.this_address())._mint(context.msg_sender(),amount).enqueue(&mut context);
+        Token::at(context.this_address())._mint_internal(to, amount).call(&mut context);
+        Token::at(context.this_address())._mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
     //everyone can call this function, but will revert in _mint if not minter role
-    #[aztec(private)]
+    #[private]
     fn mint_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL]) {
-        assert(accounts.len() != 0,"Mint module empty" );
+        assert(accounts.len() != 0, "Mint module empty");
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
         let mut acc = 0;
 
         for i in 0..accounts.len() {
             //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address())._mint_internal(accounts[i], amount[i]).call(&mut context);
+            Token::at(context.this_address())._mint_internal(accounts[i], amount[i]).call(
+                &mut context,
+            );
             acc += amount[i];
         }
 
-        Token::at(context.this_address())._mint(context.msg_sender(),acc).enqueue(&mut context);
+        Token::at(context.this_address())._mint(context.msg_sender(), acc).enqueue(&mut context);
     }
 
+    //############ TRANSFER ############
 
-
-//############ TRANSFER ############
-
-    #[aztec(private)]
-    #[aztec(internal)]   
+    #[private]
+    #[internal]
+    //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
+    //in library, so I don't need to emit it again here. Problem is that I cannot emit to issuer here, as I don't have the note.
     fn _transfer_internal(from: AztecAddress, to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
-        storage.validation_module.operateOnTransfer(from,to);
+        storage.validation_module.operateOnTransfer(from, to);
 
         let issuer = storage.issuer_address.get_current_value_in_private();
-        let from_keys = get_current_public_keys(&mut context, from);
-        let to_keys = get_current_public_keys(&mut context, to);
 
-        let amount = U128::from_integer(amount);
-
-        let note_sub = storage.balances.sub(from,from_keys.npk_m , amount);
-        note_sub.emit(encode_and_encrypt_note(&mut context,from,from));
+        decrement(storage.balances.at(from),amount,from,from,from);
+        //note_sub.emit(encode_and_encrypt_note(&mut context,from,from));
         //encrypt the note for the issuer
-        note_sub.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
-
-        let note_add = storage.balances.add(to, to_keys.npk_m, amount);
-        note_add.emit(encode_and_encrypt_note(&mut context,from,to));
+        //note_sub.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
+        increment(storage.balances.at(to),amount,to,from,from);
+        //note_add.emit(encode_and_encrypt_note(&mut context,from,to));
         //encrypt the note for the issuer
-        note_add.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
+        //note_add.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
     }
 
     /*
@@ -351,65 +372,71 @@ contract Token {
     * NOTE: the nonce here is used to prevent replay attacks. By constraining it to be equal to 0 afterwards,
     * we assure that the signature of this function call can only be done once 
     */
-    #[aztec(private)]
-    fn transfer( to: AztecAddress, amount: Field) {
+    #[private]
+    fn transfer(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
-        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);        
+        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
         Token::at(context.this_address())._transfer().enqueue(&mut context);
-        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_unconstrained(&mut context, from, to));
+        // Transfer { from, to, amount: amount.to_field() }.emit(
+        //     encode_and_encrypt_event_unconstrained(&mut context, from, to),
+        // );
     }
-
 
     /*
     * as the max number of encrypted logs is 4 per call, and a transfer has 4 encrypted logs, batching the transfers won't work for more than one call, equivalent as not batching.
     */
-    #[aztec(private)]
-    fn transfer_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
+    #[private]
+    fn transfer_batch(
+        accounts: [AztecAddress; MAX_ADDR_PER_CALL],
+        amount: [Field; MAX_ADDR_PER_CALL],
+        nonce: Field,
+    ) {
         // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
-        assert(accounts.len() != 0,"Mint module empty" );
+        assert(accounts.len() != 0, "Mint module empty");
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
         for i in 0..MAX_ADDR_PER_CALL {
-            Token::at(context.this_address())._transfer_internal(context.msg_sender(), accounts[i], amount[i]).call(&mut context);
+            Token::at(context.this_address())
+                ._transfer_internal(context.msg_sender(), accounts[i], amount[i])
+                .call(&mut context);
         }
         Token::at(context.this_address())._transferFrom().enqueue(&mut context);
     }
 
-
-    //Same pattern as ERC20. 
-    #[aztec(private)]
+    //Same pattern as ERC20.
+    #[private]
     fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
-        //the authwit is used to allow a thrid party to spend funds of a user upon approval. 
-        //should we check if the 3rd party initiating this transaction is able to do the transfer? 
+        //the authwit is used to allow a thrid party to spend funds of a user upon approval.
+        //should we check if the 3rd party initiating this transaction is able to do the transfer?
 
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);        
+        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
         Token::at(context.this_address())._transferFrom().enqueue(&mut context);
-        Transfer { from, to, amount: amount.to_field() }.emit(encode_and_encrypt_event_unconstrained(&mut context, from, to));
+        // Transfer { from, to, amount: amount.to_field() }.emit(
+        //     encode_and_encrypt_event_unconstrained(&mut context, from, to),
+        // );
     }
 
     /**
      * Cancel a private authentication witness.
      * @param inner_hash The inner hash of the authwit to cancel.
      */
-    #[aztec(private)]
+    #[private]
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = context.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         context.push_nullifier(nullifier);
     }
 
-
-
-//############ BURN ############
-
+    //############ BURN ############
 
     //we need an authwit from the user that has the notes to burn his notes.
-    #[aztec(private)]
+    //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
+    #[private]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
 
@@ -419,21 +446,24 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
         let issuer = storage.issuer_address.get_current_value_in_private();
-        let from_keys = get_current_public_keys(&mut context, from);
 
-        let note = storage.balances.sub(from,from_keys.npk_m, U128::from_integer(amount));
-        note.emit(encode_and_encrypt_note(&mut context, from, from));
-        //encrypt the note for the issuer 
-        note.emit(encode_and_encrypt_note(&mut context, issuer, issuer));
+        decrement(storage.balances.at(from), amount, from, from, from);
+        //note.emit(encode_and_encrypt_note(&mut context, from, from));
+        //encrypt the note for the issuer
+        //note.emit(encode_and_encrypt_note(&mut context, issuer, issuer));
 
         Token::at(context.this_address())._burn(context.msg_sender(), amount).enqueue(&mut context);
     }
-    
+
     //can nonce be the same for all accounts?
-    #[aztec(private)]
-    fn burn_batch(accounts: [AztecAddress; MAX_ADDR_PER_CALL], amount: [Field; MAX_ADDR_PER_CALL], nonce: Field) {
+    #[private]
+    fn burn_batch(
+        accounts: [AztecAddress; MAX_ADDR_PER_CALL],
+        amount: [Field; MAX_ADDR_PER_CALL],
+        nonce: Field,
+    ) {
         // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
-        assert(accounts.len() != 0,"Mint module empty" );
+        assert(accounts.len() != 0, "Mint module empty");
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
         for i in 0..MAX_ADDR_PER_CALL {
@@ -442,13 +472,10 @@ contract Token {
         }
     }
 
+    //############ INTERNAL ############
 
-//############ INTERNAL ############
-
-
-
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
     fn _mint(caller: AztecAddress, amount: Field) {
         storage.access_control.only_role(MINTER_ROLE, caller);
         assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
@@ -456,8 +483,20 @@ contract Token {
         storage.total_supply.write(supply);
     }
 
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
+    fn _transfer() {
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
+    }
+
+    #[public]
+    #[internal]
+    fn _transferFrom() {
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
+    }
+
+    #[public]
+    #[internal]
     fn _burn(caller: AztecAddress, amount: Field) {
         storage.access_control.only_role(BURNER_ROLE, caller);
         assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
@@ -465,29 +504,12 @@ contract Token {
         storage.total_supply.write(new_supply);
     }
 
-    #[aztec(public)]
-    #[aztec(internal)]
-    fn _transfer() {
-        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
-    }
 
-    #[aztec(public)]
-    #[aztec(internal)]
-    fn _transferFrom() {
-        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
-    }
+    // //############ UNCONSTRAINED ############
 
-
-
-//############ UNCONSTRAINED ############
-
-
-
-    unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
-        storage.balances.balance_of(owner).to_field()
-    }
-
+    // unconstrained fn balance_of_private() -> pub Field {
+    //     storage.balances.balance_of()
+    // }
 
 }
-
 
