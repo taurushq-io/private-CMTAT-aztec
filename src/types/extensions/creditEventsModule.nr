@@ -24,21 +24,22 @@ global T_SERIALIZED_LEN = 3;
         credit_event: PublicMutable<CreditEventsStruct,Context>,
     }
 
-    #[aztec(event)]
-    struct FlagDefault {
-        newFlagDefault: bool
-    }
+//NOTE: events can only be used in contracts from what I understand
+    // #[event]
+    // struct FlagDefault {
+    //     newFlagDefault: bool
+    // }
 
-    #[aztec(event)]
-    struct FlagRedeemed {
-        newFlagRedeemed: bool
-    }
+    // #[event]
+    // struct FlagRedeemed {
+    //     newFlagRedeemed: bool
+    // }
 
-    //the type of newRating should be a string
-    #[aztec(event)]
-    struct Rating {
-        newRating: Field,
-    }
+    // //the type of newRating should be a string
+    // #[event]
+    // struct Rating {
+    //     newRating: Field,
+    // }
 
 
 impl<T,Context> CreditEvents<T,Context> {

@@ -1,5 +1,5 @@
-mod token_note;
 mod balances_map;
+mod balance_set;
 mod access_controlModule;
 mod validationModule;
 mod pauseModule;
