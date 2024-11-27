@@ -10,8 +10,7 @@ unconstrained fn check_decimals_private() {
     let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
 
     // Check decimals
-    let private_get_decimals_call_interface = Token::at(token_contract_address).private_get_decimals();
-    let result = env.call_private(private_get_decimals_call_interface);
+    let result = Token::at(token_contract_address).private_get_decimals().view(&mut env.private());
 
     assert(result == 18);
 }
@@ -22,8 +21,8 @@ unconstrained fn check_decimals_public() {
     let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
 
     // Check decimals
-    let public_get_decimals_call_interface = Token::at(token_contract_address).public_get_decimals();
-    let result = env.call_public(public_get_decimals_call_interface);
+    let result = Token::at(token_contract_address).public_get_decimals().view(&mut env.public());
+    
 
     assert(result == 18 as u8);
 }
@@ -32,8 +31,7 @@ unconstrained fn check_decimals_public() {
 unconstrained fn check_issuer_addr_public() {
     let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
-    let issuer_call_interface = Token::at(token_contract_address).public_get_issuer();
-    let issuer_addr = env.call_public(issuer_call_interface);
+    let issuer_addr = Token::at(token_contract_address).public_get_issuer().view(&mut env.public());
 
     assert(issuer == issuer_addr);
 }
@@ -42,8 +40,7 @@ unconstrained fn check_issuer_addr_public() {
 unconstrained fn check_issuer_addr_private() {
     let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
-    let issuer_priv_call_interface = Token::at(token_contract_address).private_get_issuer();
-    let issuer_addr_priv = env.call_private(issuer_priv_call_interface);
+    let issuer_addr_priv = Token::at(token_contract_address).private_get_issuer().view(&mut env.private());
 
     assert(issuer == issuer_addr_priv);
 }

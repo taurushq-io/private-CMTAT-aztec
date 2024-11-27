@@ -1,5 +1,5 @@
 mod types;
-//mod test;
+mod test;
 
 use dep::aztec::macros::aztec;
 
@@ -507,9 +507,10 @@ contract Token {
 
     // //############ UNCONSTRAINED ############
 
-    // unconstrained fn balance_of_private() -> pub Field {
-    //     storage.balances.balance_of()
-    // }
+    pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
+        let balance_set = storage.balances.at(owner);
+        balance_utils::get_balance(balance_set)
+    }
 
 }
 
