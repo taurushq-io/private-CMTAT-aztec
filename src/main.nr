@@ -9,7 +9,7 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+        assert_current_call_valid_authwit,
         compute_authwit_nullifier,
     };
     use dep::aztec::{
@@ -18,16 +18,15 @@ contract Token {
             storage::storage,
         },
         prelude::{
-            AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedImmutable,
+            AztecAddress, Map,PrivateSet, PublicMutable, SharedImmutable,
             SharedMutable,
         },
     };
 
     use crate::types::{
         access_controlModule::{
-            AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE, Role, RoleData,
+            AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE
         },
-        balances_map::BalancesMap,
         enforcementModule::{Freezable, FreezableFlag},
         extensions::{
             creditEventsModule::{CreditEvents, CreditEventsStruct},
@@ -35,7 +34,6 @@ contract Token {
         },
         pauseModule::{BoolEmul, PauseModule},
         validationModule::{SetFlag, UserFlags, ValidationModule},
-        balance_set::BalanceSet,
     };
     use dep::value_note::{balance_utils, utils::{decrement, increment}, value_note::ValueNote};
     
@@ -305,7 +303,7 @@ contract Token {
     fn _mint_internal(to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
-        let issuer = storage.issuer_address.get_current_value_in_private();
+        // let issuer = storage.issuer_address.get_current_value_in_private();
 
         increment(storage.balances.at(to), amount,to,to,to)
 
@@ -355,7 +353,7 @@ contract Token {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
         storage.validation_module.operateOnTransfer(from, to);
 
-        let issuer = storage.issuer_address.get_current_value_in_private();
+        //let issuer = storage.issuer_address.get_current_value_in_private();
 
         decrement(storage.balances.at(from),amount,from,from,from);
         //note_sub.emit(encode_and_encrypt_note(&mut context,from,from));
@@ -445,7 +443,7 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        let issuer = storage.issuer_address.get_current_value_in_private();
+        //let issuer = storage.issuer_address.get_current_value_in_private();
 
         decrement(storage.balances.at(from), amount, from, from, from);
         //note.emit(encode_and_encrypt_note(&mut context, from, from));

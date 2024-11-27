@@ -1,41 +1,41 @@
 use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet, PublicMutable};
+use dep::aztec::prelude::{AztecAddress, SharedMutable, Map};
 use dep::aztec::context::{PublicContext, PrivateContext};
 
-use crate::types::access_controlModule::{AccessControlModule,VALIDATION_ROLE, Role, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
+use crate::types::access_controlModule::{AccessControlModule,VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
 
-global BLACKLIST_FLAG: u64 = 1;
-global WHITELIST_FLAG: u64 = 2;
-global SANCTIONLIST_FLAG: u64 = 4;
+pub global BLACKLIST_FLAG: u64 = 1;
+pub global WHITELIST_FLAG: u64 = 2;
+pub global SANCTIONLIST_FLAG: u64 = 4;
 
-global CHANGE_ROLES_DELAY_BLOCKS = 2;
+pub global CHANGE_ROLES_DELAY_BLOCKS = 2;
 
 global TEXT_ADDRESS_FROM_IS_BLACKLISTED = "The sender is in the blacklist";
 global TEXT_ADDRESS_TO_IS_BLACKLISTED = "The recipient is in the blacklist";
 global TEXT_ADDRESS_FROM_NOT_WHITELISTED = "The sender is not in the whitelist";
 global TEXT_ADDRESS_TO_NOT_WHITELISTED = "The recipient is not in the whitelist";
 
-struct SetFlag {
+pub struct SetFlag {
     operate_blacklist: bool,
     operate_whitelist: bool,
     operate_sanctionlist: bool,
 }
 
-struct UserFlags {
+pub struct UserFlags {
     is_blacklisted: bool,
     is_whitelisted: bool,
     is_in_sanction_list: bool,
 }
 
 trait UserFlagsTrait {
-    fn get_is_blacklisted(self) -> bool;
-    fn get_is_whitelisted(self) -> bool;
-    fn get_is_in_sanction_list(self) -> bool;
+    pub fn get_is_blacklisted(self) -> bool;
+    pub fn get_is_whitelisted(self) -> bool;
+    pub fn get_is_in_sanction_list(self) -> bool;
 }
 
-struct ValidationModule<T,Context> {
-    map: Map<AztecAddress, SharedMutable<T,CHANGE_ROLES_DELAY_BLOCKS ,Context>, Context>,
-    operationsFlag: SharedMutable<SetFlag,CHANGE_ROLES_DELAY_BLOCKS, Context>
+pub struct ValidationModule<T,Context> {
+    pub map: Map<AztecAddress, SharedMutable<T,CHANGE_ROLES_DELAY_BLOCKS ,Context>, Context>,
+    pub operationsFlag: SharedMutable<SetFlag,CHANGE_ROLES_DELAY_BLOCKS, Context>
 }
 
 impl<T,Context> ValidationModule<T,Context> where T: Eq + ToField + FromField + UserFlagsTrait{
@@ -53,22 +53,22 @@ impl<T,Context> ValidationModule<T,Context> where T: Eq + ToField + FromField + 
 }
 
 impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromField + UserFlagsTrait{
-    fn get_operations(self: Self) -> Field {
+    pub fn get_operations(self: Self) -> Field {
         let operations = self.operationsFlag.get_current_value_in_public();
         operations.to_field()
     }
 
-    fn set_operations(self: Self, caller: AztecAddress, operations: SetFlag, access_control: AccessControlModule<bool, &mut PublicContext>) {
+    pub fn set_operations(self: Self, caller: AztecAddress, operations: SetFlag, access_control: AccessControlModule<bool, &mut PublicContext>) {
         access_control.only_role(VALIDATION_ROLE, caller);
         self.operationsFlag.schedule_value_change(operations);
     }
     //problem: here the one that has the ADDRESS_LIST_ADD_ROLE can also remove from list by overwritting userFlag
-    fn add_to_list(self:Self,  caller: AztecAddress, newListAddress: AztecAddress, userFlag: T, access_control: AccessControlModule<bool, &mut PublicContext>) {
+    pub fn add_to_list(self:Self,  caller: AztecAddress, newListAddress: AztecAddress, userFlag: T, access_control: AccessControlModule<bool, &mut PublicContext>) {
         access_control.only_role(ADDRESS_LIST_ADD_ROLE, caller);
         self.map.at(newListAddress).schedule_value_change(userFlag);
     }
 
-    fn remove_from_list(self:Self, caller: AztecAddress, removeListAddress: AztecAddress, userFlag: T, access_control: AccessControlModule<bool, &mut PublicContext>) {
+    pub fn remove_from_list(self:Self, caller: AztecAddress, removeListAddress: AztecAddress, userFlag: T, access_control: AccessControlModule<bool, &mut PublicContext>) {
         access_control.only_role(ADDRESS_LIST_REMOVE_ROLE, caller);
         self.map.at(removeListAddress).schedule_value_change(userFlag);
     }
@@ -77,7 +77,7 @@ impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromFiel
 impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromField + UserFlagsTrait{
 
 
-    fn operateOnTransfer(self: Self, from: AztecAddress, to:AztecAddress) {
+    pub fn operateOnTransfer(self: Self, from: AztecAddress, to:AztecAddress) {
         let operations = self.operationsFlag.get_current_value_in_private();
 
         if (operations.operate_blacklist) {
@@ -89,23 +89,19 @@ impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromFiel
         }
     }
 
-    #[aztec(internal)]
     fn detectTransferRestriction_blacklist(self: Self, from: AztecAddress, to:AztecAddress){
         assert(!self.map.at(from).get_current_value_in_private().get_is_blacklisted(), TEXT_ADDRESS_FROM_IS_BLACKLISTED);
         assert(!self.map.at(to).get_current_value_in_private().get_is_blacklisted(), TEXT_ADDRESS_TO_IS_BLACKLISTED);
     }
 
-    #[aztec(internal)]
     fn detectTransferRestriction_whitelist(self: Self, from: AztecAddress, to:AztecAddress){
         assert(self.map.at(from).get_current_value_in_private().get_is_whitelisted(), TEXT_ADDRESS_FROM_NOT_WHITELISTED);
         assert(self.map.at(to).get_current_value_in_private().get_is_whitelisted(), TEXT_ADDRESS_TO_NOT_WHITELISTED);
     }
 
-    #[aztec(internal)]
     fn detectTransferRestriction_sanctionlist(self: Self, from: AztecAddress, to:AztecAddress){
         assert(false, "not implemented.");
     }
-
 }
 
 impl UserFlagsTrait for UserFlags {

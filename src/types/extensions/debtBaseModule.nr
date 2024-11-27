@@ -1,6 +1,6 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet, PublicMutable};
-use dep::aztec::context::{PublicContext, PrivateContext};
+use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+use dep::aztec::prelude::{AztecAddress, PublicMutable};
+use dep::aztec::context::{PublicContext};
 
     use dep::compressed_string::FieldCompressedString;
 use crate::types::access_controlModule::{AccessControlModule,DEBT_ROLE};
@@ -9,7 +9,7 @@ use crate::types::access_controlModule::{AccessControlModule,DEBT_ROLE};
 global T_SERIALIZED_LEN = 12; 
 
 
-  struct DebtBaseStruct {
+  pub struct DebtBaseStruct {
         interestRate: Field,
         parValue: Field,
         guarantor: FieldCompressedString,
@@ -24,8 +24,8 @@ global T_SERIALIZED_LEN = 12;
         couponFrequency: FieldCompressedString,
     }
 
-  struct DebtBase<T, Context> {
-    debt_base: PublicMutable<DebtBaseStruct,Context>,
+  pub struct DebtBase<T, Context> {
+    pub debt_base: PublicMutable<DebtBaseStruct,Context>,
   }
 
 impl<T,Context> DebtBase<T,Context> {
@@ -40,12 +40,12 @@ impl<T,Context> DebtBase<T,Context> {
 
 impl<T> DebtBase<T, &mut PublicContext> {
 
-  fn setDebt(self: Self, debt_base_: DebtBaseStruct, caller: AztecAddress, ac: AccessControlModule<bool,  &mut PublicContext>) {
+  pub fn setDebt(self: Self, debt_base_: DebtBaseStruct, caller: AztecAddress, ac: AccessControlModule<bool,  &mut PublicContext>) {
     ac.only_role(DEBT_ROLE, caller);
     self.debt_base.write(debt_base_);
   }
 
-  fn get_debt_base(self: Self) -> [Field; T_SERIALIZED_LEN] {
+  pub fn get_debt_base(self: Self) -> [Field; T_SERIALIZED_LEN] {
     self.debt_base.read().serialize()
   }
 }

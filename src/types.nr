@@ -1,10 +1,8 @@
-mod balances_map;
-mod balance_set;
-mod access_controlModule;
-mod validationModule;
-mod pauseModule;
-mod enforcementModule;
-mod extensions;
+pub mod access_controlModule;
+pub mod validationModule;
+pub mod pauseModule;
+pub mod enforcementModule;
+pub mod extensions;
 
 
 
