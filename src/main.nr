@@ -3,6 +3,10 @@ mod test;
 
 use dep::aztec::macros::aztec;
 
+//TODO: add the events
+//TODO: look into burn batch
+//TODO: add possibility to modify the issuer address
+//TODO: look into the token note structure. Is it good to have value_note from library and then utils for increment and decrement?
 #[aztec]
 contract Token {
     // Libs
@@ -34,8 +38,10 @@ contract Token {
         },
         pauseModule::{BoolEmul, PauseModule},
         validationModule::{SetFlag, UserFlags, ValidationModule},
+        token_note::utils::{decrement, increment},
     };
-    use dep::value_note::{balance_utils, utils::{decrement, increment}, value_note::ValueNote};
+    use dep::value_note::{balance_utils, value_note::ValueNote};
+
     
 
     // Changing an address' roles has a certain block delay before it goes into effect.
@@ -282,7 +288,7 @@ contract Token {
     fn total_supply() -> Field {
         storage.total_supply.read().to_integer()
     }
-
+    //TODO: we should be able to change the address of the issuer and put some ACL on it
     #[public]
     #[view]
     fn public_get_issuer() -> pub AztecAddress {
@@ -303,14 +309,9 @@ contract Token {
     fn _mint_internal(to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
-        // let issuer = storage.issuer_address.get_current_value_in_private();
+        let issuer = storage.issuer_address.get_current_value_in_private();
 
-        increment(storage.balances.at(to), amount,to,to,to)
-
-
-        //note.emit(encode_and_encrypt_note(&mut context, to, to));
-        //encrypt the note for the issuer
-        //note.emit(encode_and_encrypt_note(&mut context, issuer, issuer));
+        increment(storage.balances.at(to), amount,to,issuer,to);
     }
 
     /*
@@ -353,16 +354,10 @@ contract Token {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
         storage.validation_module.operateOnTransfer(from, to);
 
-        //let issuer = storage.issuer_address.get_current_value_in_private();
+        let issuer = storage.issuer_address.get_current_value_in_private();
 
-        decrement(storage.balances.at(from),amount,from,from,from);
-        //note_sub.emit(encode_and_encrypt_note(&mut context,from,from));
-        //encrypt the note for the issuer
-        //note_sub.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
-        increment(storage.balances.at(to),amount,to,from,from);
-        //note_add.emit(encode_and_encrypt_note(&mut context,from,to));
-        //encrypt the note for the issuer
-        //note_add.emit(encode_and_encrypt_note(&mut context,issuer,issuer));
+        decrement(storage.balances.at(from),amount,from,issuer,from);
+        increment(storage.balances.at(to),amount,to,issuer,from);
     }
 
     /*
@@ -443,12 +438,9 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        //let issuer = storage.issuer_address.get_current_value_in_private();
+        let issuer = storage.issuer_address.get_current_value_in_private();
 
-        decrement(storage.balances.at(from), amount, from, from, from);
-        //note.emit(encode_and_encrypt_note(&mut context, from, from));
-        //encrypt the note for the issuer
-        //note.emit(encode_and_encrypt_note(&mut context, issuer, issuer));
+        decrement(storage.balances.at(from), amount, from, issuer, from);
 
         Token::at(context.this_address())._burn(context.msg_sender(), amount).enqueue(&mut context);
     }
