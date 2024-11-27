@@ -10,8 +10,7 @@ unconstrained fn transfer_private() {
 
     // Transfer tokens
     let transfer_amount = 100;
-    let transfer_private_call_interface = Token::at(token_contract_address).transfer(user1, transfer_amount);
-    env.call_private_void(transfer_private_call_interface);
+    Token::at(token_contract_address).transfer(user1, transfer_amount).call(&mut env.private());
 
     // Check balances
     utils::check_private_balance(token_contract_address, issuer, mint_amount - transfer_amount);
@@ -25,8 +24,7 @@ unconstrained fn transfer_private_to_self() {
 
     // Transfer tokens
     let transfer_amount = 1000;
-    let transfer_private_call_interface = Token::at(token_contract_address).transfer(issuer, transfer_amount);
-    env.call_private_void(transfer_private_call_interface);
+    Token::at(token_contract_address).transfer(issuer, transfer_amount).call(&mut env.private());
 
     // Check balances
     utils::check_private_balance(token_contract_address, issuer, mint_amount);
@@ -40,8 +38,7 @@ unconstrained fn transfer_private_to_non_deployed_account() {
 
     // Transfer tokens
     let transfer_amount = 1000;
-    let transfer_private_call_interface = Token::at(token_contract_address).transfer(not_deployed.address, transfer_amount);
-    env.call_private_void(transfer_private_call_interface);
+    Token::at(token_contract_address).transfer(not_deployed.address, transfer_amount).call(&mut env.private());
 
     // Check balances
     utils::check_private_balance(token_contract_address, issuer, mint_amount - transfer_amount);
@@ -61,7 +58,7 @@ unconstrained fn transfer_private_on_behalf_of_other() {
     // Impersonate issuer to perform the call
     env.impersonate(user1);
     // Transfer tokens
-    env.call_private_void(transfer_private_from_call_interface);
+    transfer_private_from_call_interface.call(&mut env.private());
     // docs:end:private_authwit
     // Check balances
     utils::check_private_balance(token_contract_address, issuer, mint_amount - transfer_amount);
@@ -74,8 +71,7 @@ unconstrained fn transfer_private_failure_more_than_balance() {
     let (env, token_contract_address, _, user1, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount + 1;
-    let transfer_private_call_interface = Token::at(token_contract_address).transfer(user1, transfer_amount);
-    env.call_private_void(transfer_private_call_interface);
+    Token::at(token_contract_address).transfer(user1, transfer_amount).call(&mut env.private());
 }
 
 #[test(should_fail_with="invalid nonce")]
@@ -84,9 +80,8 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, token_contract_address, issuer, user1, _) = utils::setup_and_mint(/* with_account_contracts */ true);
     // Add authwit
     let transfer_amount = 1000;
-    let transfer_private_from_call_interface = Token::at(token_contract_address).transfer_from(issuer, user1, transfer_amount, 1);
+    Token::at(token_contract_address).transfer_from(issuer, user1, transfer_amount, 1).call(&mut env.private());
     // Transfer tokens
-    env.call_private_void(transfer_private_from_call_interface);
 }
 
 
@@ -108,8 +103,7 @@ unconstrained fn transfer_private_batch_success() {
     let mut total_transfer_amount = 100;
 
 
-    let transfer_batch_private_from_call_interface = Token::at(token_contract_address).transfer_batch([user1], [100], 0);
-    env.call_private_void(transfer_batch_private_from_call_interface);
+    Token::at(token_contract_address).transfer_batch([user1], [100], 0).call(&mut env.private());
 
 
     utils::check_private_balance(token_contract_address, issuer, mint_amount - total_transfer_amount);
@@ -129,7 +123,7 @@ unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Transfer tokens
-    env.call_private_void(transfer_private_from_call_interface);
+    transfer_private_from_call_interface.call(&mut env.private());
 }
 
 #[test]
