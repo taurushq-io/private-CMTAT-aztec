@@ -1,21 +1,21 @@
 use dep::aztec::{prelude::{AztecAddress, PublicMutable},  context::PublicContext};
 use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-use crate::types::access_controlModule::{AccessControlModule, PAUSE_ROLE, Role};
+use crate::types::access_controlModule::{AccessControlModule, PAUSE_ROLE};
 
-    global PAUSED_FLAG: u64 = 1;
-    global T_SERIALIZED_LEN = 1;
+pub global PAUSED_FLAG: u64 = 1;
+pub global T_SERIALIZED_LEN = 1;
 
     trait BoolEmulTrait {
-        fn get_pause(self) -> bool;
-        fn set_pause(&mut self, arg: bool);
+        pub fn get_pause(self) -> bool;
+        pub fn set_pause(&mut self, arg: bool);
     }
 
-    struct BoolEmul {
+    pub struct BoolEmul {
         is_paused: bool,
     }
 
-    struct PauseModule<T,Context>{
-        is_paused: PublicMutable<T, Context>,
+    pub struct PauseModule<T,Context>{
+        pub is_paused: PublicMutable<T, Context>,
     }
 
 impl<T,Context> PauseModule<T,Context> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait{

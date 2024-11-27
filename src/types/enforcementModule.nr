@@ -1,20 +1,20 @@
-use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map}, unencrypted_logs::unencrypted_event_emission,  context::PublicContext, context::PrivateContext};
+use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map},  context::PublicContext, context::PrivateContext};
 use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-use crate::types::access_controlModule::{AccessControlModule,ENFORCEMENT_ROLE, Role};
+use crate::types::access_controlModule::{AccessControlModule,ENFORCEMENT_ROLE};
 
 global FREEZED_FLAG: u64 = 1;
 global CHANGE_ROLES_DELAY_BLOCKS = 2;
 
-struct FreezableFlag {
+pub struct FreezableFlag {
     is_freezed: bool,
 }
 
 trait FreezableFlagTrait {
-    fn get_is_frozen(self) -> bool;
+    pub fn get_is_frozen(self) -> bool;
 }
 
-struct Freezable<T,Context>{
-    map: Map<AztecAddress, SharedMutable<T, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>
+pub struct Freezable<T,Context>{
+    pub map: Map<AztecAddress, SharedMutable<T, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>
 }
 
 impl<T,Context> Freezable<T,Context> where T: Eq + ToField + FromField + FreezableFlagTrait{
@@ -33,7 +33,7 @@ impl<T,Context> Freezable<T,Context> where T: Eq + ToField + FromField + Freezab
 
 impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
 
-    pub fn is_frozen(self: Self, address: AztecAddress) -> pub bool{
+    pub fn is_frozen(self: Self, address: AztecAddress) -> bool{
         self.map.at(address).get_current_value_in_public().get_is_frozen()
     }
 
@@ -56,13 +56,12 @@ impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + Fre
         self._require_freezed(address);
         self.map.at(address).schedule_value_change(val);
     }
-
-    #[aztec(internal)]
+    // Internal functions
+    //TODO: are we sure these functions cannot be called externally?
     fn _require_not_freezed(self: Self, address: AztecAddress) {
         assert(self.map.at(address).get_current_value_in_public().get_is_frozen() == false, "error: address already freezed");
     }
 
-    #[aztec(internal)]
     fn _require_freezed(self: Self, address: AztecAddress) {
         assert(self.map.at(address).get_current_value_in_public().get_is_frozen() == true, "error: address already unfreezed");
     }
@@ -71,7 +70,7 @@ impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + Fre
 
 impl<T> Freezable<T,&mut PrivateContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
 
-    fn is_frozen(self: Self, user: AztecAddress) -> bool {
+    pub fn is_frozen(self: Self, user: AztecAddress) -> bool {
         let user_roles: T = self.map.at(user).get_current_value_in_private();
         user_roles.get_is_frozen()
     }
