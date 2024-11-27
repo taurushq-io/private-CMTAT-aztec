@@ -1,2 +1,2 @@
-mod creditEventsModule;
-mod debtBaseModule;
+pub mod creditEventsModule;
+pub mod debtBaseModule;
