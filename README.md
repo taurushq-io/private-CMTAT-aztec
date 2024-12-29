@@ -733,17 +733,7 @@ Refer to contract instances and contract classes to understand this better. See 
 - **Amount Proofs**: Implement a proof for proving that you own less/more than a certain amount.
 - **Overflow Testing**: Investigate and test for overflow issues.
 - **Shareable Key**: Develop functionality for a shareable key.
-  - This is an important focus
-  -  I was thinking  you could do something like the multisig that you are working on, 
-  where the encryption+nullifying key is stored in a note in the account contract, and any 
-  notes created for that account are encrypted to that. You, as the platform manager and asset 
-  issuer, would be on every multisig account that your customers use, so you would be able to 
-  see all notes associated with every account that you set up. you could set it up so that your 
-  account wouldn't be able to send transactions though, just see all data. 
-
-as far as the requirement for minting and burning tokens, you can program that logic into the token contract itself. as the admin of the token contract, you would be able to modify anyone's balance. And since you would be able to read everyone's private notes and have the nullifying key, you would be able to delete their private notes
 - **Contract Library Method Macro**: Explore the new `[contract_library_method]` macro on Aztec.
-- 
 
 ### Examples
 
