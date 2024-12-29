@@ -15,7 +15,7 @@ pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
         let issuer = env.create_account_contract(1);
         let user1 = env.create_account_contract(2);        
         // Deploy canonical auth registry
-        let _auth_registry = env.deploy("./@auth_registry_contract", "AuthRegistry").without_initializer();
+        //let _auth_registry = env.deploy("./@auth_registry_contract", "AuthRegistry").without_initializer();
         (issuer, user1)
     } else {
         let issuer = env.create_account();

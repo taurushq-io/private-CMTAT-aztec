@@ -68,6 +68,8 @@ unconstrained fn mint_private_failure_overflow() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
+    Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
+
     // Overflow user1
     let mint_amount = 2.pow_32(128);
     Token::at(token_contract_address).mint(issuer, mint_amount).call(&mut env.private());
