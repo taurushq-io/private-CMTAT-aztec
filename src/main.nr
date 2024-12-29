@@ -123,6 +123,11 @@ contract Token {
      * @notice: revoking a pause contract role when the contract is paused can cause the contract to be stuck in a paused state.
      */
     #[public]
+    /**
+     * @roles: onlyAdmin
+     * @notice: revoking a pause contract role when the contract is paused can cause the contract to be stuck in a paused state.
+     */
+    #[aztec(public)]
     fn revoke_role(role: Field, account: AztecAddress) {
         storage.access_control.revoke_role(role, account)
     }
