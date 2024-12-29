@@ -12,6 +12,18 @@ Aztec is a privacy-focused Layer 2 solution built on Ethereum that enables confi
 
 ## LEARNING 
 
+new commits correctly signed
+
+## What we are achieving 
+
+This project aims to implement a private version of the CMTAT standard using Aztec, enabling banks and financial institutions to leverage the benefits of tokenization while preserving privacy and compliance.
+
+## Introduction
+
+Aztec is a privacy-focused Layer 2 solution built on Ethereum that enables confidential transactions using Zero-Knowledge Proofs (ZKPs). By using Aztec, we can ensure that sensitive data, such as transaction details, remain private. CMTAT is an open standard security token  designed to facilitate the tokenization of digital assets, ensuring both regulatory compliance and extended functionalities. With the integration of Aztec, this project allows institutions to fully adopt the CMTAT standard while maintaining confidentiality in their transactions. In this repository, we implement a fully functional private CMTAT prototype, where transactions are private for users, while issuers retain the ability to audit and monitor the activity to ensure compliance. This represents a significant step forward, as it allows institutions to participate in tokenized markets without exposing their confidential data, addressing one of the main limitations of using public blockchains such as Ethereum.
+
+## LEARNING 
+
 ## Table of Contents
 
 - [Aztec and Noir Concepts](#aztec-and-noir-concepts)
@@ -733,7 +745,17 @@ Refer to contract instances and contract classes to understand this better. See 
 - **Amount Proofs**: Implement a proof for proving that you own less/more than a certain amount.
 - **Overflow Testing**: Investigate and test for overflow issues.
 - **Shareable Key**: Develop functionality for a shareable key.
+  - This is an important focus
+  -  I was thinking  you could do something like the multisig that you are working on, 
+  where the encryption+nullifying key is stored in a note in the account contract, and any 
+  notes created for that account are encrypted to that. You, as the platform manager and asset 
+  issuer, would be on every multisig account that your customers use, so you would be able to 
+  see all notes associated with every account that you set up. you could set it up so that your 
+  account wouldn't be able to send transactions though, just see all data. 
+
+as far as the requirement for minting and burning tokens, you can program that logic into the token contract itself. as the admin of the token contract, you would be able to modify anyone's balance. And since you would be able to read everyone's private notes and have the nullifying key, you would be able to delete their private notes
 - **Contract Library Method Macro**: Explore the new `[contract_library_method]` macro on Aztec.
+- 
 
 ### Examples
 
