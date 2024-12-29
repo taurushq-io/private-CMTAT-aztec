@@ -1,5 +1,7 @@
 # Private tokens
 
+new commits correctly signed
+
 ## What we are achieving 
 
 This project aims to implement a private version of the CMTAT standard using Aztec, enabling banks and financial institutions to leverage the benefits of tokenization while preserving privacy and compliance.
