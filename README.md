@@ -1,8 +1,17 @@
 # Private Token Prototype (with Aztec/Noir)
 
+## What we are achieving 
+
+This project aims to implement a private version of the CMTAT standard using Aztec, enabling banks and financial institutions to leverage the benefits of tokenization while preserving privacy and compliance.
+
+## Introduction
+
+Aztec is a privacy-focused Layer 2 solution built on Ethereum that enables confidential transactions using Zero-Knowledge Proofs (ZKPs). By using Aztec, we can ensure that sensitive data, such as transaction details, remain private. CMTAT is an open standard security token  designed to facilitate the tokenization of digital assets, ensuring both regulatory compliance and extended functionalities. With the integration of Aztec, this project allows institutions to fully adopt the CMTAT standard while maintaining confidentiality in their transactions. In this repository, we implement a fully functional private CMTAT prototype, where transactions are private for users, while issuers retain the ability to audit and monitor the activity to ensure compliance. This represents a significant step forward, as it allows institutions to participate in tokenized markets without exposing their confidential data, addressing one of the main limitations of using public blockchains such as Ethereum.
+
+## LEARNING 
+
 ## Table of Contents
 
-- [Introduction](#introduction)
 - [Aztec and Noir Concepts](#aztec-and-noir-concepts)
   - [Users Addresses and Keys](#users-addresses-and-keys)
   - [Authentication Witness](#authentication-witness)
@@ -57,14 +66,6 @@
   - [Examples](#examples)
   - [Other Ways of Doing Encryption](#other-ways-of-doing-encryption)
 - [Additional Resources](#additional-resources)
-
-## Introduction
-
-Institutions are finally understanding the power of blockchain and its disruptive potential for financial applications, storage, payments, among others. While they are now focusing on riding the wave and going "on-chain," their next logical question will be:
-
-> "How can I guarantee the privacy that I had before on this new public and open software?"
-
-This is what certain protocols and teams have strived to achieve over the past few years: a public and open blockchain that maintains the privacy of its users. Thanks to recent breakthroughs in cryptography, blockchains like **Aztec** are able to bring enshrined privacy into blockchain technology. The aim of this project is to leverage the Aztec blockchain to create a private version of the **CMTAT**, pioneering and getting ahead of the trend.
 
 ## Aztec and Noir Concepts
 
