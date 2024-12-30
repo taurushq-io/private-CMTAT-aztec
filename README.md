@@ -10,7 +10,7 @@ Aztec is a privacy-focused Layer 2 solution built on Ethereum that enables confi
 
 ## Table of Contents
 
-- [Get started](#deployment)
+- [Get started - Contracts deployment](#deployment)
 - [Functionality](#functionality)
 - [Private Token Implementation](#private-token-implementation)
   - [Assumptions and Requirements of CMTAT Private V1](#assumptions-and-requirements-of-cmtat-private-v1)
@@ -22,11 +22,12 @@ Aztec is a privacy-focused Layer 2 solution built on Ethereum that enables confi
   - [Modules](#modules)
   - [Issuer's View of Transactions and Notes](#issuers-view-of-transactions-and-notes)
 - [Comparison Between CMTAT and Aztec Token](#comparison-between-cmtat-and-aztec-token)
-- [Miscellaneous and Other Concerns](#miscellaneous-and-other-concerns)
-- [Issues and Solutions in Token Contract on Aztec](#issues-and-solutions-in-token-contract-on-aztec)
-- [TODO](#todo)
-- [Other Protocols for blockchain privacy](#other-ways-of-doing-encryption)
-- [Additional Resources](#additional-resources)
+- [Current Issues in private CMTAT on Aztec](#current-issues-in-private-cmtat-on-aztec)
+- [More](#more)
+  - [Miscellaneous and Other Concerns](#miscellaneous-and-other-concerns)
+  - [TODO](#todo)
+  - [Other Protocols for blockchain privacy](#other-protocols-for-blockchain-privacy)
+  - [Additional Resources](#additional-resources)
 
 ## Functionality 
 
@@ -34,9 +35,9 @@ Aztec is a privacy-focused Layer 2 solution built on Ethereum that enables confi
 
 The private CMTAT supports the following core features:
 
- - private mint, burn, and transfer operations
- - public pause of the contract and public freeze of specific accounts
- - auditability of users private transactions by a central issuer
+ - *private* mint, burn, and transfer operations
+ - *public* pause of the contract and public freeze of specific accounts
+ - *auditability* of users private transactions by a central issuer
 
 As opposed to the CMTAT, we do not support:
  - Upgradeability
@@ -46,7 +47,6 @@ As opposed to the CMTAT, we do not support:
 This reference implementation allows the issuance and management of tokens representing equity securities. It can however also be used for other forms of financial instruments such as debt securities.
 
 You may modify the token code by adding, removing, or modifying features. 
-
 
 ## Private Token Implementation
 
@@ -202,10 +202,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - Unlike the validation module, this module is mandatory.
 - Changing an address to frozen has a delay, as the value is a `SharedMutable`.
 
-**"Freeze Address" Note**:
-
-- The enforcement has a delay, similar to the validation module.
-- One approach is to pause the contract before freezing some accounts for the delay time, then unpause it. This requires manual pause/unpause.
+> **"Freeze Address" Note**: The enforcement has a delay, similar to the validation module. One approach is to pause the contract before freezing some accounts for the delay time, then unpause it. This requires manual pause/unpause.
 
 ### Issuer's View of Transactions and Notes
 
@@ -231,56 +228,11 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - Then, run:  `aztec test` 
 - The contract is deployed on the sandbox, by the utils function, and all the tests are run
 
-### Miscellaneous and Other Concerns
-
-- **Wallet Responsibilities**:
-  - The wallet should implement note discovery and tagging mechanisms, not the application.
-
-- **Mint Function Restrictions**:
-  - Should we restrict the "to" address to not be the issuer to prevent a malicious issuer from hiding the real supply of the token by minting tokens to themselves?
-
-- **Contract Modification**:
-  - Can a user modify a token contract function? No, it is not possible as each function is committed on the public state.
-
-- **Encryption Details**:
-  - Encryption of note emission is done with AES-128. It's currently unclear if the encryption with AES is constrained at the protocol circuit level.
-
-- **Transaction Details**:
-  - Notes are linked to their transaction hash because they are in the same transaction object when waiting in the mempool.
-  - The transaction object cannot be modified between the point when it has been locally proven and when it reaches the sequencer because the output of the private kernel circuit is the input to the public kernel circuits, which also verify.
-
-- **Replay Attacks**:
-  - The transaction hash is always emitted during local execution as the first nullifier of the transaction to prevent replay attacks. This is enforced by the private kernel circuit.
-
-### Issues and Solutions in Token Contract on Aztec
-
-- **Issuer's View of User Balances**: [SEE](#issuers-view-of-transactions-and-notes)
-
-- **Force Transfer Requirement**: [SEE](#transfer---private)
-  - According to Swiss law, the issuer should be able to force the transfer of notes.
-  - **Current Limitation**: This is not possible in Aztec as it would require the issuer to nullify a user's notes without consent.
-  - **Workaround**:
-    - Freeze the account.
-    - If the account is frozen indefinitely, decrease the circulating supply. However, we might not know the amount of tokens the user holds.
-
-- **SharedMutable Delay**: [SEE](#validation-module---shared)
-  - Freezing and blacklisting addresses take a certain number of blocks due to the `SharedMutable` type.
-  - **Options**:
-    - Accept the delay.
-    - Encrypt the blacklist with a key (implementation unclear).
-
-- **Protocol Limitations**: [SEE](#mint---private)
-  - Only **4 private calls** can be made from a private function, limiting batch functions.
-  - Only **4 encrypted notes** can be emitted in a function call, further limiting batching.
-
-- **Function Exposure**:
-  - We may need to expose the `schedule_delay_change` function for every `SharedMutable`, which is cumbersome.
-
 ## Comparison Between CMTAT and Aztec Token
 
 #### What Can We Actually Do?
 
-- **Mint/Transfer**: Behave the same way as in CMTAT. Currently, there is no knowledge of who sent you notes.
+- **Mint/Transfer**: Behave the same way as in CMTAT. 
 - **Burn**: We can perform `burn_from` with allowance.
 - **Validation Module**: Whitelisting and blacklisting are enabled on demand. The rule engine has been merged into the validation module, providing one interface that manages both and is always deployed along the main contract. The functionalities are private; storage can be read in public.
 - **Pause Module**: Same functionalities as CMTAT. Pause is public and instantaneous.
@@ -303,10 +255,6 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Enforcement Module**:
   - The delay in modifying frozen accounts due to `SharedMutable`.
 
-- **Accounting Improvements**:
-  - Currently, we cannot know who sent us encrypted notes, which is an issue for accounting.
-  - A possible solution is to create a new field in a note with the address of the account that created the note.
-
 - **Audit Capabilities**:
   - Users may, in the future, be able to share a shareable key for audit purposes.
 
@@ -316,11 +264,59 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 #### What Will We Never Be Able to Do by Design?
 
 - **Force Burning Without Consent**:
-  - We will never be able to burn someone else’s tokens without their approval unless there is a significant change in protocol design.
+  - We will never be able to burn someone else’s tokens without their approval.
+  > This could be possible if the token is implemented at the account contract level, and the issuer has shared keys with the user for that specific account that holds notes for this token
 
 - **Immediate Shared State Changes**:
   - We cannot have a shared state (public and private) that has no delay when changed due to the protocol's construction.
 
+## Current Issues in private CMTAT on Aztec
+
+- **Issuer's View of User Balances**: [SEE](#issuers-view-of-transactions-and-notes)
+
+- **Force Transfer Requirement**: [SEE](#transfer---private)
+  - According to Swiss law, the issuer should be able to force the transfer of notes.
+  - **Current Limitation**: This is not possible in Aztec as it would require the issuer to nullify a user's notes without consent.
+  - **Workaround**:
+    - Freeze the account.
+    - If the account is frozen indefinitely, decrease the circulating supply. As a central issuer, I know the number of tokens the user has, so I can decrease supply accordingly. 
+> Note: account freeze could reveal how much tokens a user had. 
+
+- **SharedMutable Delay**: [SEE](#validation-module---shared)
+  - Freezing and blacklisting addresses take a certain number of blocks due to the `SharedMutable` type.
+  - **Options**:
+    - Accept the delay.
+    - Encrypt the blacklist with a key (implementation unclear).
+
+- **Protocol Limitations**: [SEE](#mint---private)
+  - Only **4 private calls** can be made from a private function, limiting batch functions.
+  - Only **4 encrypted notes** can be emitted in a function call, further limiting batching.
+
+- **Function Exposure**:
+  - We may need to expose the `schedule_delay_change` function for every `SharedMutable`, which is cumbersome.
+
+## More
+
+### Miscellaneous and Other Concerns
+
+- **Wallet Responsibilities**:
+  - The wallet should implement note discovery and tagging mechanisms, not the application.
+
+- **Mint Function Restrictions**:
+  - Should we restrict the "to" address to not be the issuer to prevent a malicious issuer from hiding the real supply of the token by minting tokens to themselves?
+
+- **Contract Modification**:
+  - Can a user modify a token contract function? No, it is not possible as each function is committed on the public state.
+
+- **Encryption Details**:
+  - Encryption of note emission is done with AES-128. It's currently unclear if the encryption with AES is constrained at the protocol circuit level.
+
+- **Transaction Details**:
+  - Notes are linked to their transaction hash because they are in the same transaction object when waiting in the mempool.
+  - The transaction object cannot be modified between the point when it has been locally proven and when it reaches the sequencer because the output of the private kernel circuit is the input to the public kernel circuits, which also verify.
+
+- **Replay Attacks**:
+  - The transaction hash is always emitted during local execution as the first nullifier of the transaction to prevent replay attacks. This is enforced by the private kernel circuit.
 
 ### TODO
 
@@ -343,7 +339,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Private Token Using Aztec**: [Ethereum's Privacy New Frontier](https://medium.com/@jat9292/zksnarks-homomorphic-encryption-ethereums-privacy-new-frontier-b30357236a7a)
 - **Aztec Explorer**: [ShieldSwap](https://github.com/olehmisar/shieldswap)
 
-### Other Ways of Doing Encryption
+### Other Protocols for blockchain privacy
 
 - **Zcash Shielded Assets (ZSA)**:
   - Implemented by [QEDIT](https://qed-it.com)
