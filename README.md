@@ -6,7 +6,14 @@ This project aims to implement a private version of the CMTAT standard using Azt
 
 ## Introduction
 
-Aztec is a privacy-focused Layer 2 solution built on Ethereum that enables confidential transactions using Zero-Knowledge Proofs (ZKPs). By using Aztec, we can ensure that sensitive data, such as transaction details, remain private. CMTAT is an open standard security token  designed to facilitate the tokenization of digital assets, ensuring both regulatory compliance and extended functionalities. With the integration of Aztec, this project allows institutions to fully adopt the CMTAT standard while maintaining confidentiality in their transactions. In this repository, we implement a fully functional private CMTAT prototype, where transactions are private for users, while issuers retain the ability to audit and monitor the activity to ensure compliance. This represents a significant step forward, as it allows institutions to participate in tokenized markets without exposing their confidential data, addressing one of the main limitations of using public blockchains such as Ethereum.
+[Aztec](https://aztec.network/) is a privacy-focused Layer 2 solution built on Ethereum that enables confidential transactions using Zero-Knowledge Proofs (ZKPs). 
+By using Aztec, we can ensure that sensitive data, such as transaction details, remain private. 
+[CMTAT](https://github.com/CMTA/CMTAT?tab=readme-ov-file) is a framework enabling the tokenization of securities in compliance with Swiss law. 
+With the integration of Aztec, this project allows institutions to fully adopt the CMTAT standard while maintaining confidentiality in their transactions. 
+In this repository, we implement a fully functional private CMTAT prototype, where transactions are private for users, 
+while issuers retain the ability to audit and monitor the activity to ensure compliance. This represents a significant step forward, 
+as it allows institutions to participate in tokenized markets without exposing their confidential data, addressing one of the main 
+limitations of using public blockchains such as Ethereum.
 
 ## Table of Contents
 
@@ -25,9 +32,11 @@ Aztec is a privacy-focused Layer 2 solution built on Ethereum that enables confi
 - [Current Issues in private CMTAT on Aztec](#current-issues-in-private-cmtat-on-aztec)
 - [More](#more)
   - [Miscellaneous and Other Concerns](#miscellaneous-and-other-concerns)
+  - [Intellectual Property](#)
   - [TODO](#todo)
   - [Other Protocols for blockchain privacy](#other-protocols-for-blockchain-privacy)
   - [Additional Resources](#additional-resources)
+
 
 ## Functionality 
 
@@ -318,6 +327,9 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Replay Attacks**:
   - The transaction hash is always emitted during local execution as the first nullifier of the transaction to prevent replay attacks. This is enforced by the private kernel circuit.
 
+### Intellectual Property
+  This code is copyright (c) 2024 Taurus SA and is released under MIT.
+  
 ### TODO
 
 - **Amount Proofs**: Implement a proof for proving that you own less/more than a certain amount.
