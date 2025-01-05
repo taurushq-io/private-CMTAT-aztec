@@ -32,7 +32,7 @@ limitations of using public blockchains such as Ethereum.
 - [Current Issues in private CMTAT on Aztec](#current-issues-in-private-cmtat-on-aztec)
 - [More](#more)
   - [Miscellaneous and Other Concerns](#miscellaneous-and-other-concerns)
-  - [Intellectual Property](#)
+  - [Intellectual Property](#intellectual-property)
   - [TODO](#todo)
   - [Other Protocols for blockchain privacy](#other-protocols-for-blockchain-privacy)
   - [Additional Resources](#additional-resources)
@@ -72,30 +72,24 @@ You may modify the token code by adding, removing, or modifying features.
   - **TotalSupply - Public**: For a particular CMTAT token, anyone may know the total number of tokens in circulation at any point in time.
   - **BalanceOf - Private**: For a particular CMTAT token and a particular user, no one apart from the issuer should know the number of tokens currently recorded on the user's ledger address.
 
-  - **Transfer - Private**
+  - **Transfer - Private** Users may transfer some or all of their tokens to another ledger address (which the transferor does not necessarily control). According to the above functionality, a transfer must be private, such that no one apart from the parties involved and the issuer knows that a transfer has occurred, the participants, or the amount transferred.
 
-Users may transfer some or all of their tokens to another ledger address (which the transferor does not necessarily control). According to the above functionality, a transfer must be private, such that no one apart from the parties involved and the issuer knows that a transfer has occurred, the participants, or the amount transferred.
+  > NOTE: The issuer cannot do a force transfer on behalf of the user, as he would do in the CMTAT. The solution is that in the case where we want to have the same behaviour as a force transfer, we freeze the account.
 
-> NOTE: The issuer cannot do a force transfer on behalf of the user, as he would do in the CMTAT. The solution is that in the case where we want to have the same behaviour as a force transfer, we freeze the account.
+  - **Mint - Private** Issue a given number of tokens to a given ledger address. The issuer and the recipient should be the only ones who know that a transaction is happening. Only the issuer and the receiving address should know the amount minted.
 
-  - **Mint - Private**
+  > **Note - Public**: According to the assumption, the total supply will increase accordingly in a public function, and thus the new total supply will be visible to everyone. The supply change amount will be traceable to that particular private proof.
 
-Issue a given number of tokens to a given ledger address. The issuer and the recipient should be the only ones who know that a transaction is happening. Only the issuer and the receiving address should know the amount minted.
+  - **Burn - Private** The issuer burns (destroys) a given number of tokens from a given ledger address. The issuer and the given address should be the only ones who know that a transaction is happening.
 
-> **Note - Public**: According to the assumption, the total supply will increase accordingly in a public function, and thus the new total supply will be visible to everyone. The supply change amount will be traceable to that particular private proof.
-
-  - **Burn - Private**
-
-The issuer burns (destroys) a given number of tokens from a given ledger address. The issuer and the given address should be the only ones who know that a transaction is happening.
-
-- **Note - Public**: According to the assumption, the total supply will decrease accordingly in a public function, and thus the new total supply will be visible to everyone. The supply change amount will be traceable to that particular private proof.
+  > **Note - Public**: According to the assumption, the total supply will decrease accordingly in a public function, and thus the new total supply will be visible to everyone. The supply change amount will be traceable to that particular private proof.
 
 ### Storage
 
 - **issuer_address**: `SharedMutable<AztecAddress>` - The address of the issuer, which serves as a base reference to encrypt users' notes. As it is a `SharedMutable`, it can be changed if compromised.
 - **balances**: `BalanceMap<TokenNote>` - Token balance of every user inside their PXE. Mapping of `Address` → `PrivateSet<TokenNote>`. The balance of a user is the sum of the amounts of all their private `TokenNote`.
 
-### Mint Private
+### Mint Private Specifications
 
 **Issuer**:
 
@@ -111,9 +105,7 @@ The issuer burns (destroys) a given number of tokens from a given ledger address
 
 - According to protocol limitations, only **4 encrypted logs** can be emitted in a function call and only **4 private functions** can be called from a function call. As we have 2 encrypted logs emitted in the mint function, our bottleneck is the encrypted logs, which means we can only batch **2 mint functions** at the same time.
 
-### Transfer Private
-
-- Since `nsk_m` cannot be inserted in an app circuit, it is hardened to create the `nsk_app`, which is used in the app circuit as the secret for the nullifier computation.
+### Transfer Private Specifications
 
 **Issuer**:
 
@@ -129,7 +121,7 @@ The issuer burns (destroys) a given number of tokens from a given ledger address
 
 - According to protocol limitations, only **4 encrypted logs** can be emitted in a function call. As the mint already emits 4 (2 for the user, 2 for the issuer), we can only have **1 transfer** in the transfer batch.
 
-### Burn Private
+### Burn Private Specifications
 
 **Issuer**:
 
@@ -237,9 +229,9 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - Then, run:  `aztec test` 
 - The contract is deployed on the sandbox, by the utils function, and all the tests are run
 
-## Comparison Between CMTAT and Aztec Token
+## Comparison Between Private Aztec CMTAT and CMTAT
 
-#### What Can We Actually Do?
+#### What Can We Actually Do with Private CMTAT?
 
 - **Mint/Transfer**: Behave the same way as in CMTAT. 
 - **Burn**: We can perform `burn_from` with allowance.
@@ -329,7 +321,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 
 ### Intellectual Property
   This code is copyright (c) 2024 Taurus SA and is released under MIT.
-  
+
 ### TODO
 
 - **Amount Proofs**: Implement a proof for proving that you own less/more than a certain amount.
