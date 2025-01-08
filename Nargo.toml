@@ -5,8 +5,8 @@ authors = [ "" ]
 compiler_version = ">=0.25.0"
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.63.1", directory = "noir-projects/aztec-nr/aztec" }
-authwit = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.63.1", directory = "noir-projects/aztec-nr/authwit" }
-compressed_string = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.63.1", directory = "noir-projects/aztec-nr/compressed-string" }
-value_note = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.63.1", directory = "noir-projects/aztec-nr/value-note" }
-uint_note = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.63.1", directory = "noir-projects/aztec-nr/uint-note" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.67.1", directory = "noir-projects/aztec-nr/aztec" }
+authwit = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.67.1", directory = "noir-projects/aztec-nr/authwit" }
+compressed_string = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.67.1", directory = "noir-projects/aztec-nr/compressed-string" }
+value_note = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.67.1", directory = "noir-projects/aztec-nr/value-note" }
+uint_note = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "aztec-packages-v0.67.1", directory = "noir-projects/aztec-nr/uint-note" }

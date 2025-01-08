@@ -8,12 +8,12 @@ pub global BLACKLIST_FLAG: u64 = 1;
 pub global WHITELIST_FLAG: u64 = 2;
 pub global SANCTIONLIST_FLAG: u64 = 4;
 
-pub global CHANGE_ROLES_DELAY_BLOCKS = 2;
+pub global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
 
-global TEXT_ADDRESS_FROM_IS_BLACKLISTED = "The sender is in the blacklist";
-global TEXT_ADDRESS_TO_IS_BLACKLISTED = "The recipient is in the blacklist";
-global TEXT_ADDRESS_FROM_NOT_WHITELISTED = "The sender is not in the whitelist";
-global TEXT_ADDRESS_TO_NOT_WHITELISTED = "The recipient is not in the whitelist";
+global TEXT_ADDRESS_FROM_IS_BLACKLISTED: str<30> = "The sender is in the blacklist";
+global TEXT_ADDRESS_TO_IS_BLACKLISTED: str<33> = "The recipient is in the blacklist";
+global TEXT_ADDRESS_FROM_NOT_WHITELISTED: str<34> = "The sender is not in the whitelist";
+global TEXT_ADDRESS_TO_NOT_WHITELISTED: str<37> = "The recipient is not in the whitelist";
 
 pub struct SetFlag {
     operate_blacklist: bool,
@@ -54,7 +54,7 @@ impl<T,Context> ValidationModule<T,Context> where T: Eq + ToField + FromField + 
 
 impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromField + UserFlagsTrait{
     pub fn get_operations(self: Self) -> Field {
-        let operations = self.operationsFlag.get_current_value_in_public();
+        let operations = self.operationsFlag.get_current_value();
         operations.to_field()
     }
 
@@ -78,7 +78,7 @@ impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromFiel
 
 
     pub fn operateOnTransfer(self: Self, from: AztecAddress, to:AztecAddress) {
-        let operations = self.operationsFlag.get_current_value_in_private();
+        let operations = self.operationsFlag.get_current_value();
 
         if (operations.operate_blacklist) {
             self.detectTransferRestriction_blacklist(from,to);
@@ -90,13 +90,13 @@ impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromFiel
     }
 
     fn detectTransferRestriction_blacklist(self: Self, from: AztecAddress, to:AztecAddress){
-        assert(!self.map.at(from).get_current_value_in_private().get_is_blacklisted(), TEXT_ADDRESS_FROM_IS_BLACKLISTED);
-        assert(!self.map.at(to).get_current_value_in_private().get_is_blacklisted(), TEXT_ADDRESS_TO_IS_BLACKLISTED);
+        assert(!self.map.at(from).get_current_value().get_is_blacklisted(), TEXT_ADDRESS_FROM_IS_BLACKLISTED);
+        assert(!self.map.at(to).get_current_value().get_is_blacklisted(), TEXT_ADDRESS_TO_IS_BLACKLISTED);
     }
 
     fn detectTransferRestriction_whitelist(self: Self, from: AztecAddress, to:AztecAddress){
-        assert(self.map.at(from).get_current_value_in_private().get_is_whitelisted(), TEXT_ADDRESS_FROM_NOT_WHITELISTED);
-        assert(self.map.at(to).get_current_value_in_private().get_is_whitelisted(), TEXT_ADDRESS_TO_NOT_WHITELISTED);
+        assert(self.map.at(from).get_current_value().get_is_whitelisted(), TEXT_ADDRESS_FROM_NOT_WHITELISTED);
+        assert(self.map.at(to).get_current_value().get_is_whitelisted(), TEXT_ADDRESS_TO_NOT_WHITELISTED);
     }
 
     fn detectTransferRestriction_sanctionlist(self: Self, from: AztecAddress, to:AztecAddress){

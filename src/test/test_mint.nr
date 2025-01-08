@@ -13,7 +13,7 @@ unconstrained fn mint_private_success() {
 
     Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 
-    let ret = Token::at(token_contract_address).has_role(MINTER_ROLE, issuer).call(&mut env.public());
+    let ret = Token::at(token_contract_address).has_role(MINTER_ROLE, issuer).view(&mut env.public());
 
     //issuer does have minter role
     assert(ret == 1);

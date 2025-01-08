@@ -5,16 +5,16 @@ use dep::aztec::context::{PublicContext};
 // Type alias for better readability
 pub type Role = Field;
 
-pub global DEFAULT_ADMIN_ROLE = 1;
-pub global PAUSE_ROLE = 2;
-pub global ENFORCEMENT_ROLE =  3;
-pub global VALIDATION_ROLE = 4;
-pub global ADDRESS_LIST_ADD_ROLE = 5;
-pub global ADDRESS_LIST_REMOVE_ROLE = 6;
-pub global MINTER_ROLE = 7;
-pub global BURNER_ROLE = 8;
-pub global DEBT_ROLE = 9;
-pub global DEBT_CREDIT_EVENT_ROLE = 10;
+pub global DEFAULT_ADMIN_ROLE: Field = 1;
+pub global PAUSE_ROLE: Field = 2;
+pub global ENFORCEMENT_ROLE: Field =  3;
+pub global VALIDATION_ROLE: Field = 4;
+pub global ADDRESS_LIST_ADD_ROLE: Field = 5;
+pub global ADDRESS_LIST_REMOVE_ROLE: Field = 6;
+pub global MINTER_ROLE: Field = 7;
+pub global BURNER_ROLE: Field = 8;
+pub global DEBT_ROLE: Field = 9;
+pub global DEBT_CREDIT_EVENT_ROLE: Field = 10;
 
 
 // Define the storage for role data

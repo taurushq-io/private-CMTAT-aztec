@@ -5,11 +5,11 @@ use dep::compressed_string::FieldCompressedString;
 use crate::types::access_controlModule::{AccessControlModule,DEBT_CREDIT_EVENT_ROLE};
 
 
-pub global FLAG_DEFAULT_FLAG = 1;
-pub global FLAG_REDEEMED_FLAG = 2;
+pub global FLAG_DEFAULT_FLAG: Field = 1;
+pub global FLAG_REDEEMED_FLAG: Field = 2;
 
 
-global T_SERIALIZED_LEN = 3; 
+global T_SERIALIZED_LEN: u32 = 3; 
 
     pub struct CreditEventsStruct {
         flagDefault: bool,

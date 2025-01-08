@@ -15,6 +15,28 @@ unconstrained fn transfer_private() {
     // Check balances
     utils::check_private_balance(token_contract_address, issuer, mint_amount - transfer_amount);
     utils::check_private_balance(token_contract_address, user1, transfer_amount);
+
+}
+#[test]
+unconstrained fn transfer_private_check_issuer_view(){
+        // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, token_contract_address, issuer, user1, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
+
+    // Transfer tokens
+    let transfer_amount = 100;
+    Token::at(token_contract_address).transfer(user1, 2*transfer_amount).call(&mut env.private());
+    let user2 = env.create_account();
+
+    env.impersonate(user1);
+    Token::at(token_contract_address).transfer(user2, transfer_amount).call(&mut env.private());
+
+    // Check balances
+    utils::check_private_balance(token_contract_address, issuer, mint_amount - 2*transfer_amount);
+    utils::check_private_balance(token_contract_address, user1, transfer_amount);
+    utils::check_private_balance(token_contract_address, user2, transfer_amount);
+
+    
+
 }
 
 #[test]

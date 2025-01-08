@@ -6,7 +6,7 @@ use dep::aztec::context::{PublicContext};
 use crate::types::access_controlModule::{AccessControlModule,DEBT_ROLE};
 
 
-global T_SERIALIZED_LEN = 12; 
+global T_SERIALIZED_LEN: u32 = 12; 
 
 
   pub struct DebtBaseStruct {

@@ -22,7 +22,7 @@ contract Token {
             storage::storage,
         },
         prelude::{
-            AztecAddress, Map,PrivateSet, PublicMutable, SharedImmutable,
+            AztecAddress, Map,PrivateSet, PublicMutable, PublicImmutable,
             SharedMutable,
         },
     };
@@ -45,9 +45,9 @@ contract Token {
     
 
     // Changing an address' roles has a certain block delay before it goes into effect.
-    global CHANGE_ROLES_DELAY_BLOCKS = 2;
-    //This global is used when doing batching. We set a
-    global MAX_ADDR_PER_CALL = 1;
+    global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
+    //This global is used when doing batching. We set a limit of 1 address per call for now due to the 4 encrypted logs limit.
+    global MAX_ADDR_PER_CALL: u32 = 1;
 
     // #[derive(Serialize)]
     // #[event]
@@ -84,9 +84,9 @@ contract Token {
         balances: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
         total_supply: PublicMutable<U128, Context>,
 
-        symbol: SharedImmutable<FieldCompressedString, Context>,
-        name: SharedImmutable<FieldCompressedString, Context>,
-        decimals: SharedImmutable<u8, Context>,
+        symbol: PublicImmutable<FieldCompressedString, Context>,
+        name: PublicImmutable<FieldCompressedString, Context>,
+        decimals: PublicImmutable<u8, Context>,
     }
 
     #[public]
@@ -103,7 +103,7 @@ contract Token {
     //############ AUTHORIZATION MODULE ############
 
     #[public]
-    // #[aztec(view)]
+    #[view]
     fn has_role(role: Field, account: AztecAddress) -> pub Field {
         storage.access_control.has_role(role, account).to_field()
     }
@@ -250,37 +250,37 @@ contract Token {
     #[public]
     #[view]
     fn public_get_name() -> pub FieldCompressedString {
-        storage.name.read_public()
+        storage.name.read()
     }
 
     #[private]
     #[view]
     fn private_get_name() -> pub FieldCompressedString {
-        storage.name.read_private()
+        storage.name.read()
     }
 
     #[public]
     #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_public()
+        storage.symbol.read()
     }
 
     #[private]
     #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_private()
+        storage.symbol.read()
     }
 
     #[public]
     #[view]
     fn public_get_decimals() -> pub u8 {
-        storage.decimals.read_public()
+        storage.decimals.read()
     }
 
     #[private]
     #[view]
     fn private_get_decimals() -> pub u8 {
-        storage.decimals.read_private()
+        storage.decimals.read()
     }
 
     #[public]
@@ -292,13 +292,13 @@ contract Token {
     #[public]
     #[view]
     fn public_get_issuer() -> pub AztecAddress {
-        storage.issuer_address.get_current_value_in_public()
+        storage.issuer_address.get_current_value()
     }
 
     #[private]
     #[view]
     fn private_get_issuer() -> pub AztecAddress {
-        storage.issuer_address.get_current_value_in_private()
+        storage.issuer_address.get_current_value()
     }
 
     //############ MINT ############
@@ -309,7 +309,7 @@ contract Token {
     fn _mint_internal(to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
-        let issuer = storage.issuer_address.get_current_value_in_private();
+        let issuer = storage.issuer_address.get_current_value();
 
         increment(storage.balances.at(to), amount,to,issuer,to);
     }
@@ -354,7 +354,7 @@ contract Token {
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
         storage.validation_module.operateOnTransfer(from, to);
 
-        let issuer = storage.issuer_address.get_current_value_in_private();
+        let issuer = storage.issuer_address.get_current_value();
 
         decrement(storage.balances.at(from),amount,from,issuer,from);
         increment(storage.balances.at(to),amount,to,issuer,from);
@@ -438,7 +438,7 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        let issuer = storage.issuer_address.get_current_value_in_private();
+        let issuer = storage.issuer_address.get_current_value();
 
         decrement(storage.balances.at(from), amount, from, issuer, from);
 

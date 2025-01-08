@@ -18,7 +18,7 @@ unconstrained fn pause_test(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
 
     //check if issuer has pause role
-    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).call(&mut env.public());
+    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).view(&mut env.public());
 
     //issuer does not have pause role
     assert(ret == 0);
@@ -27,7 +27,7 @@ unconstrained fn pause_test(){
     Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
     //checks that issuer has pause role
-    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).call(&mut env.public());
+    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).view(&mut env.public());
 
     assert(ret == 1);
 

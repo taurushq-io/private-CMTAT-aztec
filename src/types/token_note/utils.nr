@@ -22,25 +22,20 @@ pub fn increment(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     recipient: AztecAddress,
-    external_outgoing_viewer: AztecAddress, // docs:end:increment_args
+    issuer: AztecAddress,
     sender: AztecAddress
 ) {
-    let outgoing_viewer_ovpk_m = get_public_keys(external_outgoing_viewer).ovpk_m;
-    let sender_ovpk_m = get_public_keys(sender).ovpk_m;
-
     let mut note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     let note_insert = balance.insert(&mut note);
     
     note_insert.emit(encode_and_encrypt_note(
         balance.context,
-        sender_ovpk_m,
         recipient,
         sender));
     note_insert.emit(encode_and_encrypt_note(
         balance.context,
-        outgoing_viewer_ovpk_m,
-        recipient,
+        issuer,
         sender));
 
 }

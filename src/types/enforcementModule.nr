@@ -3,7 +3,7 @@ use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserial
 use crate::types::access_controlModule::{AccessControlModule,ENFORCEMENT_ROLE};
 
 global FREEZED_FLAG: u64 = 1;
-global CHANGE_ROLES_DELAY_BLOCKS = 2;
+global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
 
 pub struct FreezableFlag {
     is_freezed: bool,
@@ -34,7 +34,7 @@ impl<T,Context> Freezable<T,Context> where T: Eq + ToField + FromField + Freezab
 impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
 
     pub fn is_frozen(self: Self, address: AztecAddress) -> bool{
-        self.map.at(address).get_current_value_in_public().get_is_frozen()
+        self.map.at(address).get_current_value().get_is_frozen()
     }
 
     /**
@@ -59,11 +59,11 @@ impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + Fre
     // Internal functions
     //TODO: are we sure these functions cannot be called externally?
     fn _require_not_freezed(self: Self, address: AztecAddress) {
-        assert(self.map.at(address).get_current_value_in_public().get_is_frozen() == false, "error: address already freezed");
+        assert(self.map.at(address).get_current_value().get_is_frozen() == false, "error: address already freezed");
     }
 
     fn _require_freezed(self: Self, address: AztecAddress) {
-        assert(self.map.at(address).get_current_value_in_public().get_is_frozen() == true, "error: address already unfreezed");
+        assert(self.map.at(address).get_current_value().get_is_frozen() == true, "error: address already unfreezed");
     }
 
 }
@@ -71,7 +71,7 @@ impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + Fre
 impl<T> Freezable<T,&mut PrivateContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
 
     pub fn is_frozen(self: Self, user: AztecAddress) -> bool {
-        let user_roles: T = self.map.at(user).get_current_value_in_private();
+        let user_roles: T = self.map.at(user).get_current_value();
         user_roles.get_is_frozen()
     }
 

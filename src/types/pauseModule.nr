@@ -3,7 +3,7 @@ use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserial
 use crate::types::access_controlModule::{AccessControlModule, PAUSE_ROLE};
 
 pub global PAUSED_FLAG: u64 = 1;
-pub global T_SERIALIZED_LEN = 1;
+pub global T_SERIALIZED_LEN: u32 = 1;
 
     trait BoolEmulTrait {
         pub fn get_pause(self) -> bool;
