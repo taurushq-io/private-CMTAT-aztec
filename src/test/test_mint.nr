@@ -11,23 +11,19 @@ unconstrained fn mint_private_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 
-    let get_is_pause_roles_call_interface = Token::at(token_contract_address).has_role(MINTER_ROLE, issuer);
-    let ret = env.call_public(get_is_pause_roles_call_interface);
+    let ret = Token::at(token_contract_address).has_role(MINTER_ROLE, issuer).call(&mut env.public());
 
     //issuer does have minter role
     assert(ret == 1);
 
     let mint_amount = 10000;
-    let mint_private_call_interface = Token::at(token_contract_address).mint(issuer, mint_amount);
-    env.call_private_void(mint_private_call_interface);
+    Token::at(token_contract_address).mint(issuer, mint_amount).call(&mut env.private());
 
     utils::check_private_balance(token_contract_address, issuer, mint_amount);
 
-    let total_supply_call_interface = Token::at(token_contract_address).total_supply();
-    let total_supply = env.call_public(total_supply_call_interface);
+    let total_supply = Token::at(token_contract_address).total_supply().view(&mut env.public());
     assert(total_supply == mint_amount);
 }
 
@@ -36,19 +32,16 @@ unconstrained fn mint_private_batch_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, issuer, user1,user2,user3) = utils::setup_and_more_addresses(/* with_account_contracts */ false);
     
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 
     let mint_amount = [10000];
     let addresses = [user1];
 
-    let mint_private_call_interface = Token::at(token_contract_address).mint_batch(addresses, mint_amount);
-    env.call_private_void(mint_private_call_interface);
+    Token::at(token_contract_address).mint_batch(addresses, mint_amount).call(&mut env.private());
 
     utils::check_private_balance(token_contract_address, addresses[0], mint_amount[0]);
 
-    let total_supply_call_interface = Token::at(token_contract_address).total_supply();
-    let total_supply = env.call_public(total_supply_call_interface);
+    let total_supply = Token::at(token_contract_address).total_supply().view(&mut env.public());
 
     let mut total_mint_amount = 0;
     for i in 0..1 {
@@ -67,8 +60,7 @@ unconstrained fn mint_private_failure_non_minter() {
     // Try to mint some tokens impersonating user1
     env.impersonate(user1);
 
-    let mint_private_call_interface = Token::at(token_contract_address).mint(user1, mint_amount);
-    env.call_private_void(mint_private_call_interface);
+    Token::at(token_contract_address).mint(user1, mint_amount).call(&mut env.private());
 }
 
 #[test(should_fail_with="call to assert_max_bit_size")]
@@ -76,10 +68,11 @@ unconstrained fn mint_private_failure_overflow() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
+    Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
+
     // Overflow user1
     let mint_amount = 2.pow_32(128);
-    let mint_private_call_interface = Token::at(token_contract_address).mint(issuer, mint_amount);
-    env.call_private_void(mint_private_call_interface);
+    Token::at(token_contract_address).mint(issuer, mint_amount).call(&mut env.private());
 }
 
 //TODO: this test does not fail

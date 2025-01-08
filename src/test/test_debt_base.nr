@@ -11,8 +11,7 @@ use dep::compressed_string::FieldCompressedString;
 unconstrained fn set_and_get_debt_test(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(DEBT_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(DEBT_ROLE, issuer).call(&mut env.public());
 
     let debt_events = DebtBaseStruct {
         interestRate: 3 as Field,
@@ -29,11 +28,11 @@ unconstrained fn set_and_get_debt_test(){
         couponFrequency: FieldCompressedString::from_string("abc0000000000000000000000000000"),};
 
     let credit_call_interface = Token::at(token_contract_address).set_debt_base(debt_events);
-    env.call_public(credit_call_interface);
+    credit_call_interface.call(&mut env.public());
     env.advance_block_by(3);
 
     let credit_call_interface = Token::at(token_contract_address).get_debt_base();
-    let ret : [Field; 12] = env.call_public(credit_call_interface);
+    let ret : [Field; 12] = credit_call_interface.call(&mut env.public());
 
     let string_val = FieldCompressedString::from_string("abc0000000000000000000000000000").serialize()[0];
     assert(ret[0] == 3);

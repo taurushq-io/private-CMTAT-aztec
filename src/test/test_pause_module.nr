@@ -9,8 +9,7 @@ use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, PAUSE_ROLE, MINTER_
 unconstrained fn get_paused(){
     let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
-    let get_roles_call_interface = Token::at(token_contract_address).public_get_pause();
-    let ret = env.call_public(get_roles_call_interface);
+    let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 0);
 }
 
@@ -19,43 +18,35 @@ unconstrained fn pause_test(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
 
     //check if issuer has pause role
-    let get_is_pause_roles_call_interface = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer);
-    let ret = env.call_public(get_is_pause_roles_call_interface);
+    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
     //issuer does not have pause role
     assert(ret == 0);
 
     //give pause role to issuer
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
     //checks that issuer has pause role
-    let get_is_pause_roles_call_interface = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer);
-    let ret = env.call_public(get_is_pause_roles_call_interface);
+    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
     assert(ret == 1);
 
     //checks if contract is paused
-    let get_pause_call_interface = Token::at(token_contract_address).public_get_pause();
-    let ret = env.call_public(get_pause_call_interface);
+    let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 0);
 
     //issuer pauses the contract 
-    let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
-    env.call_public(set_pause_call_interface);
+    Token::at(token_contract_address).pause_contract().call(&mut env.public());
 
     //checks if contract is indeed paused
-    let get_pause_call_interface = Token::at(token_contract_address).public_get_pause();
-    let ret = env.call_public(get_pause_call_interface);
+    let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 1);
 
     //issuer unpauses the contract
-    let set_unpause_call_interface = Token::at(token_contract_address).unpause_contract();
-    env.call_public(set_unpause_call_interface);
+    Token::at(token_contract_address).unpause_contract().call(&mut env.public());
 
     //checks that the contract has been unpaused correctly
-    let get_pause_call_interface = Token::at(token_contract_address).public_get_pause();
-    let ret = env.call_public(get_pause_call_interface);
+    let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 0);
 }
 
@@ -67,21 +58,16 @@ unconstrained fn mint_when_paused_fails(){
     let mint_amount = 10000;
     env.impersonate(issuer);
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 
-    let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
-    env.call_public(set_pause_call_interface);
+    Token::at(token_contract_address).pause_contract().view(&mut env.public());
 
-    let get_pause_call_interface = Token::at(token_contract_address).public_get_pause();
-    let ret = env.call_public(get_pause_call_interface);
+    let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 1);
 
-    let mint_private_call_interface = Token::at(token_contract_address).mint(issuer, mint_amount);
-    env.call_private_void(mint_private_call_interface);
+    Token::at(token_contract_address).mint(issuer, mint_amount).call(&mut env.private());
 }
 
 #[test(should_fail_with="Error: token contract is paused")]
@@ -91,21 +77,16 @@ unconstrained fn transfer_when_paused_fails(){
     let mint_amount = 100;
     env.impersonate(issuer);
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 
-    let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
-    env.call_public(set_pause_call_interface);
+    Token::at(token_contract_address).pause_contract().call(&mut env.public());
 
-    let get_pause_call_interface = Token::at(token_contract_address).public_get_pause();
-    let ret = env.call_public(get_pause_call_interface);
+    let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 1);
 
-    let mint_private_call_interface = Token::at(token_contract_address).transfer(issuer, mint_amount);
-    env.call_private_void(mint_private_call_interface);
+    Token::at(token_contract_address).transfer(issuer, mint_amount).call(&mut env.private());
 }
 
 
@@ -114,15 +95,14 @@ unconstrained fn pause_twice_throws(){
 
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
     
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
 
-    let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
-    env.call_public(set_pause_call_interface);
+    Token::at(token_contract_address).pause_contract().call(&mut env.public());
 
-    let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
-    env.call_public(set_pause_call_interface);
+
+    Token::at(token_contract_address).pause_contract().call(&mut env.public());
+
 }
 
 
@@ -131,8 +111,7 @@ unconstrained fn pause_twice_throws(){
 unconstrained fn test_pause_roles(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
     
-    let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
-    env.call_public(set_pause_call_interface);
+    Token::at(token_contract_address).pause_contract().call(&mut env.public());
 }
 
 //owner has role when pause but not the role when unpause
@@ -140,21 +119,15 @@ unconstrained fn test_pause_roles(){
 unconstrained fn test_pause_role_2(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
     
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+    Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
-
-    let set_pause_call_interface = Token::at(token_contract_address).pause_contract();
-    env.call_public(set_pause_call_interface);
+    Token::at(token_contract_address).pause_contract().call(&mut env.public());
 
     //checks if contract is indeed paused
-    let get_pause_call_interface = Token::at(token_contract_address).public_get_pause();
-    let ret = env.call_public(get_pause_call_interface);
+    let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 1);
 
-    let grant_pause_roles_call_interface = Token::at(token_contract_address).revoke_role(PAUSE_ROLE, issuer);
-    env.call_public(grant_pause_roles_call_interface);
+     Token::at(token_contract_address).revoke_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
-    let set_pause_call_interface = Token::at(token_contract_address).unpause_contract();
-    env.call_public(set_pause_call_interface);
+    Token::at(token_contract_address).unpause_contract().call(&mut env.public());
 }

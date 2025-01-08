@@ -1,10 +1,9 @@
-mod token_note;
-mod balances_map;
-mod access_controlModule;
-mod validationModule;
-mod pauseModule;
-mod enforcementModule;
-mod extensions;
+pub mod access_controlModule;
+pub mod validationModule;
+pub mod pauseModule;
+pub mod enforcementModule;
+pub mod extensions;
+pub mod token_note;
 
 
 

@@ -1,44 +1,42 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-use dep::aztec::prelude::{AztecAddress, SharedMutable, Map, PrivateSet, PublicMutable};
-use dep::aztec::context::{PublicContext, PrivateContext};
-use dep::aztec::{
-        unencrypted_logs::{unencrypted_event_emission::{emit, encode_event}},
-    }; 
+use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+use dep::aztec::prelude::{AztecAddress, PublicMutable};
+use dep::aztec::context::{PublicContext};
 use dep::compressed_string::FieldCompressedString;
 use crate::types::access_controlModule::{AccessControlModule,DEBT_CREDIT_EVENT_ROLE};
 
 
-global FLAG_DEFAULT_FLAG = 1;
-global FLAG_REDEEMED_FLAG = 2;
+pub global FLAG_DEFAULT_FLAG = 1;
+pub global FLAG_REDEEMED_FLAG = 2;
 
 
 global T_SERIALIZED_LEN = 3; 
 
-    struct CreditEventsStruct {
+    pub struct CreditEventsStruct {
         flagDefault: bool,
         flagRedeemed: bool,
         rating: FieldCompressedString,
     }
 
-    struct CreditEvents<T, Context> {
-        credit_event: PublicMutable<CreditEventsStruct,Context>,
+    pub struct CreditEvents<T, Context> {
+        pub credit_event: PublicMutable<CreditEventsStruct,Context>,
     }
 
-    #[aztec(event)]
-    struct FlagDefault {
-        newFlagDefault: bool
-    }
+//NOTE: events can only be used in contracts from what I understand
+    // #[event]
+    // struct FlagDefault {
+    //     newFlagDefault: bool
+    // }
 
-    #[aztec(event)]
-    struct FlagRedeemed {
-        newFlagRedeemed: bool
-    }
+    // #[event]
+    // struct FlagRedeemed {
+    //     newFlagRedeemed: bool
+    // }
 
-    //the type of newRating should be a string
-    #[aztec(event)]
-    struct Rating {
-        newRating: Field,
-    }
+    // //the type of newRating should be a string
+    // #[event]
+    // struct Rating {
+    //     newRating: Field,
+    // }
 
 
 impl<T,Context> CreditEvents<T,Context> {
@@ -56,7 +54,7 @@ impl<T> CreditEvents<T, &mut PublicContext> {
     * @notice Set all attributes of creditEvents
     * The values of all attributes will be changed even if the new values are the same as the current ones
     */
-    fn setCreditEvents( self: Self, credit_events: CreditEventsStruct, caller: AztecAddress, ac: AccessControlModule<bool,  &mut PublicContext>){
+    pub fn setCreditEvents( self: Self, credit_events: CreditEventsStruct, caller: AztecAddress, ac: AccessControlModule<bool,  &mut PublicContext>){
         ac.only_role(DEBT_CREDIT_EVENT_ROLE, caller);
         let creditEvents = CreditEventsStruct {flagDefault: credit_events.flagDefault, flagRedeemed: credit_events.flagRedeemed, rating: credit_events.rating};
         self.credit_event.write(creditEvents);
@@ -68,7 +66,7 @@ impl<T> CreditEvents<T, &mut PublicContext> {
         //FlagDefault{newFlagDefault: flagDefault_}.emit(encode_event(&mut context));
     }
 
-    fn get_credit_events(self: Self) -> [Field; T_SERIALIZED_LEN]{
+    pub fn get_credit_events(self: Self) -> [Field; T_SERIALIZED_LEN]{
         self.credit_event.read().serialize()
     }
 }

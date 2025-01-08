@@ -1,32 +1,31 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-use dep::aztec::prelude::{AztecAddress, PublicMutable, Map, PrivateSet};
-use dep::aztec::context::{PublicContext, PrivateContext};
+use dep::aztec::prelude::{AztecAddress, PublicMutable, Map};
+use dep::aztec::context::{PublicContext};
 
 
 // Type alias for better readability
-type Role = Field;
+pub type Role = Field;
 
-global DEFAULT_ADMIN_ROLE = 1;
-global PAUSE_ROLE = 2;
-global ENFORCEMENT_ROLE =  3;
-global VALIDATION_ROLE = 4;
-global ADDRESS_LIST_ADD_ROLE = 5;
-global ADDRESS_LIST_REMOVE_ROLE = 6;
-global MINTER_ROLE = 7;
-global BURNER_ROLE = 8;
-global DEBT_ROLE = 9;
-global DEBT_CREDIT_EVENT_ROLE = 10;
+pub global DEFAULT_ADMIN_ROLE = 1;
+pub global PAUSE_ROLE = 2;
+pub global ENFORCEMENT_ROLE =  3;
+pub global VALIDATION_ROLE = 4;
+pub global ADDRESS_LIST_ADD_ROLE = 5;
+pub global ADDRESS_LIST_REMOVE_ROLE = 6;
+pub global MINTER_ROLE = 7;
+pub global BURNER_ROLE = 8;
+pub global DEBT_ROLE = 9;
+pub global DEBT_CREDIT_EVENT_ROLE = 10;
 
 
 // Define the storage for role data
-struct RoleData<Context> {
-    has_role: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-    admin_role: Role,
+pub struct RoleData<Context> {
+    pub has_role: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+    pub admin_role: Role,
 }
 
 //Define the AccessControl storage
-struct AccessControlModule<T,Context> {
-    roles: Map<Role, RoleData<Context>, Context>,
+pub struct AccessControlModule<T,Context> {
+    pub roles: Map<Role, RoleData<Context>, Context>,
 }
 
 impl<T,Context> AccessControlModule<T,Context> {
@@ -46,50 +45,53 @@ impl<T,Context> AccessControlModule<T,Context> {
 
 impl<T> AccessControlModule<T, &mut PublicContext> {
     // Get role storage
-    #[aztec(internal)]
     fn get_role_storage(self: Self, role: Role) -> RoleData<&mut PublicContext>{
         self.roles.at(role)
     }
 
     // Check if an account has a role
-    fn has_role(self: Self, role: Role, account: AztecAddress) -> bool {
+    pub fn has_role(self: Self, role: Role, account: AztecAddress) -> bool {
         let role_data = self.get_role_storage(role);
         role_data.has_role.at(account).read()
     }
 
     // Check role internally
-    #[aztec(internal)]
     fn check_role(self: Self, role: Role, account: AztecAddress) {
         assert(self.has_role(role, account),"AccessControlUnauthorizedAccount");
     }
 
     // Modifier to check role
-    fn only_role(self: Self, role: Role, caller: AztecAddress) {
+    pub fn only_role(self: Self, role: Role, caller: AztecAddress) {
         self.check_role(role, caller);
     }
 
-    fn getRoleAdmin(self: Self, role: Role) -> Role {
+    pub fn getRoleAdmin(self: Self, role: Role) -> Role {
         self.roles.at(role).admin_role
     }
 
-    fn renounce_role(self:Self, role: Field, caller: AztecAddress, callerConfirmation: AztecAddress) {
+    // renounce ownership of a role
+    // This is a public function because it can be called by the user
+    // @dev: 
+    pub fn renounce_role(self:Self, role: Field, caller: AztecAddress, callerConfirmation: AztecAddress) {
         assert(caller == callerConfirmation, "Renounce Role: Addresses do not match");
         self._revoke_role(role, callerConfirmation)   
     }
 
     // Grant a role to an account
-    fn grant_role( self: Self, role: Role, account: AztecAddress) {
+    pub fn grant_role( self: Self, role: Role, account: AztecAddress) {
         self.only_role(self.getRoleAdmin(role), account);
         self._grant_role(role,account);
     }
 
     // Revoke a role from an account
-    fn revoke_role(self:Self, role: Role, account: AztecAddress) {
+    pub fn revoke_role(self:Self, role: Role, account: AztecAddress) {
         self.only_role(self.getRoleAdmin(role), account);
         self._revoke_role(role,account);
     }
 
-    fn _grant_role( self:Self, role: Role, account: AztecAddress) {
+    //this is made public so that the constructor can call it. 
+    //TODO: see how to make otherwise
+    pub fn _grant_role( self:Self, role: Role, account: AztecAddress) {
         let mut role_data = self.get_role_storage(role);
         role_data.has_role.at(account).write(true);
     }
