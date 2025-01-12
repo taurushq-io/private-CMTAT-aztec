@@ -28,7 +28,7 @@ This page has been written while studying the Aztec blockchain. It is kept here 
   - [Setup](#setup)
     - [Development Environment](#development-environment)
     - [Sandbox Testing](#sandbox-testing)
-  - [Questions](#questions)
+  - [Examples](#examples)
 
 ## Aztec and Noir Concepts
 
@@ -406,3 +406,15 @@ Since any data that is moving from one chain to another will, at some point, res
 
 - **Cheat Codes**:
   - Refer to the [Sandbox Reference Cheat Codes](https://docs.aztec.network/reference/sandbox_reference/cheat_codes) for testing.
+
+### Examples
+
+- **Aztec's Private Token Contract Example**: [Token Contract Tutorial](https://docs.aztec.network/tutorials/contract_tutorials/token_contract)
+- **DEX Built on Aztec**: [Aztec DEX Build](https://github.com/porco-rosso-j/aztec-dex-build)
+- **Homomorphic Encryption**:
+  - [Noir ElGamal](https://github.com/jat9292/noir-elgamal/)
+  - [Aztec Coin Toss PvP](https://github.com/defi-wonderland/aztec-coin-toss-pvp)
+  - Note: Full Homomorphic Encryption (FHE) is not yet supported on Aztec.
+- **Token Transfer Flows**: [Transferring Someone Else's Notes](https://forum.aztec.network/t/transferring-someone-elses-notes/2586)
+- **Private Token Using Aztec**: [Ethereum's Privacy New Frontier](https://medium.com/@jat9292/zksnarks-homomorphic-encryption-ethereums-privacy-new-frontier-b30357236a7a)
+- **Aztec Explorer**: [ShieldSwap](https://github.com/olehmisar/shieldswap)
