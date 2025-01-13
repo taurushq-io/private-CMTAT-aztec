@@ -223,10 +223,12 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 ## Deployment 
 
 - Download the sandbox (version should match [Nargo.toml](https://github.com/taurusgroup/private-tokens/blob/master/Nargo.toml) dependency versions). Instructions [here](https://docs.aztec.network/guides/getting_started)
+- downgrade to the version specified in the dependencies section of [this file](https://github.com/taurushq-io/private-CMTAT-aztec/blob/master/Nargo.toml) or specified in the latest release by running `VERSION=X.XX.X aztec-up`
 - clone the repo 
-- In the `./private-tokens` directory, run: `aztec-nargo compile`
+- In the main directory, run: `aztec-nargo compile`
 - Then, run:  `aztec test` 
-- The contract is deployed on the sandbox, by the utils function, and all the tests are run
+- The contract is deployed on the sandbox, by the [setup function](https://github.com/taurushq-io/private-CMTAT-aztec/blob/master/src/test/utils.nr), and all the tests are run
+
 
 ## Comparison Between Private Aztec CMTAT and CMTAT
 
@@ -319,7 +321,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
   - The transaction hash is always emitted during local execution as the first nullifier of the transaction to prevent replay attacks. This is enforced by the private kernel circuit.
 
 ### Intellectual Property
-  This code is copyright (c) 2024 Taurus SA and is released under MIT.
+  This code is copyright (c) 2024-2025 Taurus SA and is released under MIT license.
 
 ### TODO
 
