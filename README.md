@@ -322,14 +322,6 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 ### Intellectual Property
   This code is copyright (c) 2024 Taurus SA and is released under MIT.
 
-### TODO
-
-- **Amount Proofs**: Implement a proof for proving that you own less/more than a certain amount.
-- **Overflow Testing**: Investigate and test for overflow issues.
-- **Shareable Key**: Develop functionality for a shareable key.
-  - This is an important focus
-- **Contract Library Method Macro**: Explore the new `[contract_library_method]` macro on Aztec.
-- 
 
 ### Examples
 
