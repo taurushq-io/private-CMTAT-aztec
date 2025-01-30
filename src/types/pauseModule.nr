@@ -1,5 +1,5 @@
 use dep::aztec::{prelude::{AztecAddress, PublicMutable},  context::PublicContext};
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Packable, FromField, ToField, Serialize, Deserialize};
 use crate::types::access_controlModule::{AccessControlModule, PAUSE_ROLE};
 
 pub global PAUSED_FLAG: u64 = 1;
@@ -29,7 +29,7 @@ impl<T,Context> PauseModule<T,Context> where T: Eq + Serialize<T_SERIALIZED_LEN>
 
 }
 
-impl<T> PauseModule<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait{
+impl<T> PauseModule<T,&mut PublicContext> where T: Eq + Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> + ToField + FromField + BoolEmulTrait + Packable<T_SERIALIZED_LEN>{
 
 
     pub fn is_paused(self: Self) -> bool{
@@ -130,6 +130,16 @@ impl Deserialize<T_SERIALIZED_LEN> for BoolEmul {
         Self {
             is_paused: fields[0] as bool,
         }
+    }
+}
+
+impl Packable<T_SERIALIZED_LEN> for BoolEmul{
+    fn pack(self) -> [Field; T_SERIALIZED_LEN] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; T_SERIALIZED_LEN]) -> Self {
+        Self::deserialize(fields)
     }
 }
 

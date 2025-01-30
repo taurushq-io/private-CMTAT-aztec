@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize};
 use dep::aztec::prelude::{AztecAddress, PublicMutable};
 use dep::aztec::context::{PublicContext};
 use dep::compressed_string::FieldCompressedString;
@@ -90,5 +90,15 @@ impl Deserialize<T_SERIALIZED_LEN> for CreditEventsStruct {
             flagRedeemed: fields[1] as bool,
             rating: FieldCompressedString::from_field(fields[2]),
         }
+    }
+}
+
+impl Packable<T_SERIALIZED_LEN> for CreditEventsStruct {
+    fn pack(self) -> [Field; T_SERIALIZED_LEN] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; T_SERIALIZED_LEN]) -> Self {
+        Self::deserialize(fields)
     }
 }

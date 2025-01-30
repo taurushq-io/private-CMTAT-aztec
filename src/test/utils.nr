@@ -3,10 +3,12 @@ use dep::aztec::{
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
     note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}},
-    oracle::{execution::{get_block_number, get_contract_address}}
+    oracle::{execution::{get_block_number, get_contract_address}, random::random,
+        storage::storage_read,}
 };
 
 use crate::{types::{ access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE}}, Token};
+
 
 pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -14,8 +16,6 @@ pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
     let (issuer, user1) = if with_account_contracts {
         let issuer = env.create_account_contract(1);
         let user1 = env.create_account_contract(2);        
-        // Deploy canonical auth registry
-        //let _auth_registry = env.deploy("./@auth_registry_contract", "AuthRegistry").without_initializer();
         (issuer, user1)
     } else {
         let issuer = env.create_account();
