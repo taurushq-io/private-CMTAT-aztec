@@ -3,10 +3,6 @@ mod test;
 
 use dep::aztec::macros::aztec;
 
-//TODO: add the events
-//TODO: look into burn batch
-//TODO: add possibility to modify the issuer address
-//TODO: look into the token note structure. Is it good to have value_note from library and then utils for increment and decrement?
 #[aztec]
 contract Token {
     // Libs
@@ -452,7 +448,6 @@ contract Token {
         amount: [Field; MAX_ADDR_PER_CALL],
         nonce: Field,
     ) {
-        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0, "Mint module empty");
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
