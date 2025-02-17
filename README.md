@@ -1,19 +1,35 @@
 # Private CMTA Token
 
-This project aims to implement a private version of the CMTAT standard using Aztec, enabling banks and financial institutions to leverage the benefits of tokenization while preserving privacy and compliance.
+This project implements a private version of the CMTAT security token,
+using [Aztec](https://aztec.network/).
+This allows banks and financial institutions to benefits from
+tokenization while maintaining privacy and compliance.
 
-> The Aztec Network being under heavy developpment, this repository is subject to rapid changes. Notably, updates will need to be made once Aztec reaches testnet. Also note that, as opposed to the CMTAT, this code has not been audited, and is not compliant with the Swiss law. 
+**Disclaimer:** Aztec is under heavy developpment, and this repository
+may be subject to rapid changes. Significant updates will needed once
+Aztec reaches testnet. Additionally, unlike CMTAT, this code has not
+been audited and may not be fully compliant with the Swiss law. 
 
 ## Introduction
 
-[Aztec](https://aztec.network/) is a privacy-focused Layer 2 solution built on Ethereum that enables confidential transactions using Zero-Knowledge Proofs (ZKPs). 
-By using Aztec, we can ensure that sensitive data, such as transaction details, remain private. 
-[CMTAT](https://github.com/CMTA/CMTAT?tab=readme-ov-file) is a framework enabling the tokenization of securities in compliance with Swiss law. 
-With the integration of Aztec, this project allows institutions to fully adopt the CMTAT standard while maintaining confidentiality in their transactions. 
-In this repository, we implement a fully functional private CMTAT prototype, where transactions are private for users, 
-while issuers retain the ability to audit and monitor the activity to ensure compliance. This represents a significant step forward, 
-as it allows institutions to participate in tokenized markets without exposing their confidential data, addressing one of the main 
-limitations of using public blockchains such as Ethereum.
+[Aztec](https://aztec.network/) is a privacy-focused Layer 2 solution on
+Ethereum that enables confidential transactions using zero-knowledge
+proofs (ZKPs). 
+
+[CMTAT](https://github.com/CMTA/CMTAT?tab=readme-ov-file) is a framework
+for the tokenization of securities in compliance with local regulations.
+This project integrates Aztec with CMTAT, allowing financial
+institutions to adopt the standard while preserving transaction
+confidentiality.
+
+This repository contains a functional private CMTAT prototype, where
+transactions remain private for users, while issuers retain the ability
+to audit and monitor activity to ensure compliance. This marks a
+significant step forward, enabling institutions to participate in
+tokenized markets without exposing confidential data—overcoming one of
+the key limitations of public blockchains.
+
+
 
 ## Table of Contents
 
@@ -25,16 +41,15 @@ limitations of using public blockchains such as Ethereum.
   - [Mint Private Specifications](#mint-private-specifications)
   - [Transfer Private Specifications](#transfer-private-specifications)
   - [Burn Private Specifications](#burn-private-specifications)
-  - [Security and Confidentiality Concerns](#security-and-confidentiality-concerns)
+  - [Security and Confidentiality Properties](#security-and-confidentiality-properties)
   - [Modules](#modules)
   - [Issuer's View of Transactions and Notes](#issuers-view-of-transactions-and-notes)
 - [Comparison Between CMTAT and Aztec Token](#comparison-between-private-aztec-cmtat-and-cmtat)
-- [Current Issues in private CMTAT on Aztec](#current-issues-in-private-cmtat-on-aztec)
-- [More](#more)
-  - [Miscellaneous and Other Concerns](#miscellaneous-and-other-concerns)
-  - [Intellectual Property](#intellectual-property)
-  - [TODO](#todo)
-  - [Additional Resources](#additional-resources)
+- [Current Issues in Private CMTAT on Aztec](#current-issues-in-private-cmtat-on-aztec)
+- [Miscellaneous and Other Concerns](#miscellaneous-and-other-concerns)
+- [Intellectual Property](#intellectual-property)
+- [Security](#security)
+- [Additional Resources](#additional-resources)
 
 
 ## Functionality 
@@ -136,7 +151,7 @@ You may modify the token code by adding, removing, or modifying features.
 
 - According to protocol limitations, only **4 encrypted logs** can be emitted in a function call and only **4 private functions** can be called from a function call. As we have 2 encrypted logs emitted in the burn function, our bottleneck is the encrypted logs, which means we can only batch **2 burn functions** at the same time.
 
-### Security and Confidentiality Concerns
+### Security and Confidentiality Properties
 
 - **Private Mint Call to Public Function**:
   - **Reveals Minter Address**: Since it is a parameter in the public function call. It is the issuer, whose address is already known, but still, private to public function calls pose a problem as they also reveal that the contract was called.
@@ -272,7 +287,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Immediate Shared State Changes**:
   - We cannot have a shared state (public and private) that has no delay when changed due to the protocol's construction.
 
-## Current Issues in private CMTAT on Aztec
+## Current Issues in Private CMTAT on Aztec
 
 - **Issuer's View of User Balances**: [SEE](#issuers-view-of-transactions-and-notes)
 
@@ -297,9 +312,8 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Function Exposure**:
   - We may need to expose the `schedule_delay_change` function for every `SharedMutable`, which is cumbersome.
 
-## More
 
-### Miscellaneous and Other Concerns
+## Miscellaneous and Other Concerns
 
 - **Wallet Responsibilities**:
   - The wallet should implement note discovery and tagging mechanisms, not the application.
@@ -320,9 +334,16 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Replay Attacks**:
   - The transaction hash is always emitted during local execution as the first nullifier of the transaction to prevent replay attacks. This is enforced by the private kernel circuit.
 
-### Intellectual Property
-  This code is copyright (c) 2024-2025 Taurus SA and is released under MIT license.
+## Intellectual Property
 
+This code is copyright (c) 2025 Taurus SA and is released under [MIT license](./LICENSE.md).
+
+We are not aware of any patent or patent application covering the
+techniques implemented.
+
+## Security Policy
+
+Please see [SECURITY.md](./SECURITY.md).
 
 
 ## Additional Resources
