@@ -58,18 +58,23 @@ the key limitations of public blockchains.
 
 The private CMTAT supports the following core features:
 
- - *private* mint, burn, and transfer operations
- - *public* pause of the contract and public freeze of specific accounts
- - *auditability* of users private transactions by a central issuer
+ - **Private** mint, burn, and transfer operations
+ - **Public** pause of the contract and public freeze of specific accounts
+ - **Auditability** of users private transactions by a central issuer
+ - **Transfer restriction** via address blacklisting/whitelisting
 
-As opposed to the CMTAT, we do not support:
+Unlike the reference [Solidity CMTAT](https://github.com/CMTA/CMTAT), it
+does not support:
  - Upgradeability
- - "Gasless" transactions
- - Conditional transfers
+ - Gasless transactions
 
-This reference implementation allows the issuance and management of tokens representing equity securities. It can however also be used for other forms of financial instruments such as debt securities.
+This reference implementation aims to fulfill the criteria required to
+tokenize financial instruments such as bonds, equity shares, and private
+credit notes.
 
-You may modify the token code by adding, removing, or modifying features. 
+You may modify the token code by adding, removing, or modifying
+features, at your own risk.
+
 
 ## Private Token Implementation
 
