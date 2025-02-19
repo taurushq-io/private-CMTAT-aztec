@@ -336,7 +336,10 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 
 ## Intellectual Property
 
-This code is copyright (c) 2025 Taurus SA and is released under [MIT license](./LICENSE.md).
+This code is copyright (c) 2025 Taurus SA and is dual-licensed under the
+MIT and MPL-2.0 licenses.  You may choose either license.
+
+See [LICENSE-MIT.md](./LICENSE-MIT.md) and [LICENSE-MPL.md](./LICENSE-MPL.md) for details.
 
 We are not aware of any patent or patent application covering the
 techniques implemented.
