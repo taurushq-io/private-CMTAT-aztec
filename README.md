@@ -32,7 +32,7 @@ been audited and may not be fully compliant with the Swiss law.
 
 - [Functionalities Overview](#functionalities-overview)
 - [Private Token Implementation](#private-token-implementation)
-  - [Assumptions and Requirements](#assumptions-and-requirements
+  - [Assumptions and Requirements](#assumptions-and-requirements)
   - [Storage](#storage)
   - [Mint Private Specifications](#mint-private-specifications)
   - [Transfer Private Specifications](#transfer-private-specifications)
@@ -42,11 +42,10 @@ been audited and may not be fully compliant with the Swiss law.
   - [Issuer's View of Transactions and Notes](#issuers-view-of-transactions-and-notes)
 - [Deployment](#deployment)
 - [Comparison with Solidity CMTAT](#comparison-with-solidity-cmtat)
-- [Current Limitatoins in Private CMTAT on Aztec](#current-limitations-in-private-cmtat-on-aztec)
-- [Miscellaneous and Other Concerns](#miscellaneous-and-other-concerns)
+- [Limitations](#limitations)
+- [Miscellaneous](#miscellaneous)
 - [Intellectual Property](#intellectual-property)
 - [Security](#security)
-- [Additional Resources](#additional-resources)
 
 
 ## Functionalities Overview
@@ -287,7 +286,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Immediate Shared State Changes**:
   - We cannot have a shared state (public and private) that has no delay when changed due to the protocol's construction.
 
-## Current Limitations in Private CMTAT on Aztec
+## Limitations
 
 - **Issuer's View of User Balances**: [SEE](#issuers-view-of-transactions-and-notes)
 
@@ -305,7 +304,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
     - Accept the delay.
     - Encrypt the blacklist with a key (implementation unclear).
 
-- **Protocol Limitations**: [SEE](#mint---private)
+- **Protocol Limitations**: 
   - Only **4 private calls** can be made from a private function, limiting batch functions.
   - Only **4 encrypted notes** can be emitted in a function call, further limiting batching.
 
@@ -334,6 +333,10 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Replay Attacks**:
   - The transaction hash is always emitted during local execution as the first nullifier of the transaction to prevent replay attacks. This is enforced by the private kernel circuit.
 
+- **External References**:
+  - Aztec Development Notes: [Engineering Designs](https://github.com/AztecProtocol/engineering-designs)
+  - Protocol Limitations: [Aztec Protocol Circuits](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.49.1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr)
+
 ## Intellectual Property
 
 This code is copyright (c) 2025 Taurus SA and is dual-licensed under the
@@ -349,8 +352,5 @@ techniques implemented.
 Please see [SECURITY.md](./SECURITY.md).
 
 
-## Additional Resources
 
-- **Aztec Development Notes**: [Engineering Designs](https://github.com/AztecProtocol/engineering-designs)
-- **Protocol Limitations**: [Aztec Protocol Circuits](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.49.1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr)
 
