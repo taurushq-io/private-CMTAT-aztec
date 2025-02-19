@@ -1,5 +1,4 @@
-# Private CMTA Token
-
+# Private CMTA token
 This project implements a private version of the CMTAT security token,
 using [Aztec](https://aztec.network/).
 This allows banks and financial institutions to benefits from
@@ -28,8 +27,7 @@ Aztec reaches testnet. Additionally, unlike CMTAT, this code has not
 been audited and may not be fully compliant with the Swiss law. 
 
 
-## Table of Contents
-
+## Table of contents
 - [Functionalities Overview](#functionalities-overview)
 - [Private Token Implementation](#private-token-implementation)
   - [Assumptions and Requirements](#assumptions-and-requirements)
@@ -48,8 +46,7 @@ been audited and may not be fully compliant with the Swiss law.
 - [Security](#security)
 
 
-## Functionalities Overview
-
+## Functionalities overview
 The private CMTAT supports the following core features:
 
  - **Private** mint, burn, and transfer operations
@@ -70,10 +67,8 @@ You may modify the token code by adding, removing, or modifying
 features, at your own risk.
 
 
-## Private Token Implementation
-
-### Assumptions and Requirements
-
+## Private token implementation
+### Assumptions and requirements
 - **Assumptions**:
   - **Total Supply Visibility**: The `totalSupply` should remain public and be updated according to mint and burn operations.
   - **Issuer and Admin Addresses**: The addresses of the issuer and admin can be publicly known.
@@ -98,12 +93,10 @@ features, at your own risk.
   > **Note - Public**: According to the assumption, the total supply will decrease accordingly in a public function, and thus the new total supply will be visible to everyone. The supply change amount will be traceable to that particular private proof.
 
 ### Storage
-
 - **issuer_address**: `SharedMutable<AztecAddress>` - The address of the issuer, which serves as a base reference to encrypt users' notes. As it is a `SharedMutable`, it can be changed if compromised.
 - **balances**: `BalanceMap<TokenNote>` - Token balance of every user inside their PXE. Mapping of `Address` → `PrivateSet<TokenNote>`. The balance of a user is the sum of the amounts of all their private `TokenNote`.
 
-### Mint Private Specifications
-
+### Mint private specifications
 **Issuer**:
 
 - The new notes of the recipient are encoded and broadcasted to the issuer.
@@ -118,8 +111,7 @@ features, at your own risk.
 
 - According to protocol limitations, only **4 encrypted logs** can be emitted in a function call and only **4 private functions** can be called from a function call. As we have 2 encrypted logs emitted in the mint function, our bottleneck is the encrypted logs, which means we can only batch **2 mint functions** at the same time.
 
-### Transfer Private Specifications
-
+### Transfer private specifications
 **Issuer**:
 
 - The added notes from sender and recipient are encoded and broadcasted to the issuer.
@@ -134,8 +126,7 @@ features, at your own risk.
 
 - According to protocol limitations, only **4 encrypted logs** can be emitted in a function call. As the mint already emits 4 (2 for the user, 2 for the issuer), we can only have **1 transfer** in the transfer batch.
 
-### Burn Private Specifications
-
+### Burn private specifications
 **Issuer**:
 
 - The new notes of the recipient (if any remaining) are encoded and broadcasted to the issuer.
@@ -150,8 +141,7 @@ features, at your own risk.
 
 - According to protocol limitations, only **4 encrypted logs** can be emitted in a function call and only **4 private functions** can be called from a function call. As we have 2 encrypted logs emitted in the burn function, our bottleneck is the encrypted logs, which means we can only batch **2 burn functions** at the same time.
 
-### Security and Confidentiality Properties
-
+### Security and confidentiality properties
 - **Private Mint Call to Public Function**:
   - **Reveals Minter Address**: Since it is a parameter in the public function call. It is the issuer, whose address is already known, but still, private to public function calls pose a problem as they also reveal that the contract was called.
   - **Randomizing `msg.sender`**: An out-of-protocol option is to deploy a diversified account contract and route transactions through this contract. Application developers might also do something similar to randomize the `msg.sender` of their app contract's address.
@@ -172,18 +162,15 @@ features, at your own risk.
   - **Optimization**: For optimization purposes, unconstrained might be acceptable in some places.
 
 ### Modules
-
 Abstract contracts do not exist in Aztec Noir, so the modules are separated in the form of interfaces and implementations. Inheritance also does not exist, which means that every function that can or should be called by a user needs to be exposed in the main contract. Consequently, not everything can be displaced from the main contract (e.g., `mint`, `burn`, and `transfer` are all in the main contract), and most functions are exposed there. There are 34 functions in the main contract.
 
-#### Authorisation Module (Access Control) - Public
-
+#### Authorisation module (access control) - public
 - This module is used by other modules and by the `mint` and `burn` functions.
 - Modules only need to call the `only_role` function, which publicly verifies if an address has sufficient roles for the action; otherwise, it reverts.
 - The default role is the `DEFAULT_ADMIN_ROLE`, which can grant other roles.
 - **Implementation Note**: This module's implementation is quite cumbersome, as in the main contract, an instance of this module is passed to each function call. This is because the object is unique, and we cannot pass it as a context (at least until a working implementation is found).
 
-#### Validation Module - Shared
-
+#### Validation module - shared
 - This module is called only when performing transfers.
 - The `operateOnTransfer` function, used in a private context, is called by the transfer function.
 - Each user flag update will be delayed by `CHANGE_ROLES_DELAY_BLOCKS`.
@@ -204,22 +191,19 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Theoretical Solution 2**: Have a counter that is set when the `SharedMutable` is changed. For the `COUNTER` amount of time, the token contract is paused to prevent any blacklisted address from retrieving funds. This solution is poor in terms of user experience and developer experience, as the issuer needs to manually unpause the contract.
 - **Practical Solution 3**: If we whitelist instead of blacklist, a new whitelisted address will not be able to transfer funds directly, which is not a significant issue.
 
-#### Pause Module - Public
-
+#### Pause module - public
 - The pause module is a `PublicMutable`.
 - The functions to set and unset the pausable flag are protected under Access Control.
 - The pause check is done in public state for mint/transfer/burn operations.
 
-#### Enforcement Module - Shared
-
+#### Enforcement module - shared
 - This module is called in `mint`, `transfer`, and `burn` to check if an address has been frozen.
 - Unlike the validation module, this module is mandatory.
 - Changing an address to frozen has a delay, as the value is a `SharedMutable`.
 
 > **"Freeze Address" Note**: The enforcement has a delay, similar to the validation module. One approach is to pause the contract before freezing some accounts for the delay time, then unpause it. This requires manual pause/unpause.
 
-### Issuer's View of Transactions and Notes
-
+### Issuer's view of transactions and notes
 - **Objective**: Enable the issuer to see all transactions.
 - **Options**:
   - **Emit Events**: Emit events that can be viewed by a third party by inputting their `ivpk_m` (issuer's incoming viewing public key).
@@ -234,8 +218,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
   - **Shared Encryption Key**: Encrypt the note once but allow two people to decrypt it.
   - **Key Rotation and Update**: Make the viewing key rotatable and updatable.
 
-## Deployment 
-
+## Deployment
 - Download the sandbox (version should match [Nargo.toml](https://github.com/taurusgroup/private-tokens/blob/master/Nargo.toml) dependency versions). Instructions [here](https://docs.aztec.network/guides/getting_started)
 - downgrade to the version specified in the dependencies section of [this file](https://github.com/taurushq-io/private-CMTAT-aztec/blob/master/Nargo.toml) or specified in the latest release by running `VERSION=X.XX.X aztec-up`
 - clone the repo 
@@ -244,10 +227,8 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - The contract is deployed on the sandbox, by the [setup function](https://github.com/taurushq-io/private-CMTAT-aztec/blob/master/src/test/utils.nr), and all the tests are run
 
 
-## Comparison with Solidity CMTAT
-
-### What Can We Actually Do with Private CMTAT?
-
+## Comparison with solidity CMTAT
+### What can we actually do with private cmtat?
 - **Mint/Transfer**: Behave the same way as in CMTAT. 
 - **Burn**: We can perform `burn_from` with allowance.
 - **Validation Module**: Whitelisting and blacklisting are enabled on demand. The rule engine has been merged into the validation module, providing one interface that manages both and is always deployed along the main contract. The functionalities are private; storage can be read in public.
@@ -256,8 +237,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Access Control Module**: Same functionalities as CMTAT. Admin has the default role, which can be used to grant roles to themselves or others.
 - **Credit Events and Debt Base Modules**: Same functionalities as CMTAT.
 
-### What Will We Be Able to Do in the Future?
-
+### What will we be able to do in the future?
 - **Batched Mint/Transfer/Burn**:
   - Protocol limitations currently restrict us to 4 private calls and 4 encrypted events per function call.
   - In the long run, these limitations will be lifted, enabling batched transactions. The logic is already implemented in the contracts.
@@ -277,8 +257,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Event Management**:
   - Events are not yet enabled because they are cumbersome; they can only be in the main contract for now and make the code lengthy.
 
-### What Will We Never Be Able to Do by Design?
-
+### What will we never be able to do by design?
 - **Force Burning Without Consent**:
   - We will never be able to burn someone else’s tokens without their approval.
   > This could be possible if the token is implemented at the account contract level, and the issuer has shared keys with the user for that specific account that holds notes for this token
@@ -287,7 +266,6 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
   - We cannot have a shared state (public and private) that has no delay when changed due to the protocol's construction.
 
 ## Limitations
-
 - **Issuer's View of User Balances**: [SEE](#issuers-view-of-transactions-and-notes)
 
 - **Force Transfer Requirement**: [SEE](#transfer---private)
@@ -313,7 +291,6 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 
 
 ## Miscellaneous
-
 - **Wallet Responsibilities**:
   - The wallet should implement note discovery and tagging mechanisms, not the application.
 
@@ -337,8 +314,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
   - Aztec Development Notes: [Engineering Designs](https://github.com/AztecProtocol/engineering-designs)
   - Protocol Limitations: [Aztec Protocol Circuits](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.49.1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr)
 
-## Intellectual Property
-
+## Intellectual property
 This code is copyright (c) 2025 Taurus SA and is dual-licensed under the
 MIT and MPL-2.0 licenses.  You may choose either license.
 
@@ -347,8 +323,7 @@ See [LICENSE-MIT.md](./LICENSE-MIT.md) and [LICENSE-MPL.md](./LICENSE-MPL.md) fo
 We are not aware of any patent or patent application covering the
 techniques implemented.
 
-## Security Policy
-
+## Security policy
 Please see [SECURITY.md](./SECURITY.md).
 
 
