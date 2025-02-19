@@ -312,7 +312,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
   - We may need to expose the `schedule_delay_change` function for every `SharedMutable`, which is cumbersome.
 
 
-## Miscellaneous and Other Concerns
+## Miscellaneous
 
 - **Wallet Responsibilities**:
   - The wallet should implement note discovery and tagging mechanisms, not the application.
