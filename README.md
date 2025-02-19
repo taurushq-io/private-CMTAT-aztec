@@ -5,13 +5,6 @@ using [Aztec](https://aztec.network/).
 This allows banks and financial institutions to benefits from
 tokenization while maintaining privacy and compliance.
 
-**Disclaimer:** Aztec is under heavy developpment, and this repository
-may be subject to rapid changes. Significant updates will needed once
-Aztec reaches testnet. Additionally, unlike CMTAT, this code has not
-been audited and may not be fully compliant with the Swiss law. 
-
-## Introduction
-
 [Aztec](https://aztec.network/) is a privacy-focused Layer 2 solution on
 Ethereum that enables confidential transactions using zero-knowledge
 proofs (ZKPs). 
@@ -29,14 +22,17 @@ significant step forward, enabling institutions to participate in
 tokenized markets without exposing confidential data—overcoming one of
 the key limitations of public blockchains.
 
+**Disclaimer:** Aztec is under heavy developpment, and this repository
+may be subject to rapid changes. Significant updates will needed once
+Aztec reaches testnet. Additionally, unlike CMTAT, this code has not
+been audited and may not be fully compliant with the Swiss law. 
 
 
 ## Table of Contents
 
-- [Get started - Contracts deployment](#deployment)
-- [Functionality](#functionality)
+- [Functionalities Overview](#functionalities-overview)
 - [Private Token Implementation](#private-token-implementation)
-  - [Assumptions and Requirements of CMTAT Private V1](#assumptions-and-requirements-of-private-cmtat-v1)
+  - [Assumptions and Requirements](#assumptions-and-requirements
   - [Storage](#storage)
   - [Mint Private Specifications](#mint-private-specifications)
   - [Transfer Private Specifications](#transfer-private-specifications)
@@ -44,17 +40,16 @@ the key limitations of public blockchains.
   - [Security and Confidentiality Properties](#security-and-confidentiality-properties)
   - [Modules](#modules)
   - [Issuer's View of Transactions and Notes](#issuers-view-of-transactions-and-notes)
-- [Comparison Between CMTAT and Aztec Token](#comparison-between-private-aztec-cmtat-and-cmtat)
-- [Current Issues in Private CMTAT on Aztec](#current-issues-in-private-cmtat-on-aztec)
+- [Deployment](#deployment)
+- [Comparison with Solidity CMTAT](#comparison-with-solidity-cmtat)
+- [Current Limitatoins in Private CMTAT on Aztec](#current-limitations-in-private-cmtat-on-aztec)
 - [Miscellaneous and Other Concerns](#miscellaneous-and-other-concerns)
 - [Intellectual Property](#intellectual-property)
 - [Security](#security)
 - [Additional Resources](#additional-resources)
 
 
-## Functionality 
-
-### Overview
+## Functionalities Overview
 
 The private CMTAT supports the following core features:
 
@@ -78,7 +73,7 @@ features, at your own risk.
 
 ## Private Token Implementation
 
-### Assumptions and Requirements of Private CMTAT V1
+### Assumptions and Requirements
 
 - **Assumptions**:
   - **Total Supply Visibility**: The `totalSupply` should remain public and be updated according to mint and burn operations.
@@ -250,9 +245,9 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - The contract is deployed on the sandbox, by the [setup function](https://github.com/taurushq-io/private-CMTAT-aztec/blob/master/src/test/utils.nr), and all the tests are run
 
 
-## Comparison Between Private Aztec CMTAT and CMTAT
+## Comparison with Solidity CMTAT
 
-#### What Can We Actually Do with Private CMTAT?
+### What Can We Actually Do with Private CMTAT?
 
 - **Mint/Transfer**: Behave the same way as in CMTAT. 
 - **Burn**: We can perform `burn_from` with allowance.
@@ -262,7 +257,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Access Control Module**: Same functionalities as CMTAT. Admin has the default role, which can be used to grant roles to themselves or others.
 - **Credit Events and Debt Base Modules**: Same functionalities as CMTAT.
 
-#### What Will We Be Able to Do in the Future?
+### What Will We Be Able to Do in the Future?
 
 - **Batched Mint/Transfer/Burn**:
   - Protocol limitations currently restrict us to 4 private calls and 4 encrypted events per function call.
@@ -283,7 +278,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Event Management**:
   - Events are not yet enabled because they are cumbersome; they can only be in the main contract for now and make the code lengthy.
 
-#### What Will We Never Be Able to Do by Design?
+### What Will We Never Be Able to Do by Design?
 
 - **Force Burning Without Consent**:
   - We will never be able to burn someone else’s tokens without their approval.
@@ -292,7 +287,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Immediate Shared State Changes**:
   - We cannot have a shared state (public and private) that has no delay when changed due to the protocol's construction.
 
-## Current Issues in Private CMTAT on Aztec
+## Current Limitations in Private CMTAT on Aztec
 
 - **Issuer's View of User Balances**: [SEE](#issuers-view-of-transactions-and-notes)
 
