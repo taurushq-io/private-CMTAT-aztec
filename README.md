@@ -1,4 +1,4 @@
-# Private CMTA token
+# Private CMTAT security token
 
 This project implements a private version of the CMTAT security token,
 using [Aztec](https://aztec.network/).
