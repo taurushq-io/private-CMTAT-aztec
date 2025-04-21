@@ -9,20 +9,21 @@ use crate::types::access_controlModule::{AccessControlModule,DEBT_ROLE};
 global T_SERIALIZED_LEN: u32 = 12; 
 
 
-  pub struct DebtBaseStruct {
-        interestRate: Field,
-        parValue: Field,
-        guarantor: FieldCompressedString,
-        bondHolder: FieldCompressedString,
-        maturityDate: FieldCompressedString,
-        interestScheduleFormat: FieldCompressedString,
-        interestPaymentDate: FieldCompressedString,
-        dayCountConvention: FieldCompressedString,
-        businessDayConvention: FieldCompressedString,
-        publicHolidaysCalendar: FieldCompressedString,
-        issuanceDate: FieldCompressedString,
-        couponFrequency: FieldCompressedString,
-    }
+#[derive(Deserialize, Eq, Packable, Serialize)]
+pub struct DebtBaseStruct {
+    interestRate: Field,
+    parValue: Field,
+    guarantor: FieldCompressedString,
+    bondHolder: FieldCompressedString,
+    maturityDate: FieldCompressedString,
+    interestScheduleFormat: FieldCompressedString,
+    interestPaymentDate: FieldCompressedString,
+    dayCountConvention: FieldCompressedString,
+    businessDayConvention: FieldCompressedString,
+    publicHolidaysCalendar: FieldCompressedString,
+    issuanceDate: FieldCompressedString,
+    couponFrequency: FieldCompressedString,
+}
 
   pub struct DebtBase<T, Context> {
     pub debt_base: PublicMutable<DebtBaseStruct,Context>,
@@ -48,46 +49,4 @@ impl<T> DebtBase<T, &mut PublicContext> {
   pub fn get_debt_base(self: Self) -> [Field; T_SERIALIZED_LEN] {
     self.debt_base.read().serialize()
   }
-}
-
-
-// We implement this as it is used when serializing the state variable into return values
-// This is very inefficient if used to store the state variable.
-// We are currently "abusing" that the `to_field` is called in the `scheduled_value_change`
-// where we are using this value.
-impl Serialize<T_SERIALIZED_LEN> for DebtBaseStruct {
-    fn serialize(self) -> [Field; T_SERIALIZED_LEN] {
-        [self.interestRate.to_field(), self.parValue.to_field(), self.guarantor.serialize()[0], self.bondHolder.serialize()[0], self.maturityDate.serialize()[0], self.interestScheduleFormat.serialize()[0], self.interestPaymentDate.serialize()[0], self.dayCountConvention.serialize()[0], self.businessDayConvention.serialize()[0], self.publicHolidaysCalendar.serialize()[0], self.issuanceDate.serialize()[0], self.couponFrequency.serialize()[0]]
-    }
-}
-
-// We implement this as it is required for other contracts to be able to "rebuild" the variable
-// after having received the serialized value as a return-value
-impl Deserialize<T_SERIALIZED_LEN> for DebtBaseStruct {
-    fn deserialize(fields: [Field; T_SERIALIZED_LEN]) -> Self {
-        Self {
-            interestRate: fields[0] as Field,
-            parValue: fields[1] as Field,
-            guarantor: FieldCompressedString::from_field(fields[2]),
-            bondHolder: FieldCompressedString::from_field(fields[2]),
-            maturityDate: FieldCompressedString::from_field(fields[2]),
-            interestScheduleFormat: FieldCompressedString::from_field(fields[2]),
-            interestPaymentDate: FieldCompressedString::from_field(fields[2]),
-            dayCountConvention: FieldCompressedString::from_field(fields[2]),
-            businessDayConvention: FieldCompressedString::from_field(fields[2]),
-            publicHolidaysCalendar: FieldCompressedString::from_field(fields[2]),
-            issuanceDate: FieldCompressedString::from_field(fields[2]),
-            couponFrequency: FieldCompressedString::from_field(fields[2]),
-        }
-    }
-}
-
-impl Packable<T_SERIALIZED_LEN> for DebtBaseStruct {
-    fn pack(self) -> [Field; T_SERIALIZED_LEN] {
-        self.serialize()
-    }
-
-    fn unpack(fields: [Field; T_SERIALIZED_LEN]) -> Self {
-        Self::deserialize(fields)
-    }
 }

@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize, Packable};
 use dep::aztec::prelude::{AztecAddress, SharedMutable, Map};
 use dep::aztec::context::{PublicContext, PrivateContext};
 
@@ -15,12 +15,14 @@ global TEXT_ADDRESS_TO_IS_BLACKLISTED: str<33> = "The recipient is in the blackl
 global TEXT_ADDRESS_FROM_NOT_WHITELISTED: str<34> = "The sender is not in the whitelist";
 global TEXT_ADDRESS_TO_NOT_WHITELISTED: str<37> = "The recipient is not in the whitelist";
 
+#[derive(Deserialize, Packable, Eq, Serialize)]
+
 pub struct SetFlag {
     operate_blacklist: bool,
     operate_whitelist: bool,
     operate_sanctionlist: bool,
 }
-
+#[derive(Deserialize, Packable, Eq, Serialize)]
 pub struct UserFlags {
     is_blacklisted: bool,
     is_whitelisted: bool,
@@ -28,9 +30,9 @@ pub struct UserFlags {
 }
 
 trait UserFlagsTrait {
-    pub fn get_is_blacklisted(self) -> bool;
-    pub fn get_is_whitelisted(self) -> bool;
-    pub fn get_is_in_sanction_list(self) -> bool;
+    fn get_is_blacklisted(self) -> bool;
+    fn get_is_whitelisted(self) -> bool;
+    fn get_is_in_sanction_list(self) -> bool;
 }
 
 pub struct ValidationModule<T,Context> {
@@ -52,7 +54,7 @@ impl<T,Context> ValidationModule<T,Context> where T: Eq + ToField + FromField + 
     }
 }
 
-impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromField + UserFlagsTrait{
+impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromField + UserFlagsTrait + Packable<1>{
     pub fn get_operations(self: Self) -> Field {
         let operations = self.operationsFlag.get_current_value();
         operations.to_field()
@@ -74,7 +76,7 @@ impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromFiel
     }
 }
 
-impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromField + UserFlagsTrait{
+impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromField + UserFlagsTrait + Packable<1>{
 
 
     pub fn operateOnTransfer(self: Self, from: AztecAddress, to:AztecAddress) {
@@ -147,34 +149,7 @@ impl ToField for UserFlags {
     }
 }
 
-impl Eq for UserFlags {
-    fn eq(self, other: Self) -> bool {
-        (self.is_blacklisted == other.is_blacklisted) & (self.is_whitelisted == other.is_whitelisted) & (self.is_in_sanction_list == other.is_in_sanction_list)
-    }
-}
 
-// We implement this as it is used when serializing the state variable into return values
-// This is very inefficient if used to store the state variable.
-// We are currently "abusing" that the `to_field` is called in the `scheduled_value_change`
-// where we are using this value.
-impl Serialize<3> for UserFlags {
-    fn serialize(self) -> [Field; 3] {
-        [self.is_blacklisted.to_field(), self.is_whitelisted.to_field(), self.is_in_sanction_list.to_field()]
-        // [self.to_field()]
-    }
-}
-
-// We implement this as it is required for other contracts to be able to "rebuild" the variable
-// after having received the serialized value as a return-value
-impl Deserialize<3> for UserFlags {
-    fn deserialize(fields: [Field; 3]) -> Self {
-        Self {
-            is_blacklisted: fields[0] as bool,
-            is_whitelisted: fields[1] as bool,
-            is_in_sanction_list: fields[2] as bool,
-        }
-    }
-}
 
 
 impl FromField for SetFlag {
@@ -205,29 +180,5 @@ impl ToField for SetFlag {
         }
 
         value.to_field()
-    }
-}
-
-impl Eq for SetFlag {
-    fn eq(self, other: Self) -> bool {
-        (self.operate_blacklist == other.operate_blacklist) & (self.operate_whitelist == other.operate_whitelist) & (self.operate_sanctionlist == other.operate_sanctionlist)
-    }
-}
-
-impl Serialize<3> for SetFlag {
-    fn serialize(self) -> [Field; 3] {
-        [self.operate_blacklist.to_field(), self.operate_whitelist.to_field(), self.operate_sanctionlist.to_field()]
-    }
-}
-
-// We implement this as it is required for other contracts to be able to "rebuild" the variable
-// after having received the serialized value as a return-value
-impl Deserialize<3> for SetFlag {
-    fn deserialize(fields: [Field; 3]) -> Self {
-        Self {
-            operate_blacklist: fields[0] as bool,
-            operate_whitelist: fields[1] as bool,
-            operate_sanctionlist: fields[2] as bool,
-        }
     }
 }

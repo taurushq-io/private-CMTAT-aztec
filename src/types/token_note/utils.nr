@@ -1,14 +1,20 @@
-use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-use dep::aztec::keys::getters::get_public_keys;
-use dep::aztec::note::note_getter_options::SortOrder;
-use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet};
-use dep::value_note::{balance_utils,filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
+use dep::aztec::{
+    messages::logs::note::encode_and_encrypt_note,
+    note::{note_getter_options::SortOrder, note_interface::NoteProperties},
+    prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet},
+    protocol_types::traits::Packable,
+};
+
+use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
+
+// Similar to Aztec docs but emits a log with the note encrypted for both the recipient and issuer.
+
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
-pub fn create_note_getter_options_for_decreasing_balance(
+pub fn create_note_getter_options_for_decreasing_balance<let N: u32>(
     amount: Field,
-) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, Field, Field> {
+) -> NoteGetterOptions<ValueNote, N, Field, Field> where ValueNote: Packable<N>, {
     NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(
         ValueNote::properties().value,
         SortOrder.DESC
@@ -18,7 +24,6 @@ pub fn create_note_getter_options_for_decreasing_balance(
 // Creates a new note for the recipient.
 // Inserts it to the recipient's set of notes.
 pub fn increment(
-    // docs:start:increment_args
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     recipient: AztecAddress,
@@ -27,7 +32,7 @@ pub fn increment(
 ) {
     let mut note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
-    let note_insert = balance.insert(&mut note);
+    let note_insert = balance.insert(note);
     
     note_insert.emit(encode_and_encrypt_note(
         balance.context,

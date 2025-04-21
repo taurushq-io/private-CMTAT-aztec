@@ -11,14 +11,15 @@ pub global FLAG_REDEEMED_FLAG: Field = 2;
 
 global T_SERIALIZED_LEN: u32 = 3; 
 
-    pub struct CreditEventsStruct {
-        flagDefault: bool,
-        flagRedeemed: bool,
-        rating: FieldCompressedString,
-    }
+#[derive(Deserialize, Eq, Packable, Serialize)]
+pub struct CreditEventsStruct {
+    flagDefault: bool,
+    flagRedeemed: bool,
+    rating: FieldCompressedString,
+}
 
-    pub struct CreditEvents<T, Context> {
-        pub credit_event: PublicMutable<CreditEventsStruct,Context>,
+pub struct CreditEvents<T, Context> {
+    pub credit_event: PublicMutable<CreditEventsStruct,Context>,
     }
 
 //NOTE: events can only be used in contracts from what I understand
@@ -68,37 +69,5 @@ impl<T> CreditEvents<T, &mut PublicContext> {
 
     pub fn get_credit_events(self: Self) -> [Field; T_SERIALIZED_LEN]{
         self.credit_event.read().serialize()
-    }
-}
-
-// We implement this as it is used when serializing the state variable into return values
-// This is very inefficient if used to store the state variable.
-// We are currently "abusing" that the `to_field` is called in the `scheduled_value_change`
-// where we are using this value.
-impl Serialize<T_SERIALIZED_LEN> for CreditEventsStruct {
-    fn serialize(self) -> [Field; T_SERIALIZED_LEN] {
-        [self.flagDefault.to_field(), self.flagRedeemed.to_field(), self.rating.serialize()[0]]
-    }
-}
-
-// We implement this as it is required for other contracts to be able to "rebuild" the variable
-// after having received the serialized value as a return-value
-impl Deserialize<T_SERIALIZED_LEN> for CreditEventsStruct {
-    fn deserialize(fields: [Field; T_SERIALIZED_LEN]) -> Self {
-        Self {
-            flagDefault: fields[0] as bool,
-            flagRedeemed: fields[1] as bool,
-            rating: FieldCompressedString::from_field(fields[2]),
-        }
-    }
-}
-
-impl Packable<T_SERIALIZED_LEN> for CreditEventsStruct {
-    fn pack(self) -> [Field; T_SERIALIZED_LEN] {
-        self.serialize()
-    }
-
-    fn unpack(fields: [Field; T_SERIALIZED_LEN]) -> Self {
-        Self::deserialize(fields)
     }
 }

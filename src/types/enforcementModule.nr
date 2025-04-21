@@ -1,23 +1,24 @@
 use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map},  context::PublicContext, context::PrivateContext};
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize, ToField};
 use crate::types::access_controlModule::{AccessControlModule,ENFORCEMENT_ROLE};
 
 global FREEZED_FLAG: u64 = 1;
 global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
 
+#[derive(Deserialize, Packable, Eq, Serialize)]
 pub struct FreezableFlag {
     is_freezed: bool,
 }
 
 trait FreezableFlagTrait {
-    pub fn get_is_frozen(self) -> bool;
+    fn get_is_frozen(self) -> bool;
 }
 
 pub struct Freezable<T,Context>{
     pub map: Map<AztecAddress, SharedMutable<T, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>
 }
 
-impl<T,Context> Freezable<T,Context> where T: Eq + ToField + FromField + FreezableFlagTrait{
+impl<T,Context> Freezable<T,Context> where T: Eq  + FreezableFlagTrait + Packable<1>{
 
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -31,7 +32,7 @@ impl<T,Context> Freezable<T,Context> where T: Eq + ToField + FromField + Freezab
     }
 }
 
-impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
+impl<T> Freezable<T, &mut PublicContext> where T: Eq  + FreezableFlagTrait + Packable<1>{
 
     pub fn is_frozen(self: Self, address: AztecAddress) -> bool{
         self.map.at(address).get_current_value().get_is_frozen()
@@ -68,7 +69,7 @@ impl<T> Freezable<T, &mut PublicContext> where T: Eq + ToField + FromField + Fre
 
 }
 
-impl<T> Freezable<T,&mut PrivateContext> where T: Eq + ToField + FromField + FreezableFlagTrait{
+impl<T> Freezable<T,&mut PrivateContext> where T: Eq + FreezableFlagTrait  + Packable<1>{
 
     pub fn is_frozen(self: Self, user: AztecAddress) -> bool {
         let user_roles: T = self.map.at(user).get_current_value();
@@ -83,50 +84,5 @@ impl FreezableFlagTrait for FreezableFlag {
     }
 }
 
-impl FromField for FreezableFlag {
-    fn from_field(value: Field) -> FreezableFlag {
-        let value: u64 = value as u64;
-        let is_freezed = (value & FREEZED_FLAG) == FREEZED_FLAG;
 
-        Self {is_freezed }
-    }
-}
-
-impl ToField for FreezableFlag {
-    fn to_field(self) -> Field {
-        let mut value: u64 = 0;
-
-        if self.is_freezed {
-            value = value | FREEZED_FLAG;
-        }
-
-        value.to_field()
-    }
-}
-
-impl Eq for FreezableFlag {
-    fn eq(self, other: Self) -> bool {
-        self.is_freezed == other.is_freezed
-    }
-}
-
-// We implement this as it is used when serializing the state variable into return values
-// This is very inefficient if used to store the state variable.
-// We are currently "abusing" that the `to_field` is called in the `scheduled_value_change`
-// where we are using this value.
-impl Serialize<1> for FreezableFlag {
-    fn serialize(self) -> [Field; 1] {
-        [self.is_freezed.to_field()]
-    }
-}
-
-// We implement this as it is required for other contracts to be able to "rebuild" the variable
-// after having received the serialized value as a return-value
-impl Deserialize<1> for FreezableFlag {
-    fn deserialize(fields: [Field; 1]) -> Self {
-        Self {
-            is_freezed: fields[0] as bool,
-        }
-    }
-}
 

@@ -18,8 +18,8 @@ pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
         let user1 = env.create_account_contract(2);        
         (issuer, user1)
     } else {
-        let issuer = env.create_account();
-        let user1 = env.create_account();
+        let issuer = env.create_account(1);
+        let user1 = env.create_account(2);
         (issuer, user1)
     };
 
