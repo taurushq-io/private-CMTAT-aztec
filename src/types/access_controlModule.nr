@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{AztecAddress, PublicMutable, Map};
+use dep::aztec::{prelude::{AztecAddress, PublicMutable, Map}, state_vars::storage::Storage};
 use dep::aztec::context::{PublicContext};
 
 
@@ -20,12 +20,23 @@ pub global DEBT_CREDIT_EVENT_ROLE: Field = 10;
 // Define the storage for role data
 pub struct RoleData<Context> {
     pub has_role: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-    pub admin_role: Role,
+}
+
+impl<Context> Storage<1> for RoleData<Context> {
+        fn get_storage_slot(self) -> Field {
+            self.has_role.get_storage_slot()
+        }
 }
 
 //Define the AccessControl storage
 pub struct AccessControlModule<T,Context> {
     pub roles: Map<Role, RoleData<Context>, Context>,
+}
+
+impl<T,Context> Storage<1> for AccessControlModule<T,Context> {
+        fn get_storage_slot(self) -> Field {
+            self.roles.get_storage_slot()
+        }
 }
 
 impl<T,Context> AccessControlModule<T,Context> {
@@ -66,7 +77,32 @@ impl<T> AccessControlModule<T, &mut PublicContext> {
     }
 
     pub fn getRoleAdmin(self: Self, role: Role) -> Role {
-        self.roles.at(role).admin_role
+        let mut role_nb: Role = 0;
+        if role == DEFAULT_ADMIN_ROLE {
+            role_nb = DEFAULT_ADMIN_ROLE;
+        } else if role == PAUSE_ROLE {
+            role_nb = PAUSE_ROLE;
+        } else if role == ENFORCEMENT_ROLE {
+            role_nb =  ENFORCEMENT_ROLE;
+        } else if role == VALIDATION_ROLE {
+            role_nb = VALIDATION_ROLE;
+        } else if role == ADDRESS_LIST_ADD_ROLE {
+            role_nb = ADDRESS_LIST_ADD_ROLE;
+        } else if role == ADDRESS_LIST_REMOVE_ROLE {
+            role_nb = ADDRESS_LIST_REMOVE_ROLE;
+        } else if role == MINTER_ROLE {
+            role_nb = MINTER_ROLE;
+        } else if role == BURNER_ROLE {
+            role_nb = BURNER_ROLE;
+        } else if role == DEBT_ROLE {
+            role_nb = DEBT_ROLE;
+        } else if role == DEBT_CREDIT_EVENT_ROLE {
+            role_nb = DEBT_CREDIT_EVENT_ROLE;
+        } else {
+            assert(false, "AccessControlInvalidRole");
+            role_nb = 0; 
+        }
+        role_nb
     }
 
     // renounce ownership of a role
@@ -78,6 +114,9 @@ impl<T> AccessControlModule<T, &mut PublicContext> {
     }
 
     // Grant a role to an account
+    /* TODO: this is absolutely not secure, as it allows anyone to grant roles to anyone else. But 
+    for now, we keep it like this as idk how to properly set storage slots for roles.
+    */
     pub fn grant_role( self: Self, role: Role, account: AztecAddress) {
         self.only_role(self.getRoleAdmin(role), account);
         self._grant_role(role,account);
@@ -111,7 +150,6 @@ impl<Context> RoleData<Context> {
                 storage_slot,
                 |context,storage_slot| PublicMutable::new(context, storage_slot)
             );
-        let admin_role = DEFAULT_ADMIN_ROLE;
-        Self { has_role: has_role, admin_role: admin_role }
+        Self { has_role: has_role}
     }
 }

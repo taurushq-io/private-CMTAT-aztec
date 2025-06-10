@@ -3,12 +3,11 @@ use dep::aztec::{
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
     note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}},
-    oracle::{execution::{get_block_number, get_contract_address}, random::random,
-        storage::storage_read,}
+    oracle::{execution::{get_block_number, get_contract_address}, random::random,storage::storage_read}
 };
 
-use crate::{types::{ access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE}}, Token};
-
+//use crate::{types::{ access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE}}, Token};
+use crate::Token;
 
 pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -33,7 +32,7 @@ pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
         "TT00000000000000000000000000000",
         18
     );
-    let token_contract = env.deploy_self("Token").with_public_void_initializer(initializer_call_interface);
+    let token_contract = env.deploy_self("Token").with_public_void_initializer(issuer, initializer_call_interface);
     let token_contract_address = token_contract.to_address();
     env.advance_block_by(3);
     (&mut env, token_contract_address, issuer, user1)
@@ -54,7 +53,7 @@ pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
     let (env, token_contract_address, issuer, user1) = setup(with_account_contracts);
     let mint_amount = 10000;
 
-    Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
+    //Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 
     Token::at(token_contract_address).mint(issuer, mint_amount).call(&mut env.private());
 

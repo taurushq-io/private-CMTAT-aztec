@@ -1,4 +1,4 @@
-use dep::aztec::{prelude::{AztecAddress, PublicMutable},  context::PublicContext};
+use dep::aztec::{prelude::{AztecAddress, PublicMutable},  context::PublicContext, state_vars::storage::Storage};
 use dep::aztec::protocol_types::traits::{Packable, FromField, ToField, Serialize, Deserialize};
 use crate::types::access_controlModule::{AccessControlModule, PAUSE_ROLE};
 
@@ -8,6 +8,12 @@ pub global T_SERIALIZED_LEN: u32 = 1;
     pub struct PauseModule<Context>{
         pub is_paused: PublicMutable<bool, Context>,
     }
+
+impl<Context> Storage<1> for PauseModule<Context> {
+        fn get_storage_slot(self) -> Field {
+            self.is_paused.get_storage_slot()
+        }
+}
 
 impl<Context> PauseModule<Context> {
 
