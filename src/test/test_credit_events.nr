@@ -5,6 +5,8 @@ use crate::Token;
 use crate::types::extensions::creditEventsModule::{CreditEventsStruct};
 use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, DEBT_CREDIT_EVENT_ROLE};
 use dep::compressed_string::FieldCompressedString;
+use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize};
+
 
 
 #[test]

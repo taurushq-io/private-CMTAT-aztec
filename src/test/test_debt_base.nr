@@ -5,6 +5,7 @@ use crate::Token;
 use crate::types::extensions::debtBaseModule::{DebtBaseStruct};
 use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, DEBT_ROLE};
 use dep::compressed_string::FieldCompressedString;
+use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize};
 
 
 #[test]

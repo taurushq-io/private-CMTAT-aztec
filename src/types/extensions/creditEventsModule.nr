@@ -1,5 +1,5 @@
 use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize};
-use dep::aztec::prelude::{AztecAddress, PublicMutable};
+use dep::aztec::{prelude::{AztecAddress, PublicMutable}, state_vars::storage::Storage};
 use dep::aztec::context::{PublicContext};
 use dep::compressed_string::FieldCompressedString;
 use crate::types::access_controlModule::{AccessControlModule,DEBT_CREDIT_EVENT_ROLE};
@@ -21,6 +21,15 @@ pub struct CreditEventsStruct {
 pub struct CreditEvents<T, Context> {
     pub credit_event: PublicMutable<CreditEventsStruct,Context>,
     }
+
+
+impl<T,Context> Storage<1> for CreditEvents<T,Context> {
+        fn get_storage_slot(self) -> Field {
+            self.credit_event.get_storage_slot()
+        }
+}
+
+
 
 //NOTE: events can only be used in contracts from what I understand
     // #[event]

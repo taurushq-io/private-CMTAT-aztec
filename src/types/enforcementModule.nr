@@ -1,4 +1,4 @@
-use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map},  context::PublicContext, context::PrivateContext};
+use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map},  context::PublicContext, context::PrivateContext, state_vars::storage::Storage};
 use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize, ToField};
 use crate::types::access_controlModule::{AccessControlModule,ENFORCEMENT_ROLE};
 
@@ -17,6 +17,13 @@ trait FreezableFlagTrait {
 pub struct Freezable<T,Context>{
     pub map: Map<AztecAddress, SharedMutable<T, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>
 }
+
+impl<T,Context> Storage<1> for Freezable<T,Context> {
+        fn get_storage_slot(self) -> Field {
+            self.map.get_storage_slot()
+        }
+}
+
 
 impl<T,Context> Freezable<T,Context> where T: Eq  + FreezableFlagTrait + Packable<1>{
 

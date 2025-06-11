@@ -42,9 +42,15 @@ contract Token {
     // };
 
     use crate::types::{
-    access_controlModule::{
-        AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE
-    }, pauseModule::{PauseModule}, validationModule::{SetFlag, UserFlags, ValidationModule}};
+    access_controlModule::{AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE},
+    pauseModule::{PauseModule},
+    validationModule::{SetFlag, UserFlags, ValidationModule},
+    enforcementModule::{Freezable, FreezableFlag},
+    extensions::{
+        creditEventsModule::{CreditEvents, CreditEventsStruct},
+        debtBaseModule::{DebtBase, DebtBaseStruct},
+        },
+    };
 
     use crate::types::token_note::utils::{decrement, increment};
 
@@ -69,10 +75,10 @@ contract Token {
 
         pause_module: PauseModule<Context>,
         //validation_module: ValidationModule<UserFlags, Context>,
-        // enforcement_module: Freezable<FreezableFlag, Context>,
+        enforcement_module: Freezable<FreezableFlag, Context>,
         access_control: AccessControlModule<bool, Context>,
-        // credit_event_module: CreditEvents<bool, Context>,
-        // debt_base_module: DebtBase<bool, Context>,
+        credit_event_module: CreditEvents<bool, Context>,
+        debt_base_module: DebtBase<bool, Context>,
 
         issuer_address: SharedMutable<AztecAddress, CHANGE_ROLES_DELAY_BLOCKS, Context>,
 
@@ -188,57 +194,57 @@ contract Token {
         storage.pause_module.unpause(admin, storage.access_control);
     }
 
-    // //############ ENFORCEMENT MODULE ############
+    //############ ENFORCEMENT MODULE ############
 
-    // #[public]
-    // #[view]
-    // fn get_frozen(user: AztecAddress) -> pub Field {
-    //     storage.enforcement_module.is_frozen(user).to_field()
-    // }
+    #[public]
+    #[view]
+    fn get_frozen(user: AztecAddress) -> pub Field {
+        storage.enforcement_module.is_frozen(user).to_field()
+    }
 
-    // #[public]
-    // fn freeze(user: AztecAddress, value: FreezableFlag) {
-    //     storage.enforcement_module.freeze(context.msg_sender(), user, value, storage.access_control);
-    // }
+    #[public]
+    fn freeze(user: AztecAddress, value: FreezableFlag) {
+        storage.enforcement_module.freeze(context.msg_sender(), user, value, storage.access_control);
+    }
 
-    // #[public]
-    // fn unfreeze(user: AztecAddress, value: FreezableFlag) {
-    //     storage.enforcement_module.unfreeze(
-    //         context.msg_sender(),
-    //         user,
-    //         value,
-    //         storage.access_control,
-    //     );
-    // }
+    #[public]
+    fn unfreeze(user: AztecAddress, value: FreezableFlag) {
+        storage.enforcement_module.unfreeze(
+            context.msg_sender(),
+            user,
+            value,
+            storage.access_control,
+        );
+    }
 
-    // //############ CREDIT EVENTS MODULE ############
+    //############ CREDIT EVENTS MODULE ############
 
-    // //Note: as events are only allowed in the main contract, we have decided not to put them yet for this function.
-    // #[public]
-    // fn set_credit_events(credit_events: CreditEventsStruct) {
-    //     storage.credit_event_module.setCreditEvents(
-    //         credit_events,
-    //         context.msg_sender(),
-    //         storage.access_control,
-    //     );
-    // }
+    //Note: as events are only allowed in the main contract, we have decided not to put them yet for this function.
+    #[public]
+    fn set_credit_events(credit_events: CreditEventsStruct) {
+        storage.credit_event_module.setCreditEvents(
+            credit_events,
+            context.msg_sender(),
+            storage.access_control,
+        );
+    }
 
-    // #[public]
-    // fn get_credit_events() -> [Field; 3] {
-    //     storage.credit_event_module.get_credit_events()
-    // }
+    #[public]
+    fn get_credit_events() -> [Field; 3] {
+        storage.credit_event_module.get_credit_events()
+    }
 
-    // //############ DEBT BASE MODULE ############
+    //############ DEBT BASE MODULE ############
 
-    // #[public]
-    // fn set_debt_base(debt_base_: DebtBaseStruct) {
-    //     storage.debt_base_module.setDebt(debt_base_, context.msg_sender(), storage.access_control);
-    // }
+    #[public]
+    fn set_debt_base(debt_base_: DebtBaseStruct) {
+        storage.debt_base_module.setDebt(debt_base_, context.msg_sender(), storage.access_control);
+    }
 
-    // #[public]
-    // fn get_debt_base() -> [Field; 12] {
-    //     storage.debt_base_module.get_debt_base()
-    // }
+    #[public]
+    fn get_debt_base() -> [Field; 12] {
+        storage.debt_base_module.get_debt_base()
+    }
 
     // //############ GETTERS ############
 
@@ -302,7 +308,7 @@ contract Token {
     #[internal]
     //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
     fn _mint_internal(to: AztecAddress, amount: Field) {
-        //assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
+        assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
 
         let issuer = storage.issuer_address.get_current_value();
 
@@ -345,8 +351,8 @@ contract Token {
     //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
     //in library, so I don't need to emit it again here. Problem is that I cannot emit to issuer here, as I don't have the note.
     fn _transfer_internal(from: AztecAddress, to: AztecAddress, amount: Field) {
-        //assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
-        //assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
+        assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
+        assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
         //storage.validation_module.operateOnTransfer(from, to);
 
         let issuer = storage.issuer_address.get_current_value();
@@ -426,7 +432,7 @@ contract Token {
     //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
     #[private]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
-        //assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
+        assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
 
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);

@@ -1,5 +1,5 @@
 use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize};
-use dep::aztec::prelude::{AztecAddress, PublicMutable};
+use dep::aztec::{prelude::{AztecAddress, PublicMutable}, state_vars::storage::Storage};
 use dep::aztec::context::{PublicContext};
 
     use dep::compressed_string::FieldCompressedString;
@@ -28,6 +28,12 @@ pub struct DebtBaseStruct {
   pub struct DebtBase<T, Context> {
     pub debt_base: PublicMutable<DebtBaseStruct,Context>,
   }
+
+impl<T,Context> Storage<1> for DebtBase<T,Context> {
+        fn get_storage_slot(self) -> Field {
+            self.debt_base.get_storage_slot()
+        }
+}
 
 impl<T,Context> DebtBase<T,Context> {
 
