@@ -1,5 +1,5 @@
 use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize, Packable};
-use dep::aztec::prelude::{AztecAddress, SharedMutable, Map};
+use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map},  state_vars::storage::Storage};
 use dep::aztec::context::{PublicContext, PrivateContext};
 
 use crate::types::access_controlModule::{AccessControlModule,VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
@@ -22,7 +22,7 @@ pub struct SetFlag {
     operate_whitelist: bool,
     operate_sanctionlist: bool,
 }
-#[derive(Deserialize, Packable, Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct UserFlags {
     is_blacklisted: bool,
     is_whitelisted: bool,
@@ -38,6 +38,13 @@ trait UserFlagsTrait {
 pub struct ValidationModule<T,Context> {
     pub map: Map<AztecAddress, SharedMutable<T,CHANGE_ROLES_DELAY_BLOCKS ,Context>, Context>,
     pub operationsFlag: SharedMutable<SetFlag,CHANGE_ROLES_DELAY_BLOCKS, Context>
+}
+
+impl<T,Context> Storage<1> for ValidationModule<T,Context> {
+        fn get_storage_slot(self) -> Field {
+            self.map.get_storage_slot()
+            //what to do with operationsFlag?
+        }
 }
 
 impl<T,Context> ValidationModule<T,Context> where T: Eq + ToField + FromField + UserFlagsTrait{
@@ -149,7 +156,31 @@ impl ToField for UserFlags {
     }
 }
 
+impl Packable<1> for UserFlags {
 
+    fn pack(self) -> [Field;1] {
+        let mut value: u64 = 0;
+        if self.is_blacklisted {
+            value = value | BLACKLIST_FLAG;
+        }
+        if self.is_whitelisted {
+            value = value | WHITELIST_FLAG;
+        }
+        if self.is_in_sanction_list {
+            value = value | SANCTIONLIST_FLAG;
+        }
+        [value.to_field()]
+    }
+
+    fn unpack(fields: [Field;1]) -> Self {
+        let value: u64 = fields[0] as u64;
+        let is_blacklisted = (value & BLACKLIST_FLAG) == BLACKLIST_FLAG;
+        let is_whitelisted = (value & WHITELIST_FLAG) == WHITELIST_FLAG;
+        let is_in_sanction_list = (value & SANCTIONLIST_FLAG) == SANCTIONLIST_FLAG;
+
+        Self { is_blacklisted, is_whitelisted, is_in_sanction_list }
+    }
+}
 
 
 impl FromField for SetFlag {

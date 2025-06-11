@@ -40,6 +40,12 @@ contract Token {
     //     validationModule::{SetFlag, UserFlags, ValidationModule},
     //     token_note::utils::{decrement, increment},
     // };
+
+    use crate::types::{
+    access_controlModule::{
+        AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE
+    }, pauseModule::{PauseModule}, validationModule::{SetFlag, UserFlags, ValidationModule}};
+
     use crate::types::token_note::utils::{decrement, increment};
 
     use dep::value_note::{balance_utils, value_note::ValueNote};
@@ -61,10 +67,10 @@ contract Token {
     #[storage]
     struct Storage<Context> {
 
-        //pause_module: PauseModule<Context>,
-        // validation_module: ValidationModule<UserFlags, Context>,
+        pause_module: PauseModule<Context>,
+        //validation_module: ValidationModule<UserFlags, Context>,
         // enforcement_module: Freezable<FreezableFlag, Context>,
-        //access_control: AccessControlModule<bool, Context>,
+        access_control: AccessControlModule<bool, Context>,
         // credit_event_module: CreditEvents<bool, Context>,
         // debt_base_module: DebtBase<bool, Context>,
 
@@ -85,41 +91,41 @@ contract Token {
         storage.name.initialize(FieldCompressedString::from_string(name));
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         storage.decimals.initialize(decimals);
-        //storage.access_control._grant_role(DEFAULT_ADMIN_ROLE, admin);
-        // storage.issuer_address.schedule_value_change(admin);
+        storage.access_control._grant_role(DEFAULT_ADMIN_ROLE, admin);
+        storage.issuer_address.schedule_value_change(admin);
     }
 
     //############ AUTHORIZATION MODULE ############
 
-    // #[public]
-    // #[view]
-    // fn has_role(role: Field, account: AztecAddress) -> pub Field {
-    //     storage.access_control.has_role(role, account).to_field()
-    // }
+    #[public]
+    #[view]
+    fn has_role(role: Field, account: AztecAddress) -> pub Field {
+        storage.access_control.has_role(role, account).to_field()
+    }
 
-    // #[public]
-    // fn only_role(role: Field, caller: AztecAddress) {
-    //     storage.access_control.only_role(role, caller);
-    // }
+    #[public]
+    fn only_role(role: Field, caller: AztecAddress) {
+        storage.access_control.only_role(role, caller);
+    }
 
-    // #[public]
-    // fn grant_role(role: Field, account: AztecAddress) {
-    //     storage.access_control.grant_role(role, account);
-    // }
+    #[public]
+    fn grant_role(role: Field, account: AztecAddress) {
+        storage.access_control.grant_role(role, account);
+    }
 
-    // /**
-    //  * @roles: onlyAdmin
-    //  * @notice: revoking a pause contract role when the contract is paused can cause the contract to be stuck in a paused state.
-    //  */
-    // #[public]
-    // fn revoke_role(role: Field, account: AztecAddress) {
-    //     storage.access_control.revoke_role(role, account)
-    // }
+    /**
+     * @roles: onlyAdmin
+     * @notice: revoking a pause contract role when the contract is paused can cause the contract to be stuck in a paused state.
+     */
+    #[public]
+    fn revoke_role(role: Field, account: AztecAddress) {
+        storage.access_control.revoke_role(role, account)
+    }
 
-    // #[public]
-    // fn renounce_role(role: Field, callerConfirmation: AztecAddress) {
-    //     storage.access_control.renounce_role(role, context.msg_sender(), callerConfirmation);
-    // }
+    #[public]
+    fn renounce_role(role: Field, callerConfirmation: AztecAddress) {
+        storage.access_control.renounce_role(role, context.msg_sender(), callerConfirmation);
+    }
 
     // //############ VALIDATION MODULE ############
 
@@ -158,29 +164,29 @@ contract Token {
     //     );
     // }
 
-    // //############ PAUSE MODULE ############
+    //############ PAUSE MODULE ############
 
-    // #[public]
-    // #[view]
-    // fn public_get_pause() -> pub Field {
-    //     storage.pause_module.is_paused().to_field()
-    // }
+    #[public]
+    #[view]
+    fn public_get_pause() -> pub Field {
+        storage.pause_module.is_paused().to_field()
+    }
 
-    // /**
-    //  * @roles: onlyAdmin
-    //  * @notice: The contract must not be paused.
-    //  */
-    // #[public]
-    // fn pause_contract() {
-    //     let admin = context.msg_sender();
-    //     storage.pause_module.pause(admin, storage.access_control);
-    // }
+    /**
+     * @roles: onlyAdmin
+     * @notice: The contract must not be paused.
+     */
+    #[public]
+    fn pause_contract() {
+        let admin = context.msg_sender();
+        storage.pause_module.pause(admin, storage.access_control);
+    }
 
-    // #[public]
-    // fn unpause_contract() {
-    //     let admin = context.msg_sender();
-    //     storage.pause_module.unpause(admin, storage.access_control);
-    // }
+    #[public]
+    fn unpause_contract() {
+        let admin = context.msg_sender();
+        storage.pause_module.unpause(admin, storage.access_control);
+    }
 
     // //############ ENFORCEMENT MODULE ############
 
@@ -373,7 +379,7 @@ contract Token {
         amount: [Field; MAX_ADDR_PER_CALL],
         nonce: Field,
     ) {
-        // assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
+        //assert(storage.rule_module.is_issuer(context.msg_sender()), "Caller is not issuer");
         assert(accounts.len() != 0, "Mint module empty");
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
@@ -455,8 +461,8 @@ contract Token {
     #[public]
     #[internal]
     fn _mint(caller: AztecAddress, amount: Field) {
-        //storage.access_control.only_role(MINTER_ROLE, caller);
-        //assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
+        storage.access_control.only_role(MINTER_ROLE, caller);
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
     }
@@ -464,20 +470,20 @@ contract Token {
     #[public]
     #[internal]
     fn _transfer() {
-       // assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
     }
 
     #[public]
     #[internal]
     fn _transferFrom() {
-        //assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
     }
 
     #[public]
     #[internal]
     fn _burn(caller: AztecAddress, amount: Field) {
-        //storage.access_control.only_role(BURNER_ROLE, caller);
-        //assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
+        storage.access_control.only_role(BURNER_ROLE, caller);
+        assert(!storage.pause_module.is_paused(), "Error: token contract is paused");
         let new_supply = storage.total_supply.read().sub(amount);
         storage.total_supply.write(new_supply);
     }
