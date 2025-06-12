@@ -28,7 +28,7 @@ contract Token {
     };
 
     use crate::types::{
-    access_controlModule::{AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE},
+    access_controlModule::{AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE, VALIDATION_ROLE},
     pauseModule::{PauseModule},
     validationModule::{SetFlag, UserFlags, ValidationModule},
     enforcementModule::{Freezable, FreezableFlag},
@@ -83,6 +83,8 @@ contract Token {
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
         storage.decimals.initialize(decimals);
         storage.access_control._grant_role(DEFAULT_ADMIN_ROLE, admin);
+        storage.access_control._grant_role(VALIDATION_ROLE, admin);
+
         storage.issuer_address.schedule_value_change(admin);
     }
 

@@ -40,7 +40,7 @@ pub struct ValidationModule<T,Context> {
     pub operationsFlag: SharedMutable<SetFlag,CHANGE_ROLES_DELAY_BLOCKS, Context>
 }
 
-impl<T,Context> Storage<2> for ValidationModule<T,Context> {
+impl<T,Context> Storage<9> for ValidationModule<T,Context> {
         fn get_storage_slot(self) -> Field {
         // this returns the *first* slot; the framework will then reserve
         // one more slot (so slots N and N+1 in total)
@@ -74,6 +74,8 @@ impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromFiel
         access_control.only_role(VALIDATION_ROLE, caller);
         self.operationsFlag.schedule_value_change(operations);
     }
+
+
     //problem: here the one that has the ADDRESS_LIST_ADD_ROLE can also remove from list by overwritting userFlag
     pub fn add_to_list(self:Self,  caller: AztecAddress, newListAddress: AztecAddress, userFlag: T, access_control: AccessControlModule<bool, &mut PublicContext>) {
         access_control.only_role(ADDRESS_LIST_ADD_ROLE, caller);
