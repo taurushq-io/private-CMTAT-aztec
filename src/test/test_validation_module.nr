@@ -72,6 +72,36 @@ unconstrained fn transfer_when_not_whitelisted(){
 }
 
 #[test]
+unconstrained fn transfer_when_whitelisted(){
+    let (env, token_contract_address, issuer, user, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
+
+    Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer).call(&mut env.public());
+    Token::at(token_contract_address).grant_role(ADDRESS_LIST_ADD_ROLE, issuer).call(&mut env.public());
+
+    let operations = SetFlag {    operate_blacklist: false,operate_whitelist: true,operate_sanctionlist: false,};
+    Token::at(token_contract_address).set_operations(operations).call(&mut env.public());
+    env.advance_block_by(3);
+
+    let ret = Token::at(token_contract_address).get_operations().view(&mut env.public());
+    assert(ret == 2);
+
+    let userFlag = UserFlags {is_blacklisted: false,is_whitelisted: true,is_in_sanction_list: false,};
+    Token::at(token_contract_address).add_to_list(issuer, userFlag).call(&mut env.public());
+    env.advance_block_by(3);
+
+    let userFlag = UserFlags {is_blacklisted: false,is_whitelisted: true,is_in_sanction_list: false,};
+    Token::at(token_contract_address).add_to_list(user, userFlag).call(&mut env.public());
+    env.advance_block_by(3);
+
+    let transfer_amount = 100;
+    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+
+    utils::check_private_balance(token_contract_address, issuer, mint_amount - transfer_amount);
+    utils::check_private_balance(token_contract_address, user, transfer_amount);
+}
+
+
+#[test]
 unconstrained fn transfer_when_no_operations(){
     let (env, token_contract_address, issuer, user, _) = utils::setup_and_mint(/* with_account_contracts */ false);
 

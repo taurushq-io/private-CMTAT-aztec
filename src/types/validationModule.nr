@@ -40,23 +40,26 @@ pub struct ValidationModule<T,Context> {
     pub operationsFlag: SharedMutable<SetFlag,CHANGE_ROLES_DELAY_BLOCKS, Context>
 }
 
-impl<T,Context> Storage<1> for ValidationModule<T,Context> {
+impl<T,Context> Storage<2> for ValidationModule<T,Context> {
         fn get_storage_slot(self) -> Field {
-            self.map.get_storage_slot()
-            //what to do with operationsFlag?
+        // this returns the *first* slot; the framework will then reserve
+        // one more slot (so slots N and N+1 in total)
+        self.map.get_storage_slot()
         }
 }
 
 impl<T,Context> ValidationModule<T,Context> where T: Eq + ToField + FromField + UserFlagsTrait{
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        let map_slot = storage_slot;
+        let ops_slot = storage_slot + 1;
         Self {
             map: Map::new(
                 context,
-                storage_slot,
+                map_slot,
                 |context, slot| SharedMutable::new(context, slot)
             ),
-            operationsFlag: SharedMutable::new(context, storage_slot)
+            operationsFlag: SharedMutable::new(context, ops_slot)
         }
     }
 }

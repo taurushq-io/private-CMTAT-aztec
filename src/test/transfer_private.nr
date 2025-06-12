@@ -35,8 +35,6 @@ unconstrained fn transfer_private_check_issuer_view(){
     utils::check_private_balance(token_contract_address, user1, transfer_amount);
     utils::check_private_balance(token_contract_address, user2, transfer_amount);
 
-    
-
 }
 
 #[test]

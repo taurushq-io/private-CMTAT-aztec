@@ -4,7 +4,7 @@ mod transfer_private;
  mod test_mint;
  mod test_burn;
 
-//mod test_validation_module;
+mod test_validation_module;
 mod test_enforcement_module;
 mod test_pause_module;
 mod test_credit_events;

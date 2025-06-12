@@ -27,20 +27,6 @@ contract Token {
         },
     };
 
-    // use crate::types::{
-    //     access_controlModule::{
-    //         AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE
-    //     },
-    //     enforcementModule::{Freezable, FreezableFlag},
-    //     extensions::{
-    //         creditEventsModule::{CreditEvents, CreditEventsStruct},
-    //         debtBaseModule::{DebtBase, DebtBaseStruct},
-    //     },
-    //     pauseModule::{PauseModule},
-    //     validationModule::{SetFlag, UserFlags, ValidationModule},
-    //     token_note::utils::{decrement, increment},
-    // };
-
     use crate::types::{
     access_controlModule::{AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE},
     pauseModule::{PauseModule},
@@ -50,9 +36,8 @@ contract Token {
         creditEventsModule::{CreditEvents, CreditEventsStruct},
         debtBaseModule::{DebtBase, DebtBaseStruct},
         },
+    token_note::utils::{decrement, increment}
     };
-
-    use crate::types::token_note::utils::{decrement, increment};
 
     use dep::value_note::{balance_utils, value_note::ValueNote};
 
@@ -74,7 +59,7 @@ contract Token {
     struct Storage<Context> {
 
         pause_module: PauseModule<Context>,
-        //validation_module: ValidationModule<UserFlags, Context>,
+        validation_module: ValidationModule<UserFlags, Context>,
         enforcement_module: Freezable<FreezableFlag, Context>,
         access_control: AccessControlModule<bool, Context>,
         credit_event_module: CreditEvents<bool, Context>,
@@ -133,42 +118,42 @@ contract Token {
         storage.access_control.renounce_role(role, context.msg_sender(), callerConfirmation);
     }
 
-    // //############ VALIDATION MODULE ############
+    //############ VALIDATION MODULE ############
 
-    // #[public]
-    // #[view]
-    // fn get_operations() -> pub Field {
-    //     storage.validation_module.get_operations()
-    // }
+    #[public]
+    #[view]
+    fn get_operations() -> pub Field {
+        storage.validation_module.get_operations()
+    }
 
-    // #[public]
-    // fn set_operations(operations: SetFlag) {
-    //     storage.validation_module.set_operations(
-    //         context.msg_sender(),
-    //         operations,
-    //         storage.access_control,
-    //     );
-    // }
+    #[public]
+    fn set_operations(operations: SetFlag) {
+        storage.validation_module.set_operations(
+            context.msg_sender(),
+            operations,
+            storage.access_control,
+        );
+    }
 
-    // #[public]
-    // fn add_to_list(newListAddress: AztecAddress, userFlag: UserFlags) {
-    //     storage.validation_module.add_to_list(
-    //         context.msg_sender(),
-    //         newListAddress,
-    //         userFlag,
-    //         storage.access_control,
-    //     );
-    // }
+    #[public]
+    fn add_to_list(newListAddress: AztecAddress, userFlag: UserFlags) {
+        storage.validation_module.add_to_list(
+            context.msg_sender(),
+            newListAddress,
+            userFlag,
+            storage.access_control,
+        );
+    }
 
-    // #[public]
-    // fn remove_from_list(removeListAddress: AztecAddress, userFlag: UserFlags) {
-    //     storage.validation_module.remove_from_list(
-    //         context.msg_sender(),
-    //         removeListAddress,
-    //         userFlag,
-    //         storage.access_control,
-    //     );
-    // }
+    #[public]
+    fn remove_from_list(removeListAddress: AztecAddress, userFlag: UserFlags) {
+        storage.validation_module.remove_from_list(
+            context.msg_sender(),
+            removeListAddress,
+            userFlag,
+            storage.access_control,
+        );
+    }
 
     //############ PAUSE MODULE ############
 
@@ -348,12 +333,10 @@ contract Token {
 
     #[private]
     #[internal]
-    //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
-    //in library, so I don't need to emit it again here. Problem is that I cannot emit to issuer here, as I don't have the note.
     fn _transfer_internal(from: AztecAddress, to: AztecAddress, amount: Field) {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");
         assert(!storage.enforcement_module.is_frozen(to), "Frozen: Recipient");
-        //storage.validation_module.operateOnTransfer(from, to);
+        storage.validation_module.operateOnTransfer(from, to);
 
         let issuer = storage.issuer_address.get_current_value();
 
