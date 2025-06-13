@@ -103,7 +103,7 @@ contract Token {
 
     #[public]
     fn grant_role(role: Field, account: AztecAddress) {
-        storage.access_control.grant_role(role, account);
+        storage.access_control.grant_role(role, account, context.msg_sender());
     }
 
     /**
@@ -112,7 +112,7 @@ contract Token {
      */
     #[public]
     fn revoke_role(role: Field, account: AztecAddress) {
-        storage.access_control.revoke_role(role, account)
+        storage.access_control.revoke_role(role, account, context.msg_sender());
     }
 
     #[public]
@@ -383,6 +383,11 @@ contract Token {
     }
 
     //Same pattern as ERC20.
+    /*
+    Contract behavior:
+    - If the caller (context.msg_sender()) is NOT the same as from, it validates an authwit
+    - If the caller IS the same as from, it expects nonce to be 0
+    */
     #[private]
     fn transfer_from(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         //the authwit is used to allow a thrid party to spend funds of a user upon approval.
@@ -415,6 +420,11 @@ contract Token {
 
     //we need an authwit from the user that has the notes to burn his notes.
     //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
+    /*
+    Contract behavior:
+    - If the caller (context.msg_sender()) is NOT the same as from, it validates an authwit
+    - If the caller IS the same as from, it expects nonce to be 0
+    */
     #[private]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
         assert(!storage.enforcement_module.is_frozen(from), "Frozen: Sender");

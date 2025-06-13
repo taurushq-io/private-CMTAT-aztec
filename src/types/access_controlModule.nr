@@ -81,14 +81,15 @@ impl<T> AccessControlModule<T, &mut PublicContext> {
     }
 
     // Grant a role to an account
-    pub fn grant_role( self: Self, role: Role, account: AztecAddress) {
-        self.only_role(self.getRoleAdmin(role), account);
+    pub fn grant_role( self: Self, role: Role, account: AztecAddress, sender: AztecAddress) {
+        self.only_role(self.getRoleAdmin(role), sender);
         self._grant_role(role,account);
     }
 
     // Revoke a role from an account
-    pub fn revoke_role(self:Self, role: Role, account: AztecAddress) {
-        self.only_role(self.getRoleAdmin(role), account);
+    pub fn revoke_role(self: Self, role: Role, account: AztecAddress, sender: AztecAddress) {
+        assert(sender != account, "Revoke Role: Cannot revoke role from self");
+        self.only_role(self.getRoleAdmin(role), sender);
         self._revoke_role(role,account);
     }
 

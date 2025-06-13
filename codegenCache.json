@@ -1,0 +1,10 @@
+{
+  "token_contract-EasyPrivateVoting.json": {
+    "contractName": "EasyPrivateVoting",
+    "hash": "eb59247d1f13a4fa7a8e81a05b43ee9f30f0415ab0bbcf42d0e78a88f93f1054"
+  },
+  "token_contract-Token.json": {
+    "contractName": "Token",
+    "hash": "1fc9213f07068b4f8dd6b4499f2c1d55ffd3490146d1fa39fc0955037cadd1cd"
+  }
+}

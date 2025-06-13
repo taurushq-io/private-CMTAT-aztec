@@ -119,15 +119,18 @@ unconstrained fn test_pause_roles(){
 unconstrained fn test_pause_role_2(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
     
-    Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
-
+    Token::at(token_contract_address).grant_role(PAUSE_ROLE, user).call(&mut env.public());
+    
+    env.impersonate(user);
     Token::at(token_contract_address).pause_contract().call(&mut env.public());
 
     //checks if contract is indeed paused
     let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 1);
 
-     Token::at(token_contract_address).revoke_role(PAUSE_ROLE, issuer).call(&mut env.public());
+    env.impersonate(issuer);
+    Token::at(token_contract_address).revoke_role(PAUSE_ROLE, user).call(&mut env.public());
 
+    env.impersonate(user);
     Token::at(token_contract_address).unpause_contract().call(&mut env.public());
 }
