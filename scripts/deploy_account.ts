@@ -1,11 +1,11 @@
 import { createLogger, Logger } from "@aztec/aztec.js";
-import { setupPXE } from "../src/utils/setup_pxe.js";
+import { setupPXETestnet } from "../src/utils/setup_pxe_testnet.js";
 import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
 
 export async function deployAccount() {
     let logger: Logger;
     logger = createLogger('aztec:CMTAT-aztec');
-    const pxe = await setupPXE()
+    const pxe = await setupPXETestnet()
     await deploySchnorrAccount(pxe);
 }
 
