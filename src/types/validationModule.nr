@@ -1,5 +1,5 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
-use dep::aztec::prelude::{AztecAddress, SharedMutable, Map};
+use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize, Packable};
+use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map},  state_vars::storage::Storage};
 use dep::aztec::context::{PublicContext, PrivateContext};
 
 use crate::types::access_controlModule::{AccessControlModule,VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
@@ -8,19 +8,21 @@ pub global BLACKLIST_FLAG: u64 = 1;
 pub global WHITELIST_FLAG: u64 = 2;
 pub global SANCTIONLIST_FLAG: u64 = 4;
 
-pub global CHANGE_ROLES_DELAY_BLOCKS = 2;
+pub global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
 
-global TEXT_ADDRESS_FROM_IS_BLACKLISTED = "The sender is in the blacklist";
-global TEXT_ADDRESS_TO_IS_BLACKLISTED = "The recipient is in the blacklist";
-global TEXT_ADDRESS_FROM_NOT_WHITELISTED = "The sender is not in the whitelist";
-global TEXT_ADDRESS_TO_NOT_WHITELISTED = "The recipient is not in the whitelist";
+global TEXT_ADDRESS_FROM_IS_BLACKLISTED: str<30> = "The sender is in the blacklist";
+global TEXT_ADDRESS_TO_IS_BLACKLISTED: str<33> = "The recipient is in the blacklist";
+global TEXT_ADDRESS_FROM_NOT_WHITELISTED: str<34> = "The sender is not in the whitelist";
+global TEXT_ADDRESS_TO_NOT_WHITELISTED: str<37> = "The recipient is not in the whitelist";
+
+#[derive(Deserialize, Packable, Eq, Serialize)]
 
 pub struct SetFlag {
     operate_blacklist: bool,
     operate_whitelist: bool,
     operate_sanctionlist: bool,
 }
-
+#[derive(Deserialize, Eq, Serialize)]
 pub struct UserFlags {
     is_blacklisted: bool,
     is_whitelisted: bool,
@@ -28,9 +30,9 @@ pub struct UserFlags {
 }
 
 trait UserFlagsTrait {
-    pub fn get_is_blacklisted(self) -> bool;
-    pub fn get_is_whitelisted(self) -> bool;
-    pub fn get_is_in_sanction_list(self) -> bool;
+    fn get_is_blacklisted(self) -> bool;
+    fn get_is_whitelisted(self) -> bool;
+    fn get_is_in_sanction_list(self) -> bool;
 }
 
 pub struct ValidationModule<T,Context> {
@@ -38,23 +40,33 @@ pub struct ValidationModule<T,Context> {
     pub operationsFlag: SharedMutable<SetFlag,CHANGE_ROLES_DELAY_BLOCKS, Context>
 }
 
+impl<T,Context> Storage<9> for ValidationModule<T,Context> {
+        fn get_storage_slot(self) -> Field {
+        // this returns the *first* slot; the framework will then reserve
+        // one more slot (so slots N and N+1 in total)
+        self.map.get_storage_slot()
+        }
+}
+
 impl<T,Context> ValidationModule<T,Context> where T: Eq + ToField + FromField + UserFlagsTrait{
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        let map_slot = storage_slot;
+        let ops_slot = storage_slot + 1;
         Self {
             map: Map::new(
                 context,
-                storage_slot,
+                map_slot,
                 |context, slot| SharedMutable::new(context, slot)
             ),
-            operationsFlag: SharedMutable::new(context, storage_slot)
+            operationsFlag: SharedMutable::new(context, ops_slot)
         }
     }
 }
 
-impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromField + UserFlagsTrait{
+impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromField + UserFlagsTrait + Packable<1>{
     pub fn get_operations(self: Self) -> Field {
-        let operations = self.operationsFlag.get_current_value_in_public();
+        let operations = self.operationsFlag.get_current_value();
         operations.to_field()
     }
 
@@ -62,6 +74,8 @@ impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromFiel
         access_control.only_role(VALIDATION_ROLE, caller);
         self.operationsFlag.schedule_value_change(operations);
     }
+
+
     //problem: here the one that has the ADDRESS_LIST_ADD_ROLE can also remove from list by overwritting userFlag
     pub fn add_to_list(self:Self,  caller: AztecAddress, newListAddress: AztecAddress, userFlag: T, access_control: AccessControlModule<bool, &mut PublicContext>) {
         access_control.only_role(ADDRESS_LIST_ADD_ROLE, caller);
@@ -74,11 +88,11 @@ impl<T> ValidationModule<T, &mut PublicContext> where T: Eq + ToField + FromFiel
     }
 }
 
-impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromField + UserFlagsTrait{
+impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromField + UserFlagsTrait + Packable<1>{
 
 
     pub fn operateOnTransfer(self: Self, from: AztecAddress, to:AztecAddress) {
-        let operations = self.operationsFlag.get_current_value_in_private();
+        let operations = self.operationsFlag.get_current_value();
 
         if (operations.operate_blacklist) {
             self.detectTransferRestriction_blacklist(from,to);
@@ -90,13 +104,13 @@ impl<T> ValidationModule<T,&mut PrivateContext> where T: Eq + ToField + FromFiel
     }
 
     fn detectTransferRestriction_blacklist(self: Self, from: AztecAddress, to:AztecAddress){
-        assert(!self.map.at(from).get_current_value_in_private().get_is_blacklisted(), TEXT_ADDRESS_FROM_IS_BLACKLISTED);
-        assert(!self.map.at(to).get_current_value_in_private().get_is_blacklisted(), TEXT_ADDRESS_TO_IS_BLACKLISTED);
+        assert(!self.map.at(from).get_current_value().get_is_blacklisted(), TEXT_ADDRESS_FROM_IS_BLACKLISTED);
+        assert(!self.map.at(to).get_current_value().get_is_blacklisted(), TEXT_ADDRESS_TO_IS_BLACKLISTED);
     }
 
     fn detectTransferRestriction_whitelist(self: Self, from: AztecAddress, to:AztecAddress){
-        assert(self.map.at(from).get_current_value_in_private().get_is_whitelisted(), TEXT_ADDRESS_FROM_NOT_WHITELISTED);
-        assert(self.map.at(to).get_current_value_in_private().get_is_whitelisted(), TEXT_ADDRESS_TO_NOT_WHITELISTED);
+        assert(self.map.at(from).get_current_value().get_is_whitelisted(), TEXT_ADDRESS_FROM_NOT_WHITELISTED);
+        assert(self.map.at(to).get_current_value().get_is_whitelisted(), TEXT_ADDRESS_TO_NOT_WHITELISTED);
     }
 
     fn detectTransferRestriction_sanctionlist(self: Self, from: AztecAddress, to:AztecAddress){
@@ -147,32 +161,29 @@ impl ToField for UserFlags {
     }
 }
 
-impl Eq for UserFlags {
-    fn eq(self, other: Self) -> bool {
-        (self.is_blacklisted == other.is_blacklisted) & (self.is_whitelisted == other.is_whitelisted) & (self.is_in_sanction_list == other.is_in_sanction_list)
-    }
-}
+impl Packable<1> for UserFlags {
 
-// We implement this as it is used when serializing the state variable into return values
-// This is very inefficient if used to store the state variable.
-// We are currently "abusing" that the `to_field` is called in the `scheduled_value_change`
-// where we are using this value.
-impl Serialize<3> for UserFlags {
-    fn serialize(self) -> [Field; 3] {
-        [self.is_blacklisted.to_field(), self.is_whitelisted.to_field(), self.is_in_sanction_list.to_field()]
-        // [self.to_field()]
-    }
-}
-
-// We implement this as it is required for other contracts to be able to "rebuild" the variable
-// after having received the serialized value as a return-value
-impl Deserialize<3> for UserFlags {
-    fn deserialize(fields: [Field; 3]) -> Self {
-        Self {
-            is_blacklisted: fields[0] as bool,
-            is_whitelisted: fields[1] as bool,
-            is_in_sanction_list: fields[2] as bool,
+    fn pack(self) -> [Field;1] {
+        let mut value: u64 = 0;
+        if self.is_blacklisted {
+            value = value | BLACKLIST_FLAG;
         }
+        if self.is_whitelisted {
+            value = value | WHITELIST_FLAG;
+        }
+        if self.is_in_sanction_list {
+            value = value | SANCTIONLIST_FLAG;
+        }
+        [value.to_field()]
+    }
+
+    fn unpack(fields: [Field;1]) -> Self {
+        let value: u64 = fields[0] as u64;
+        let is_blacklisted = (value & BLACKLIST_FLAG) == BLACKLIST_FLAG;
+        let is_whitelisted = (value & WHITELIST_FLAG) == WHITELIST_FLAG;
+        let is_in_sanction_list = (value & SANCTIONLIST_FLAG) == SANCTIONLIST_FLAG;
+
+        Self { is_blacklisted, is_whitelisted, is_in_sanction_list }
     }
 }
 
@@ -205,29 +216,5 @@ impl ToField for SetFlag {
         }
 
         value.to_field()
-    }
-}
-
-impl Eq for SetFlag {
-    fn eq(self, other: Self) -> bool {
-        (self.operate_blacklist == other.operate_blacklist) & (self.operate_whitelist == other.operate_whitelist) & (self.operate_sanctionlist == other.operate_sanctionlist)
-    }
-}
-
-impl Serialize<3> for SetFlag {
-    fn serialize(self) -> [Field; 3] {
-        [self.operate_blacklist.to_field(), self.operate_whitelist.to_field(), self.operate_sanctionlist.to_field()]
-    }
-}
-
-// We implement this as it is required for other contracts to be able to "rebuild" the variable
-// after having received the serialized value as a return-value
-impl Deserialize<3> for SetFlag {
-    fn deserialize(fields: [Field; 3]) -> Self {
-        Self {
-            operate_blacklist: fields[0] as bool,
-            operate_whitelist: fields[1] as bool,
-            operate_sanctionlist: fields[2] as bool,
-        }
     }
 }

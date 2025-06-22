@@ -1,10 +1,10 @@
 {
-  "auth_registry_contract-AuthRegistry.json": {
-    "contractName": "AuthRegistry",
-    "hash": "9e1efd7067066c2bc9a27331dcd195fbbd3e3cde10bcb9b3aa63520881228ecd"
+  "token_contract-EasyPrivateVoting.json": {
+    "contractName": "EasyPrivateVoting",
+    "hash": "eb59247d1f13a4fa7a8e81a05b43ee9f30f0415ab0bbcf42d0e78a88f93f1054"
   },
   "token_contract-Token.json": {
     "contractName": "Token",
-    "hash": "a52f0683022e9e25037bd11b15b26651024fcc4f649cf3884061554f5c5f7333"
+    "hash": "1fc9213f07068b4f8dd6b4499f2c1d55ffd3490146d1fa39fc0955037cadd1cd"
   }
 }

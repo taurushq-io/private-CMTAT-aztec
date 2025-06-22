@@ -18,7 +18,7 @@ unconstrained fn pause_test(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
 
     //check if issuer has pause role
-    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).call(&mut env.public());
+    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).view(&mut env.public());
 
     //issuer does not have pause role
     assert(ret == 0);
@@ -27,7 +27,7 @@ unconstrained fn pause_test(){
     Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
 
     //checks that issuer has pause role
-    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).call(&mut env.public());
+    let ret = Token::at(token_contract_address).has_role(PAUSE_ROLE, issuer).view(&mut env.public());
 
     assert(ret == 1);
 
@@ -62,7 +62,7 @@ unconstrained fn mint_when_paused_fails(){
 
     Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 
-    Token::at(token_contract_address).pause_contract().view(&mut env.public());
+    Token::at(token_contract_address).pause_contract().call(&mut env.public());
 
     let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 1);
@@ -72,7 +72,7 @@ unconstrained fn mint_when_paused_fails(){
 
 #[test(should_fail_with="Error: token contract is paused")]
 unconstrained fn transfer_when_paused_fails(){
-    let (env, token_contract_address, issuer, user) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, user,_) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     let mint_amount = 100;
     env.impersonate(issuer);
@@ -119,15 +119,18 @@ unconstrained fn test_pause_roles(){
 unconstrained fn test_pause_role_2(){
     let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
     
-    Token::at(token_contract_address).grant_role(PAUSE_ROLE, issuer).call(&mut env.public());
-
+    Token::at(token_contract_address).grant_role(PAUSE_ROLE, user).call(&mut env.public());
+    
+    env.impersonate(user);
     Token::at(token_contract_address).pause_contract().call(&mut env.public());
 
     //checks if contract is indeed paused
     let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 1);
 
-     Token::at(token_contract_address).revoke_role(PAUSE_ROLE, issuer).call(&mut env.public());
+    env.impersonate(issuer);
+    Token::at(token_contract_address).revoke_role(PAUSE_ROLE, user).call(&mut env.public());
 
+    env.impersonate(user);
     Token::at(token_contract_address).unpause_contract().call(&mut env.public());
 }
