@@ -1,10 +1,10 @@
- mod types;
+mod types;
 mod test;
 
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Token {
+contract FiatCMTAToken {
     // Libs
     use dep::compressed_string::FieldCompressedString;
     use std::{meta::derive, ops::{Add, Sub}};
@@ -32,10 +32,6 @@ contract Token {
     pauseModule::{PauseModule},
     validationModule::{SetFlag, UserFlags, ValidationModule},
     enforcementModule::{Freezable, FreezableFlag},
-    extensions::{
-        creditEventsModule::{CreditEvents, CreditEventsStruct},
-        debtBaseModule::{DebtBase, DebtBaseStruct},
-        },
     token_note::utils::{decrement, increment}
     };
 
@@ -62,8 +58,6 @@ contract Token {
         validation_module: ValidationModule<UserFlags, Context>,
         enforcement_module: Freezable<FreezableFlag, Context>,
         access_control: AccessControlModule<bool, Context>,
-        credit_event_module: CreditEvents<bool, Context>,
-        debt_base_module: DebtBase<bool, Context>,
 
         issuer_address: SharedMutable<AztecAddress, CHANGE_ROLES_DELAY_BLOCKS, Context>,
 
@@ -71,16 +65,27 @@ contract Token {
         total_supply: PublicMutable<Field, Context>,
 
         symbol: PublicImmutable<FieldCompressedString, Context>,
-        name: PublicImmutable<FieldCompressedString, Context>,
+        tokenName: PublicImmutable<FieldCompressedString, Context>,
+        tokenCurrency: PublicImmutable<FieldCompressedString, Context>,
         decimals: PublicImmutable<u8, Context>,
     }
 
+    /*@notice: Initializes the fiat token contract.
+        * @param tokenName: The name of the fiat token.
+        * @param tokenSymbol: The symbol of the fiat token.
+        * @param tokenCurrency   The fiat currency that the token represents.
+        * @param tokenDecimals: The number of decimals that the token uses. 
+
+        * @param admin: The address of the administrator of the contract.
+    */
+
     #[public]
     #[initializer]
-    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
+    fn constructor(tokenName: str<31>, symbol: str<31>, tokenCurrency: str<31>, decimals: u8, admin: AztecAddress) {
         assert(!admin.is_zero(), "invalid admin");
-        storage.name.initialize(FieldCompressedString::from_string(name));
+        storage.tokenName.initialize(FieldCompressedString::from_string(tokenName));
         storage.symbol.initialize(FieldCompressedString::from_string(symbol));
+        storage.tokenCurrency.initialize(FieldCompressedString::from_string(tokenCurrency));
         storage.decimals.initialize(decimals);
         storage.access_control._grant_role(DEFAULT_ADMIN_ROLE, admin);
         storage.access_control._grant_role(VALIDATION_ROLE, admin);
@@ -204,47 +209,18 @@ contract Token {
         );
     }
 
-    //############ CREDIT EVENTS MODULE ############
-
-    //Note: as events are only allowed in the main contract, we have decided not to put them yet for this function.
-    #[public]
-    fn set_credit_events(credit_events: CreditEventsStruct) {
-        storage.credit_event_module.setCreditEvents(
-            credit_events,
-            context.msg_sender(),
-            storage.access_control,
-        );
-    }
-
-    #[public]
-    fn get_credit_events() -> [Field; 3] {
-        storage.credit_event_module.get_credit_events()
-    }
-
-    //############ DEBT BASE MODULE ############
-
-    #[public]
-    fn set_debt_base(debt_base_: DebtBaseStruct) {
-        storage.debt_base_module.setDebt(debt_base_, context.msg_sender(), storage.access_control);
-    }
-
-    #[public]
-    fn get_debt_base() -> [Field; 12] {
-        storage.debt_base_module.get_debt_base()
-    }
-
     // //############ GETTERS ############
 
     #[public]
     #[view]
     fn public_get_name() -> pub FieldCompressedString {
-        storage.name.read()
+        storage.tokenName.read()
     }
 
     #[private]
     #[view]
     fn private_get_name() -> pub FieldCompressedString {
-        storage.name.read()
+        storage.tokenName.read()
     }
 
     #[public]
@@ -289,6 +265,18 @@ contract Token {
         storage.issuer_address.get_current_value()
     }
 
+    #[public]
+    #[view]
+    fn public_get_currency() -> pub FieldCompressedString {
+        storage.tokenCurrency.read()
+    }
+    
+    #[private]
+    #[view]
+    fn private_get_currency() -> pub FieldCompressedString {
+        storage.tokenCurrency.read()
+    }
+
     //############ MINT ############
 
     #[private]
@@ -309,8 +297,8 @@ contract Token {
     */
     #[private]
     fn mint(to: AztecAddress, amount: Field) {
-        Token::at(context.this_address())._mint_internal(to, amount).call(&mut context);
-        Token::at(context.this_address())._mint(context.msg_sender(), amount).enqueue(&mut context);
+        FiatCMTAToken::at(context.this_address())._mint_internal(to, amount).call(&mut context);
+        FiatCMTAToken::at(context.this_address())._mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
     //everyone can call this function, but will revert in _mint if not minter role
@@ -322,13 +310,13 @@ contract Token {
 
         for i in 0..accounts.len() {
             //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address())._mint_internal(accounts[i], amount[i]).call(
+            FiatCMTAToken::at(context.this_address())._mint_internal(accounts[i], amount[i]).call(
                 &mut context,
             );
             acc += amount[i];
         }
 
-        Token::at(context.this_address())._mint(context.msg_sender(), acc).enqueue(&mut context);
+        FiatCMTAToken::at(context.this_address())._mint(context.msg_sender(), acc).enqueue(&mut context);
     }
 
     //############ TRANSFER ############
@@ -354,8 +342,8 @@ contract Token {
     #[private]
     fn transfer(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
-        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
-        Token::at(context.this_address())._transfer().enqueue(&mut context);
+        FiatCMTAToken::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
+        FiatCMTAToken::at(context.this_address())._transfer().enqueue(&mut context);
         // Transfer { from, to, amount: amount.to_field() }.emit(
         //     encode_and_encrypt_event_unconstrained(&mut context, from, to),
         // );
@@ -375,11 +363,11 @@ contract Token {
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
         for i in 0..MAX_ADDR_PER_CALL {
-            Token::at(context.this_address())
+            FiatCMTAToken::at(context.this_address())
                 ._transfer_internal(context.msg_sender(), accounts[i], amount[i])
                 .call(&mut context);
         }
-        Token::at(context.this_address())._transferFrom().enqueue(&mut context);
+        FiatCMTAToken::at(context.this_address())._transferFrom().enqueue(&mut context);
     }
 
     //Same pattern as ERC20.
@@ -398,8 +386,8 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
-        Token::at(context.this_address())._transferFrom().enqueue(&mut context);
+        FiatCMTAToken::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
+        FiatCMTAToken::at(context.this_address())._transferFrom().enqueue(&mut context);
         // Transfer { from, to, amount: amount.to_field() }.emit(
         //     encode_and_encrypt_event_unconstrained(&mut context, from, to),
         // );
@@ -438,7 +426,7 @@ contract Token {
 
         decrement(storage.balances.at(from), amount, from, issuer, from);
 
-        Token::at(context.this_address())._burn(context.msg_sender(), amount).enqueue(&mut context);
+        FiatCMTAToken::at(context.this_address())._burn(context.msg_sender(), amount).enqueue(&mut context);
     }
 
     //can nonce be the same for all accounts?
@@ -453,7 +441,7 @@ contract Token {
 
         for i in 0..MAX_ADDR_PER_CALL {
             //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address()).burn(accounts[i], amount[i], nonce);
+            FiatCMTAToken::at(context.this_address()).burn(accounts[i], amount[i], nonce);
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::test::utils;
 use dep::aztec::{test::helpers::cheatcodes};
-use crate::{ Token};
+use crate::FiatCMTAToken as Token;
 use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE};
 
 

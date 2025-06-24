@@ -6,7 +6,7 @@ use dep::aztec::{
     oracle::{execution::{get_block_number, get_contract_address}, random::random,storage::storage_read}
 };
 
-use crate::{types::{ access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE}}, Token};
+use crate::{types::{ access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE}}, FiatCMTAToken as Token};
 
 pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -26,12 +26,13 @@ pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
 
     // Deploy token contract
     let initializer_call_interface = Token::interface().constructor(
-        issuer,
-        "TestToken0000000000000000000000",
-        "TT00000000000000000000000000000",
-        18
+        "FiatCMTAToken000000000000000000",
+        "FCMTA00000000000000000000000000",
+        "USD0000000000000000000000000000",
+        18,
+        issuer
     );
-    let token_contract = env.deploy_self("Token").with_public_void_initializer(issuer, initializer_call_interface);
+    let token_contract = env.deploy_self("FiatCMTAToken").with_public_void_initializer(issuer, initializer_call_interface);
     let token_contract_address = token_contract.to_address();
     env.advance_block_by(3);
     (&mut env, token_contract_address, issuer, user1)

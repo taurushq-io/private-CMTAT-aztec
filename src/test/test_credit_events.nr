@@ -1,7 +1,7 @@
 use crate::test::utils;
 use dep::aztec::{test::helpers::cheatcodes};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::Token;
+use crate::FiatCMTAToken as Token;
 use crate::types::extensions::creditEventsModule::{CreditEventsStruct};
 use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, DEBT_CREDIT_EVENT_ROLE};
 use dep::compressed_string::FieldCompressedString;

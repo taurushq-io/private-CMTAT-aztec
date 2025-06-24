@@ -1,4 +1,4 @@
-import { TokenContractArtifact, TokenContract } from "../../artifacts/Token.js"
+import { FiatCMTATokenContractArtifact, FiatCMTATokenContract } from "../../artifacts/FiatCMTAToken.js"
 import { AccountManager, AccountWallet, AccountWalletWithSecretKey, CompleteAddress, ContractDeployer, createLogger, Fr, PXE, TxStatus, getContractInstanceFromDeployParams, Logger, ContractInstanceWithAddress } from "@aztec/aztec.js";
 import { getInitialTestAccountsWallets, getDeployedTestAccountsWallets } from "@aztec/accounts/testing"
 import { format } from 'util';
@@ -14,7 +14,7 @@ import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { deriveSigningKey } from "@aztec/stdlib/keys";
 
 
-const advanceBlocks = async (contract: TokenContract, sponsoredPaymentMethod: SponsoredFeePaymentMethod) : Promise<boolean> => {
+const advanceBlocks = async (contract: FiatCMTATokenContract, sponsoredPaymentMethod: SponsoredFeePaymentMethod) : Promise<boolean> => {
     const DELAY = 2;
     for (let i = 0; i < DELAY; ++i) {
         await contract.methods.get_operations().send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
@@ -36,9 +36,9 @@ describe("Token", () => {
     let bobWallet: AccountWallet;
     let contractAddress: AztecAddress;
     //what is a tokenContract?
-    let tokenContractIssuer: TokenContract;
-    let tokenContractBob: TokenContract;
-    let tokenContractAlice: TokenContract;
+    let tokenContractIssuer: FiatCMTATokenContract;
+    let tokenContractBob: FiatCMTATokenContract;
+    let tokenContractAlice: FiatCMTATokenContract;
     let sponsoredFPC: ContractInstanceWithAddress;
     let sponsoredPaymentMethod: SponsoredFeePaymentMethod;
 
@@ -144,18 +144,19 @@ describe("Token", () => {
 
         const tokenName = 'TEST'
         const tokenSymbol = 'TT'
+        const tokenCurrency = 'USD'
         const tokenDecimals = 18n
 
-        const CMTATContractArtifact = TokenContractArtifact
+        const CMTATContractArtifact = FiatCMTATokenContractArtifact
         const deploymentData = await getContractInstanceFromDeployParams(CMTATContractArtifact,
             {
-                constructorArgs: [issuer, tokenName, tokenSymbol, tokenDecimals],
+                constructorArgs: [tokenName, tokenSymbol, tokenCurrency, tokenDecimals, issuer],
                 salt,
                 deployer: deployerWallet.getAddress()
             });
 
                 const deployer = new ContractDeployer(CMTATContractArtifact, deployerWallet);
-        const tx = deployer.deploy(issuer,  tokenName, tokenSymbol, tokenDecimals).send({
+        const tx = deployer.deploy( tokenName, tokenSymbol, tokenCurrency, tokenDecimals, issuer).send({
             contractAddressSalt: salt,
             fee: { paymentMethod: sponsoredPaymentMethod } // without the sponsoredFPC the deployment fails, thus confirming it works
         })
@@ -182,9 +183,9 @@ describe("Token", () => {
 
 
         console.log(`Contract successfully deployed at address ${contractAddress.toString()}`);
-        tokenContractIssuer = await TokenContract.at(contractAddress, issuerWallet);
-        tokenContractAlice = await TokenContract.at(contractAddress, aliceWallet);
-        tokenContractBob = await TokenContract.at(contractAddress, bobWallet);
+        tokenContractIssuer = await FiatCMTATokenContract.at(contractAddress, issuerWallet);
+        tokenContractAlice = await FiatCMTATokenContract.at(contractAddress, aliceWallet);
+        tokenContractBob = await FiatCMTATokenContract.at(contractAddress, bobWallet);
 
 
         expect(await advanceBlocks(tokenContractIssuer, sponsoredPaymentMethod)).toBeTruthy();

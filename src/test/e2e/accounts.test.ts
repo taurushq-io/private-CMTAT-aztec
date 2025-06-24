@@ -1,4 +1,4 @@
-import { TokenContractArtifact, TokenContract } from "../../artifacts/Token.js"
+import { FiatCMTATokenContractArtifact, FiatCMTATokenContract } from "../../artifacts/FiatCMTAToken.js"
 import { AccountManager, AccountWallet, ContractDeployer, createLogger, Fr, PXE, TxStatus, getContractInstanceFromDeployParams, Logger } from "@aztec/aztec.js";
 import { generateSchnorrAccounts } from "@aztec/accounts/testing"
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
@@ -31,6 +31,7 @@ describe("Accounts", () => {
 
     const tokenName = 'TEST'
     const tokenSymbol = 'TT'
+    const tokenCurrency = 'USD'
     const tokenDecimals = 18n
 
     beforeAll(async () => {
@@ -110,8 +111,8 @@ describe("Accounts", () => {
 
 
         // arbitrary transactions to progress 2 blocks, and have fee juice on Aztec ready to claim
-        await TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), tokenName,tokenSymbol, tokenDecimals).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed(); // deploy contract with first funded wallet
-        await TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), tokenName,tokenSymbol, tokenDecimals).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed(); // deploy contract with first funded wallet
+        await FiatCMTATokenContract.deploy(ownerWallet, tokenName,tokenSymbol, tokenCurrency, tokenDecimals,  ownerWallet.getAddress()).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed(); // deploy contract with first funded wallet
+        await FiatCMTATokenContract.deploy(ownerWallet, tokenName,tokenSymbol, tokenCurrency, tokenDecimals, ownerWallet.getAddress()).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed(); // deploy contract with first funded wallet
 
         // claim and pay to deploy random accounts
         let sentTxs = [];
@@ -143,7 +144,7 @@ describe("Accounts", () => {
 
     it("Sponsored contract deployment", async () => {
         const salt = Fr.random();
-        const CMTATContractArtifact = TokenContractArtifact
+        const CMTATContractArtifact = FiatCMTATokenContractArtifact
         const accounts = await Promise.all(
             (await generateSchnorrAccounts(2)).map(
                 async a => await getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt)
@@ -153,7 +154,7 @@ describe("Accounts", () => {
         const daWallets = await Promise.all(accounts.map(a => a.getWallet()));
         const [deployerWallet, adminWallet] = daWallets;
         const [deployerAddress, adminAddress] = daWallets.map(w => w.getAddress());
-        const constructorArgs = [adminAddress, tokenName, tokenSymbol, tokenDecimals];
+        const constructorArgs = [ tokenName, tokenSymbol, tokenCurrency, tokenDecimals, adminAddress];
 
         const deploymentData = await getContractInstanceFromDeployParams(CMTATContractArtifact,
             {

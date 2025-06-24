@@ -34,21 +34,21 @@ import {
   type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
-import TokenContractArtifactJson from '../../target/token_contract-Token.json' with { type: 'json' };
-export const TokenContractArtifact = loadContractArtifact(TokenContractArtifactJson as NoirCompiledContract);
+import FiatCMTATokenContractArtifactJson from '../../target/token_contract-FiatCMTAToken.json' with { type: 'json' };
+export const FiatCMTATokenContractArtifact = loadContractArtifact(FiatCMTATokenContractArtifactJson as NoirCompiledContract);
 
 
 
 /**
- * Type-safe interface for contract Token;
+ * Type-safe interface for contract FiatCMTAToken;
  */
-export class TokenContract extends ContractBase {
+export class FiatCMTATokenContract extends ContractBase {
   
   private constructor(
     instance: ContractInstanceWithAddress,
     wallet: Wallet,
   ) {
-    super(instance, TokenContractArtifact, wallet);
+    super(instance, FiatCMTATokenContractArtifact, wallet);
   }
   
 
@@ -63,36 +63,36 @@ export class TokenContract extends ContractBase {
     address: AztecAddress,
     wallet: Wallet,
   ) {
-    return Contract.at(address, TokenContract.artifact, wallet) as Promise<TokenContract>;
+    return Contract.at(address, FiatCMTATokenContract.artifact, wallet) as Promise<FiatCMTATokenContract>;
   }
 
   
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(wallet: Wallet, admin: AztecAddressLike, name: string, symbol: string, decimals: (bigint | number)) {
-    return new DeployMethod<TokenContract>(PublicKeys.default(), wallet, TokenContractArtifact, TokenContract.at, Array.from(arguments).slice(1));
+  public static deploy(wallet: Wallet, tokenName: string, symbol: string, tokenCurrency: string, decimals: (bigint | number), admin: AztecAddressLike) {
+    return new DeployMethod<FiatCMTATokenContract>(PublicKeys.default(), wallet, FiatCMTATokenContractArtifact, FiatCMTATokenContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, admin: AztecAddressLike, name: string, symbol: string, decimals: (bigint | number)) {
-    return new DeployMethod<TokenContract>(publicKeys, wallet, TokenContractArtifact, TokenContract.at, Array.from(arguments).slice(2));
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, tokenName: string, symbol: string, tokenCurrency: string, decimals: (bigint | number), admin: AztecAddressLike) {
+    return new DeployMethod<FiatCMTATokenContract>(publicKeys, wallet, FiatCMTATokenContractArtifact, FiatCMTATokenContract.at, Array.from(arguments).slice(2));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified constructor method.
    */
-  public static deployWithOpts<M extends keyof TokenContract['methods']>(
+  public static deployWithOpts<M extends keyof FiatCMTATokenContract['methods']>(
     opts: { publicKeys?: PublicKeys; method?: M; wallet: Wallet },
-    ...args: Parameters<TokenContract['methods'][M]>
+    ...args: Parameters<FiatCMTATokenContract['methods'][M]>
   ) {
-    return new DeployMethod<TokenContract>(
+    return new DeployMethod<FiatCMTATokenContract>(
       opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
-      TokenContractArtifact,
-      TokenContract.at,
+      FiatCMTATokenContractArtifact,
+      FiatCMTATokenContract.at,
       Array.from(arguments).slice(1),
       opts.method ?? 'constructor',
     );
@@ -104,18 +104,18 @@ export class TokenContract extends ContractBase {
    * Returns this contract's artifact.
    */
   public static get artifact(): ContractArtifact {
-    return TokenContractArtifact;
+    return FiatCMTATokenContractArtifact;
   }
 
   /**
    * Returns this contract's artifact with public bytecode.
    */
   public static get artifactForPublic(): ContractArtifact {
-    return loadContractArtifactForPublic(TokenContractArtifactJson as NoirCompiledContract);
+    return loadContractArtifactForPublic(FiatCMTATokenContractArtifactJson as NoirCompiledContract);
   }
   
 
-  public static get storage(): ContractStorageLayout<'pause_module' | 'validation_module' | 'enforcement_module' | 'access_control' | 'credit_event_module' | 'debt_base_module' | 'issuer_address' | 'balances' | 'total_supply' | 'symbol' | 'name' | 'decimals'> {
+  public static get storage(): ContractStorageLayout<'pause_module' | 'validation_module' | 'enforcement_module' | 'access_control' | 'issuer_address' | 'balances' | 'total_supply' | 'symbol' | 'tokenName' | 'tokenCurrency' | 'decimals'> {
       return {
         pause_module: {
       slot: new Fr(1n),
@@ -129,31 +129,28 @@ enforcement_module: {
 access_control: {
       slot: new Fr(12n),
     },
-credit_event_module: {
+issuer_address: {
       slot: new Fr(13n),
     },
-debt_base_module: {
-      slot: new Fr(14n),
-    },
-issuer_address: {
-      slot: new Fr(15n),
-    },
 balances: {
-      slot: new Fr(19n),
+      slot: new Fr(17n),
     },
 total_supply: {
-      slot: new Fr(20n),
+      slot: new Fr(18n),
     },
 symbol: {
+      slot: new Fr(19n),
+    },
+tokenName: {
       slot: new Fr(21n),
     },
-name: {
+tokenCurrency: {
       slot: new Fr(23n),
     },
 decimals: {
       slot: new Fr(25n),
     }
-      } as ContractStorageLayout<'pause_module' | 'validation_module' | 'enforcement_module' | 'access_control' | 'credit_event_module' | 'debt_base_module' | 'issuer_address' | 'balances' | 'total_supply' | 'symbol' | 'name' | 'decimals'>;
+      } as ContractStorageLayout<'pause_module' | 'validation_module' | 'enforcement_module' | 'access_control' | 'issuer_address' | 'balances' | 'total_supply' | 'symbol' | 'tokenName' | 'tokenCurrency' | 'decimals'>;
     }
     
 
@@ -187,17 +184,11 @@ ValueNote: {
     /** cancel_authwit(inner_hash: field) */
     cancel_authwit: ((inner_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** constructor(admin: struct, name: string, symbol: string, decimals: integer) */
-    constructor: ((admin: AztecAddressLike, name: string, symbol: string, decimals: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(tokenName: string, symbol: string, tokenCurrency: string, decimals: integer, admin: struct) */
+    constructor: ((tokenName: string, symbol: string, tokenCurrency: string, decimals: (bigint | number), admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** freeze(user: struct, value: struct) */
     freeze: ((user: AztecAddressLike, value: { is_freezed: boolean }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_credit_events() */
-    get_credit_events: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_debt_base() */
-    get_debt_base: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_frozen(user: struct) */
     get_frozen: ((user: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -223,6 +214,9 @@ ValueNote: {
     /** pause_contract() */
     pause_contract: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** private_get_currency() */
+    private_get_currency: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** private_get_decimals() */
     private_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -237,6 +231,9 @@ ValueNote: {
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** public_get_currency() */
+    public_get_currency: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_get_decimals() */
     public_get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -261,12 +258,6 @@ ValueNote: {
 
     /** revoke_role(role: field, account: struct) */
     revoke_role: ((role: FieldLike, account: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** set_credit_events(credit_events: struct) */
-    set_credit_events: ((credit_events: { flagDefault: boolean, flagRedeemed: boolean, rating: { value: FieldLike } }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** set_debt_base(debt_base_: struct) */
-    set_debt_base: ((debt_base_: { interestRate: FieldLike, parValue: FieldLike, guarantor: { value: FieldLike }, bondHolder: { value: FieldLike }, maturityDate: { value: FieldLike }, interestScheduleFormat: { value: FieldLike }, interestPaymentDate: { value: FieldLike }, dayCountConvention: { value: FieldLike }, businessDayConvention: { value: FieldLike }, publicHolidaysCalendar: { value: FieldLike }, issuanceDate: { value: FieldLike }, couponFrequency: { value: FieldLike } }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** set_operations(operations: struct) */
     set_operations: ((operations: { operate_blacklist: boolean, operate_whitelist: boolean, operate_sanctionlist: boolean }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

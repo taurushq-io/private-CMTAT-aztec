@@ -1,4 +1,4 @@
-import { TokenContract } from "../src/artifacts/Token.js"
+import { FiatCMTATokenContract } from "../src/artifacts/FiatCMTAToken.js"
 import { createLogger, PXE, Logger, SponsoredFeePaymentMethod, Fr } from "@aztec/aztec.js";
 //import { TokenContract } from "@aztec/noir-contracts.js/Token"
 import { setupPXETestnet } from "../src/utils/setup_pxe_testnet.js";
@@ -23,12 +23,13 @@ async function main() {
     const wallet = await accountManager.getWallet();
     const address = await accountManager.getAddress();
 
-    const tokenName = 'TEST'
-    const tokenSymbol = 'TT'
+    const tokenName = 'FiatCMTAToken'
+    const tokenSymbol = 'FCMTAT'
+    const tokenCurrency = 'USD'
     const tokenDecimals = 18n
 
 
-    const tokenContract = await TokenContract.deploy(wallet, address, tokenName, tokenSymbol, tokenDecimals).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed({timeout: 120000});
+    const tokenContract = await FiatCMTATokenContract.deploy(wallet,tokenName, tokenSymbol, tokenCurrency, tokenDecimals, address).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed({timeout: 120000});
     logger.info(`CMTAT Token Contract deployed at: ${tokenContract.address}`);
 }
 

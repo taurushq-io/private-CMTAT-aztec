@@ -6,5 +6,9 @@
   "token_contract-Token.json": {
     "contractName": "Token",
     "hash": "1fc9213f07068b4f8dd6b4499f2c1d55ffd3490146d1fa39fc0955037cadd1cd"
+  },
+  "token_contract-FiatCMTAToken.json": {
+    "contractName": "FiatCMTAToken",
+    "hash": "305f935d2e02b6723fa7fc05e827bb5cc458f2bd0c4bbf8dc4c3f27b4890104d"
   }
 }
