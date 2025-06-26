@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "fees": "tsx scripts/fees.ts",
-    "clean": "rm -rf ./src/artifacts ./target",
+    "clean": "rm -rf ./src/artifacts ./target codegenCache.json",
     "clear-store": "rm -rf ./store",
     "codegen": "aztec codegen target --outdir src/artifacts",
     "compile": "${AZTEC_NARGO:-aztec-nargo} compile",
