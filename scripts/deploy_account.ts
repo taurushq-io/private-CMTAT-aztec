@@ -4,7 +4,7 @@ import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
 
 export async function deployAccount() {
     let logger: Logger;
-    logger = createLogger('aztec:CMTAT-aztec');
+    logger = createLogger('aztec:CMTAToken');
     const pxe = await setupPXETestnet()
     await deploySchnorrAccount(pxe);
 }

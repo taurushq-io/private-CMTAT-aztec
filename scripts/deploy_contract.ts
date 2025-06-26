@@ -11,7 +11,8 @@ async function main() {
     let pxe: PXE;
     let logger: Logger;
 
-    logger = createLogger('aztec:aztec-starter');
+    logger = createLogger('aztec:CMTA-Token');
+    logger.info('Starting CMTA Token deployment script...');
 
     pxe = await setupPXETestnet();
 
@@ -23,13 +24,13 @@ async function main() {
     const wallet = await accountManager.getWallet();
     const address = await accountManager.getAddress();
 
-    const tokenName = 'TEST'
-    const tokenSymbol = 'TT'
+    const tokenName = 'CMTAToken'
+    const tokenSymbol = 'CMTAT'
     const tokenDecimals = 18n
 
 
     const tokenContract = await TokenContract.deploy(wallet, address, tokenName, tokenSymbol, tokenDecimals).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed({timeout: 120000});
-    logger.info(`CMTAT Token Contract deployed at: ${tokenContract.address}`);
+    logger.info(`CMTA Token Contract deployed at: ${tokenContract.address}`);
 }
 
 main();

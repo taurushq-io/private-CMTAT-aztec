@@ -1,20 +1,25 @@
 {
-  "name": "token_contract",
+  "name": "private-CMTA-Token",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "yarn clean && tsc -b",
-    "build:dev": "tsc -b --watch",
+    "fees": "tsx scripts/fees.ts",
+    "clean": "rm -rf ./src/artifacts ./target",
+    "clear-store": "rm -rf ./store",
     "codegen": "aztec codegen target --outdir src/artifacts",
     "compile": "${AZTEC_NARGO:-aztec-nargo} compile",
     "deploy": "tsx scripts/deploy_contract.ts",
     "deploy-account": "tsx scripts/deploy_account.ts",
-    "clean": "rm -rf ./dest tsconfig.tsbuildinfo",
-    "start": "yarn build && DEBUG='token' node ./dest/index.js",
-    "test": "rm -rf store/pxe && NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
+    "interaction": "tsx scripts/interaction_existing_contract.ts",
+    "multiple-pxe": "tsx scripts/multiple_pxe.ts",
+    "get-block": "tsx scripts/get_block.ts",
+    "profile": "tsx scripts/profile_deploy.ts",
+    "test": "yarn test:js && yarn test:nr",
+    "test:js": "rm -rf store/pxe && NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json",
+    "test:nr": "aztec test"
   },
   "dependencies": {
     "@aztec/accounts": "v0.87.8",
@@ -32,5 +37,8 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "tsx": "^4.20.3"
+  },
+    "jest": {
+    "testTimeout": 200000
   }
 }

@@ -39,7 +39,8 @@ async function main() {
     let pxe: PXE;
     let logger: Logger;
 
-    logger = createLogger('aztec:aztec-starter');
+    logger = createLogger('aztec:CMTAToken');
+    logger.info('Starting Fee Juice script...');
 
     pxe = await setupPXE();
     const nodeInfo = (await pxe.getNodeInfo())
