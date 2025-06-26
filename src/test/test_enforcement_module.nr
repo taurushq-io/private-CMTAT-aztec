@@ -1,9 +1,7 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes};
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::Token;
-use crate::types::enforcementModule::{FreezableFlag};
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, ENFORCEMENT_ROLE};
+use crate::CMTAToken as Token;
+use crate::modules::enforcementModule::{FreezableFlag};
+use crate::modules::access_controlModule::ENFORCEMENT_ROLE;
 
 #[test]
 unconstrained fn get_frozen(){

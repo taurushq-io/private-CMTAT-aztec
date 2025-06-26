@@ -1,51 +1,42 @@
- mod types;
+mod types;
 mod test;
+mod modules;
 
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Token {
+contract CMTAToken {
     // Libs
     use dep::compressed_string::FieldCompressedString;
-    use std::{meta::derive, ops::{Add, Sub}};
+    use std::ops::{Add, Sub};
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit,
         compute_authwit_nullifier,
     };
     use dep::aztec::{
-        context::{PrivateCallInterface, PrivateContext},
-        event::event_interface::EventInterface,
         macros::{
-            events::event,
-            functions::{initializer, internal, private, public, view},
+            functions::{initializer, internal, private, public, view, utility},
             storage::storage,
         },
         prelude::{
             AztecAddress, Map,PrivateSet, PublicMutable, PublicImmutable,
-            SharedMutable, PublicContext,
+            SharedMutable,
         },
+        protocol_types::traits::ToField,
     };
 
-    use crate::types::{
+    use crate::modules::{
     access_controlModule::{AccessControlModule, BURNER_ROLE, DEFAULT_ADMIN_ROLE, MINTER_ROLE, VALIDATION_ROLE},
     pauseModule::{PauseModule},
     validationModule::{SetFlag, UserFlags, ValidationModule},
     enforcementModule::{Freezable, FreezableFlag},
     extensions::{
-        creditEventsModule::{CreditEvents, CreditEventsStruct},
-        debtBaseModule::{DebtBase, DebtBaseStruct},
-        },
-    token_note::utils::{decrement, increment}
+    creditEventsModule::{CreditEvents, CreditEventsStruct},
+    debtBaseModule::{DebtBase, DebtBaseStruct},},
     };
-
+    use crate::types::token_note::utils::{decrement, increment};
     use dep::value_note::{balance_utils, value_note::ValueNote};
-
-        use dep::aztec::{
-        keys::getters::get_public_keys,
-        macros::{functions::{ utility}},
-    };
-    use dep::aztec::protocol_types::traits::{Hash, ToField};
 
     
 
@@ -309,8 +300,8 @@ contract Token {
     */
     #[private]
     fn mint(to: AztecAddress, amount: Field) {
-        Token::at(context.this_address())._mint_internal(to, amount).call(&mut context);
-        Token::at(context.this_address())._mint(context.msg_sender(), amount).enqueue(&mut context);
+        CMTAToken::at(context.this_address())._mint_internal(to, amount).call(&mut context);
+        CMTAToken::at(context.this_address())._mint(context.msg_sender(), amount).enqueue(&mut context);
     }
 
     //everyone can call this function, but will revert in _mint if not minter role
@@ -322,13 +313,13 @@ contract Token {
 
         for i in 0..accounts.len() {
             //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address())._mint_internal(accounts[i], amount[i]).call(
+            CMTAToken::at(context.this_address())._mint_internal(accounts[i], amount[i]).call(
                 &mut context,
             );
             acc += amount[i];
         }
 
-        Token::at(context.this_address())._mint(context.msg_sender(), acc).enqueue(&mut context);
+        CMTAToken::at(context.this_address())._mint(context.msg_sender(), acc).enqueue(&mut context);
     }
 
     //############ TRANSFER ############
@@ -354,8 +345,8 @@ contract Token {
     #[private]
     fn transfer(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
-        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
-        Token::at(context.this_address())._transfer().enqueue(&mut context);
+        CMTAToken::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
+        CMTAToken::at(context.this_address())._transfer().enqueue(&mut context);
         // Transfer { from, to, amount: amount.to_field() }.emit(
         //     encode_and_encrypt_event_unconstrained(&mut context, from, to),
         // );
@@ -375,11 +366,11 @@ contract Token {
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
 
         for i in 0..MAX_ADDR_PER_CALL {
-            Token::at(context.this_address())
+            CMTAToken::at(context.this_address())
                 ._transfer_internal(context.msg_sender(), accounts[i], amount[i])
                 .call(&mut context);
         }
-        Token::at(context.this_address())._transferFrom().enqueue(&mut context);
+        CMTAToken::at(context.this_address())._transferFrom().enqueue(&mut context);
     }
 
     //Same pattern as ERC20.
@@ -398,8 +389,8 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        Token::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
-        Token::at(context.this_address())._transferFrom().enqueue(&mut context);
+        CMTAToken::at(context.this_address())._transfer_internal(from, to, amount).call(&mut context);
+        CMTAToken::at(context.this_address())._transferFrom().enqueue(&mut context);
         // Transfer { from, to, amount: amount.to_field() }.emit(
         //     encode_and_encrypt_event_unconstrained(&mut context, from, to),
         // );
@@ -418,6 +409,18 @@ contract Token {
 
     //############ BURN ############
 
+
+    #[private]
+    #[internal]
+    //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
+    fn _burn_internal(from: AztecAddress, amount: Field) {
+        assert(!storage.enforcement_module.is_frozen(from), "Frozen: Recipient");
+
+        let issuer = storage.issuer_address.get_current_value();
+
+        decrement(storage.balances.at(from), amount, from, issuer, from);
+    }
+
     //we need an authwit from the user that has the notes to burn his notes.
     //NOTE: I do not receive an outerNoteEmission here due to aztec-nr valueNote already emitting the note
     /*
@@ -434,11 +437,8 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        let issuer = storage.issuer_address.get_current_value();
-
-        decrement(storage.balances.at(from), amount, from, issuer, from);
-
-        Token::at(context.this_address())._burn(context.msg_sender(), amount).enqueue(&mut context);
+        CMTAToken::at(context.this_address())._burn_internal(from, amount).call(&mut context);
+        CMTAToken::at(context.this_address())._burn(context.msg_sender(), amount).enqueue(&mut context);
     }
 
     //can nonce be the same for all accounts?
@@ -450,11 +450,15 @@ contract Token {
     ) {
         assert(accounts.len() != 0, "Mint module empty");
         assert(accounts.len() == amount.len(), "Accounts and values arrays mismatch");
+        let mut acc = 0;
 
         for i in 0..MAX_ADDR_PER_CALL {
             //who is the caller here? contract or issuer, bc if it's the contract, it will fail
-            Token::at(context.this_address()).burn(accounts[i], amount[i], nonce);
+            CMTAToken::at(context.this_address())._burn_internal(accounts[i], amount[i]).call(&mut context);
+            acc += amount[i];
         }
+
+        CMTAToken::at(context.this_address())._burn(context.msg_sender(), acc).enqueue(&mut context);
     }
 
     //############ INTERNAL ############

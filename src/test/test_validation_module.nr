@@ -1,15 +1,13 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::{execution::{get_block_number, get_contract_address}}};
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::Token;
-use crate::types::validationModule::{SetFlag, UserFlags, ValidationModule};
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE, MINTER_ROLE};
+use crate::CMTAToken as Token;
+use crate::modules::validationModule::{SetFlag, UserFlags};
+use crate::modules::access_controlModule::{VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
 
 
 
 #[test]
 unconstrained fn get_operations_test(){
-    let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
 
     let ret = Token::at(token_contract_address).get_operations().view(&mut env.public());
     assert(ret == 0);
@@ -17,11 +15,11 @@ unconstrained fn get_operations_test(){
 
 #[test]
 unconstrained fn set_operations_test(){
-    let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
     Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer).call(&mut env.public());
 
-    let operations = SetFlag {    operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
+    let operations = SetFlag { operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
     Token::at(token_contract_address).set_operations(operations).call(&mut env.public());
     env.advance_block_by(3);
 
@@ -35,7 +33,7 @@ unconstrained fn transfer_when_blacklisted(){
 
     Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer).call(&mut env.public());
 
-    let operations = SetFlag {    operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
+    let operations = SetFlag {operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
     Token::at(token_contract_address).set_operations(operations).call(&mut env.public());
     env.advance_block_by(3);
 
@@ -103,7 +101,7 @@ unconstrained fn transfer_when_whitelisted(){
 
 #[test]
 unconstrained fn transfer_when_no_operations(){
-    let (env, token_contract_address, issuer, user, _) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, _, user, _) = utils::setup_and_mint(/* with_account_contracts */ false);
 
 
     let ret = Token::at(token_contract_address).get_operations().view(&mut env.public());

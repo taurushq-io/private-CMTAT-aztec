@@ -1,4 +1,4 @@
-import { TokenContractArtifact, TokenContract } from "../../artifacts/Token.js"
+import { CMTATokenContractArtifact as TokenContractArtifact, CMTATokenContract as TokenContract } from "../../artifacts/CMTAToken.js"
 import { AccountManager, AccountWallet, AccountWalletWithSecretKey, CompleteAddress, ContractDeployer, createLogger, Fr, PXE, TxStatus, getContractInstanceFromDeployParams, Logger, ContractInstanceWithAddress } from "@aztec/aztec.js";
 import { getInitialTestAccountsWallets, getDeployedTestAccountsWallets } from "@aztec/accounts/testing"
 import { format } from 'util';
@@ -12,6 +12,7 @@ import { getSponsoredFPCInstance } from "../../utils/sponsored_fpc.js";
 import { setupPXE } from "../../utils/setup_pxe.js";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { deriveSigningKey } from "@aztec/stdlib/keys";
+
 
 
 const advanceBlocks = async (contract: TokenContract, sponsoredPaymentMethod: SponsoredFeePaymentMethod) : Promise<boolean> => {

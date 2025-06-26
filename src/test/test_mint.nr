@@ -1,7 +1,6 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes};
-use crate::{ Token};
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE};
+use crate::CMTAToken as Token;
+use crate::modules::access_controlModule::MINTER_ROLE;
 
 
 //TODO we do not test minter role yet because we know that it won't revert according to error that we have spotted.
@@ -16,7 +15,7 @@ unconstrained fn mint_private_success() {
     let ret = Token::at(token_contract_address).has_role(MINTER_ROLE, issuer).view(&mut env.public());
 
     //issuer does have minter role
-    //assert(ret == 1);
+    assert(ret == 1);
 
     let mint_amount = 10000;
     Token::at(token_contract_address).mint(issuer, mint_amount).call(&mut env.private());
@@ -30,7 +29,7 @@ unconstrained fn mint_private_success() {
 #[test]
 unconstrained fn mint_private_batch_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, issuer, user1,user2,user3) = utils::setup_and_more_addresses(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, user1, _ , _) = utils::setup_and_more_addresses(/* with_account_contracts */ false);
     
     Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 

@@ -1,6 +1,5 @@
 use dep::aztec::{prelude::{AztecAddress, PublicMutable},  context::PublicContext, state_vars::storage::Storage};
-use dep::aztec::protocol_types::traits::{Packable, FromField, ToField, Serialize, Deserialize};
-use crate::types::access_controlModule::{AccessControlModule, PAUSE_ROLE};
+use crate::modules::access_controlModule::{AccessControlModule, PAUSE_ROLE};
 
 pub global PAUSED_FLAG: u64 = 1;
 pub global T_SERIALIZED_LEN: u32 = 1;

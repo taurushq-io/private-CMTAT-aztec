@@ -1,8 +1,7 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::Token;
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, BURNER_ROLE};
+use crate::CMTAToken as Token;
+use crate::modules::access_controlModule::{BURNER_ROLE, MINTER_ROLE};
 
 
 #[test]
@@ -102,4 +101,45 @@ unconstrained fn burn_private_failure_on_behalf_of_other_wrong_designated_caller
     // Impersonate user1 to perform the call
     env.impersonate(user1);
     burn_call_interface.call(&mut env.private());
+}
+
+//TODO: test does not pass
+#[test]
+unconstrained fn burn_private_batch_success() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, token_contract_address, issuer, user1, _ , _) = utils::setup_and_more_addresses(/* with_account_contracts */ false);
+    
+    Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
+
+    let mint_amount = [10000];
+    let addresses = [user1];
+
+    Token::at(token_contract_address).mint_batch(addresses, mint_amount).call(&mut env.private());
+
+    utils::check_private_balance(token_contract_address, addresses[0], mint_amount[0]);
+
+    let total_supply = Token::at(token_contract_address).total_supply().view(&mut env.public());
+
+    let mut total_mint_amount = 0;
+    for i in 0..1 {
+        total_mint_amount += mint_amount[i];
+    }
+
+    assert(total_supply == total_mint_amount);
+
+    Token::at(token_contract_address).grant_role(BURNER_ROLE, issuer).call(&mut env.public());
+
+    let burn_amount = [mint_amount[0] / 2];
+
+    // Burn on behalf of other
+    let burn_call_interface = Token::at(token_contract_address).burn_batch(addresses, burn_amount,1);
+    authwit_cheatcodes::add_private_authwit_from_call_interface(addresses[0], issuer, burn_call_interface);
+    // Impersonate issuer to perform the call
+    // Burn tokens
+    env.impersonate(issuer);
+    burn_call_interface.call(&mut env.private());
+
+    utils::check_private_balance(token_contract_address, addresses[0], mint_amount[0] - burn_amount[0]);
+    let total_supply_after_burn = Token::at(token_contract_address).total_supply().view(&mut env.public());
+    assert(total_supply_after_burn == total_supply - burn_amount[0]);
 }

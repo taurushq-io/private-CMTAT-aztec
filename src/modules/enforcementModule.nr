@@ -1,13 +1,12 @@
 use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map},  context::PublicContext, context::PrivateContext, state_vars::storage::Storage};
-use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize, ToField};
-use crate::types::access_controlModule::{AccessControlModule,ENFORCEMENT_ROLE};
+use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize};
+use crate::modules::access_controlModule::{AccessControlModule,ENFORCEMENT_ROLE};
 
-global FREEZED_FLAG: u64 = 1;
 global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
 
 #[derive(Deserialize, Packable, Eq, Serialize)]
 pub struct FreezableFlag {
-    is_freezed: bool,
+    pub is_freezed: bool,
 }
 
 trait FreezableFlagTrait {

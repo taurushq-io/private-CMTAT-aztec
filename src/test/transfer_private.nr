@@ -1,7 +1,7 @@
 use crate::test::utils;
 use dep::aztec::{test::helpers::cheatcodes};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::Token;
+use crate::CMTAToken as Token;
 
 #[test]
 unconstrained fn transfer_private() {
@@ -40,7 +40,7 @@ unconstrained fn transfer_private_check_issuer_view(){
 #[test]
 unconstrained fn transfer_private_to_self() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, issuer, user1, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer tokens
     let transfer_amount = 1000;
@@ -53,7 +53,7 @@ unconstrained fn transfer_private_to_self() {
 #[test]
 unconstrained fn transfer_private_to_non_deployed_account() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, issuer, user1, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, _, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     let not_deployed = cheatcodes::create_account(4);
 
     // Transfer tokens
@@ -114,8 +114,6 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
 unconstrained fn transfer_private_batch_success() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, issuer, user1, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
-    let user2 = env.create_account_contract(3);
-    let user3 = env.create_account_contract(4); 
 
     env.impersonate(issuer);
 
@@ -149,7 +147,7 @@ unconstrained fn transfer_private_failure_on_behalf_of_more_than_balance() {
 #[test]
 unconstrained fn transfer_private_failure_on_behalf_of_other_without_approval() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, _) = utils::setup_and_mint(/* with_account_contracts */ true);
     // Add authwit
     let transfer_amount = 1000;
     let transfer_private_from_call_interface = Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);
@@ -162,7 +160,7 @@ unconstrained fn transfer_private_failure_on_behalf_of_other_without_approval() 
 #[test]
 unconstrained fn transfer_private_failure_on_behalf_of_other_wrong_caller() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
-    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, _) = utils::setup_and_mint(/* with_account_contracts */ true);
     // Add authwit
     let transfer_amount = 1000;
     let transfer_private_from_call_interface = Token::at(token_contract_address).transfer_from(owner, recipient, transfer_amount, 1);

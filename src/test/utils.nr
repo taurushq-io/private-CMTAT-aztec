@@ -1,12 +1,9 @@
-use dep::aztec::{
-    hash::compute_secret_hash, prelude::AztecAddress,
+use dep::aztec::{ prelude::AztecAddress,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
-    protocol_types::storage::map::derive_storage_slot_in_map,
-    note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}},
-    oracle::{execution::{get_block_number, get_contract_address}, random::random,storage::storage_read}
+    oracle::execution::get_contract_address
 };
 
-use crate::{types::{ access_controlModule::{DEFAULT_ADMIN_ROLE, MINTER_ROLE}}, Token};
+use crate::{modules::{ access_controlModule::MINTER_ROLE}, CMTAToken as Token};
 
 pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys

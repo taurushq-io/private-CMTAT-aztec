@@ -2,7 +2,7 @@ use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserial
 use dep::aztec::{prelude::{AztecAddress, SharedMutable, Map},  state_vars::storage::Storage};
 use dep::aztec::context::{PublicContext, PrivateContext};
 
-use crate::types::access_controlModule::{AccessControlModule,VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
+use crate::modules::access_controlModule::{AccessControlModule,VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
 
 pub global BLACKLIST_FLAG: u64 = 1;
 pub global WHITELIST_FLAG: u64 = 2;
@@ -16,17 +16,17 @@ global TEXT_ADDRESS_FROM_NOT_WHITELISTED: str<34> = "The sender is not in the wh
 global TEXT_ADDRESS_TO_NOT_WHITELISTED: str<37> = "The recipient is not in the whitelist";
 
 #[derive(Deserialize, Packable, Eq, Serialize)]
-
 pub struct SetFlag {
-    operate_blacklist: bool,
-    operate_whitelist: bool,
-    operate_sanctionlist: bool,
+    pub operate_blacklist: bool,
+    pub operate_whitelist: bool,
+    pub operate_sanctionlist: bool,
 }
+
 #[derive(Deserialize, Eq, Serialize)]
 pub struct UserFlags {
-    is_blacklisted: bool,
-    is_whitelisted: bool,
-    is_in_sanction_list: bool,
+    pub is_blacklisted: bool,
+    pub is_whitelisted: bool,
+    pub is_in_sanction_list: bool,
 }
 
 trait UserFlagsTrait {

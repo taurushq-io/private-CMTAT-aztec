@@ -3,7 +3,7 @@ use dep::aztec::{prelude::{AztecAddress, PublicMutable}, state_vars::storage::St
 use dep::aztec::context::{PublicContext};
 
     use dep::compressed_string::FieldCompressedString;
-use crate::types::access_controlModule::{AccessControlModule,DEBT_ROLE};
+use crate::modules::access_controlModule::{AccessControlModule,DEBT_ROLE};
 
 
 global T_SERIALIZED_LEN: u32 = 12; 
@@ -11,18 +11,18 @@ global T_SERIALIZED_LEN: u32 = 12;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct DebtBaseStruct {
-    interestRate: Field,
-    parValue: Field,
-    guarantor: FieldCompressedString,
-    bondHolder: FieldCompressedString,
-    maturityDate: FieldCompressedString,
-    interestScheduleFormat: FieldCompressedString,
-    interestPaymentDate: FieldCompressedString,
-    dayCountConvention: FieldCompressedString,
-    businessDayConvention: FieldCompressedString,
-    publicHolidaysCalendar: FieldCompressedString,
-    issuanceDate: FieldCompressedString,
-    couponFrequency: FieldCompressedString,
+  pub interestRate: Field,
+  pub parValue: Field,
+  pub guarantor: FieldCompressedString,
+  pub bondHolder: FieldCompressedString,
+  pub maturityDate: FieldCompressedString,
+  pub interestScheduleFormat: FieldCompressedString,
+  pub interestPaymentDate: FieldCompressedString,
+  pub dayCountConvention: FieldCompressedString,
+  pub businessDayConvention: FieldCompressedString,
+  pub publicHolidaysCalendar: FieldCompressedString,
+  pub issuanceDate: FieldCompressedString,
+  pub couponFrequency: FieldCompressedString,
 }
 
   pub struct DebtBase<T, Context> {

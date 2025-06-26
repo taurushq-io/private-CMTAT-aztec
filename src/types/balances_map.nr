@@ -8,7 +8,7 @@ use dep::aztec::{
 };
 use dep::value_note::{balance_utils, utils, value_note::ValueNote};
 
-struct BalancesMap< T, Context> {
+pub struct BalancesMap< T, Context> {
     pub map: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>
 }
 
