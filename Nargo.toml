@@ -1,5 +1,5 @@
 [package]
-name = "private_CMTA_Token"
+name = "CMTAT"
 type = "contract"
 authors = [ "" ]
 compiler_version = ">=0.18.0"
