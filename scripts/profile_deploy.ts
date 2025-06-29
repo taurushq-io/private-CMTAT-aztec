@@ -1,4 +1,4 @@
-import { TokenContract } from "../src/artifacts/Token.js"
+import {CMTATokenContract as TokenContract} from "../src/artifacts/CMTAToken.js"
 import { createLogger, PXE, Logger, SponsoredFeePaymentMethod, Fr } from "@aztec/aztec.js";
 import { setupPXE } from "../src/utils/setup_pxe.js";
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js";

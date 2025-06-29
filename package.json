@@ -13,7 +13,7 @@
     "compile": "${AZTEC_NARGO:-aztec-nargo} compile",
     "deploy": "tsx scripts/deploy_contract.ts",
     "deploy-account": "tsx scripts/deploy_account.ts",
-    "interaction": "tsx scripts/interaction_existing_contract.ts",
+    "interaction": "tsx scripts/interaction.ts",
     "multiple-pxe": "tsx scripts/multiple_pxe.ts",
     "get-block": "tsx scripts/get_block.ts",
     "profile": "tsx scripts/profile_deploy.ts",

@@ -2,10 +2,12 @@
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { createStore } from "@aztec/kv-store/lmdb"
 import { createAztecNodeClient, createLogger, waitForPXE } from '@aztec/aztec.js';
+import * as dotenv from 'dotenv';
 
+dotenv.config();
 
-const { NODE_URL = 'https://full-node.alpha-testnet.aztec.network/' } = process.env;
-const node = createAztecNodeClient(NODE_URL)
+const { NODE_URL = process.env.NODE_URL} = process.env;
+const node = createAztecNodeClient(NODE_URL as string)
 const l1Contracts = await node.getL1ContractAddresses();
 const config = getPXEServiceConfig()
 const fullConfig = { ...config, l1Contracts }
