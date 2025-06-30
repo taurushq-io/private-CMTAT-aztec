@@ -72,7 +72,9 @@ unconstrained fn mint_private_failure_overflow() {
     Token::at(token_contract_address).grant_role(MINTER_ROLE, issuer).call(&mut env.public());
 
     // Overflow user1
-    let mint_amount = 2.pow_32(256);
+    // We have to do this in 2 steps because we have to pass in a valid u128
+    let amount_until_overflow = 1000 as u128;
+    let mint_amount = (2.pow_32(128) - amount_until_overflow as Field) as u128;
     Token::at(token_contract_address).mint(issuer, mint_amount).call(&mut env.private());
 }
 

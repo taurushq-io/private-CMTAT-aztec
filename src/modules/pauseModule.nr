@@ -8,6 +8,7 @@ pub global T_SERIALIZED_LEN: u32 = 1;
         pub is_paused: PublicMutable<bool, Context>,
     }
 
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<Context> Storage<1> for PauseModule<Context> {
         fn get_storage_slot(self) -> Field {
             self.is_paused.get_storage_slot()

@@ -17,6 +17,7 @@ pub struct Freezable<T,Context>{
     pub map: Map<AztecAddress, SharedMutable<T, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>
 }
 
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<T,Context> Storage<1> for Freezable<T,Context> {
         fn get_storage_slot(self) -> Field {
             self.map.get_storage_slot()

@@ -28,7 +28,7 @@ pub unconstrained fn setup(with_account_contracts: bool) -> (&mut TestEnvironmen
         "TT00000000000000000000000000000",
         18
     );
-    let token_contract = env.deploy_self("Token").with_public_void_initializer(issuer, initializer_call_interface);
+    let token_contract = env.deploy_self("CMTAToken").with_public_void_initializer(issuer, initializer_call_interface);
     let token_contract_address = token_contract.to_address();
     env.advance_block_by(3);
     (&mut env, token_contract_address, issuer, user1)
@@ -44,7 +44,7 @@ pub unconstrained fn setup_and_more_addresses(with_account_contracts: bool) -> (
     (env, token_contract_address, issuer, user1,user2,user3)
 }
 
-pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128) {
     // Setup
     let (env, token_contract_address, issuer, user1) = setup(with_account_contracts);
     let mint_amount = 10000;
@@ -57,7 +57,7 @@ pub unconstrained fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
 }
 
 // docs:start:txe_test_call_unconstrained
-pub unconstrained fn check_private_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+pub unconstrained fn check_private_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: u128) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
     // Direct call to unconstrained

@@ -22,7 +22,7 @@ pub struct CreditEvents<T, Context> {
     pub credit_event: PublicMutable<CreditEventsStruct,Context>,
     }
 
-
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<T,Context> Storage<1> for CreditEvents<T,Context> {
         fn get_storage_slot(self) -> Field {
             self.credit_event.get_storage_slot()

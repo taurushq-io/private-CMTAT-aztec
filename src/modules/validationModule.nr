@@ -40,6 +40,7 @@ pub struct ValidationModule<T,Context> {
     pub operationsFlag: SharedMutable<SetFlag,CHANGE_ROLES_DELAY_BLOCKS, Context>
 }
 
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<T,Context> Storage<9> for ValidationModule<T,Context> {
         fn get_storage_slot(self) -> Field {
         // this returns the *first* slot; the framework will then reserve

@@ -29,6 +29,7 @@ pub struct DebtBaseStruct {
     pub debt_base: PublicMutable<DebtBaseStruct,Context>,
   }
 
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<T,Context> Storage<1> for DebtBase<T,Context> {
         fn get_storage_slot(self) -> Field {
             self.debt_base.get_storage_slot()

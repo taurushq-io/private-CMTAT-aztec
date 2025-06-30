@@ -22,6 +22,7 @@ pub struct RoleData<Context> {
     pub has_role: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
 }
 
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<Context> Storage<1> for RoleData<Context> {
         fn get_storage_slot(self) -> Field {
             self.has_role.get_storage_slot()
