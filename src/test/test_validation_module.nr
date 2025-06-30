@@ -47,7 +47,7 @@ unconstrained fn transfer_when_blacklisted(){
     env.advance_block_by(3);
 
     let transfer_amount = 100;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
 }
 
@@ -65,7 +65,7 @@ unconstrained fn transfer_when_not_whitelisted(){
     assert(ret == 2);
 
     let transfer_amount = 100;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
 }
 
@@ -92,7 +92,7 @@ unconstrained fn transfer_when_whitelisted(){
     env.advance_block_by(3);
 
     let transfer_amount = 100;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
     utils::check_private_balance(token_contract_address, issuer, mint_amount - transfer_amount);
     utils::check_private_balance(token_contract_address, user, transfer_amount);
@@ -101,14 +101,14 @@ unconstrained fn transfer_when_whitelisted(){
 
 #[test]
 unconstrained fn transfer_when_no_operations(){
-    let (env, token_contract_address, _, user, _) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, user, _) = utils::setup_and_mint(/* with_account_contracts */ false);
 
 
     let ret = Token::at(token_contract_address).get_operations().view(&mut env.public());
     assert(ret == 0);
 
     let transfer_amount = 100;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
 }
 
@@ -142,5 +142,5 @@ unconstrained fn can_remove_from_list_when_role(){
     env.advance_block_by(3);
 
     let transfer_amount = 100;
-     Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+     Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 }

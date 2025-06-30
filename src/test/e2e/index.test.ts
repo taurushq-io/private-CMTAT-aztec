@@ -266,7 +266,7 @@ describe("Token", () => {
 
         const transferQuantity = 543n;
         console.log(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
-        const receipt = await tokenContractAlice.methods.transfer( bob, transferQuantity).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
+        const receipt = await tokenContractAlice.methods.transfer(alice, bob, transferQuantity, 0).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
         expect(receipt).toEqual(
             expect.objectContaining({
                 status: TxStatus.SUCCESS,
@@ -286,7 +286,7 @@ describe("Token", () => {
 
         const transferQuantity = 1000n;
         console.log(`Transferring ${transferQuantity} tokens from Bob to Issuer...`);
-        await tokenContractBob.methods.transfer( issuer, transferQuantity).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
+        await tokenContractBob.methods.transfer(bob, issuer, transferQuantity, 0).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
 
         // Check the new balances
         const issuerBalance = await tokenContractIssuer.methods.balance_of_private(alice).simulate();
@@ -411,13 +411,13 @@ describe("Token", () => {
             console.log(`Issuer successfully granted pauser role`);
             await tokenContractIssuer.methods.pause_contract().send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
             expect(await tokenContractIssuer.methods.public_get_pause().simulate()).toEqual(1n);
-            await expect(tokenContractBob.methods.transfer(alice,10).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait()).rejects.toThrow();
+            await expect(tokenContractBob.methods.transfer(bob, alice,10, 0).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait()).rejects.toThrow();
         })
 
         it("Admin can unpause the contract", async () => {
             await tokenContractIssuer.methods.unpause_contract().send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
             expect(await tokenContractIssuer.methods.public_get_pause().simulate()).toEqual(0n);
-            const receipt = await tokenContractBob.methods.transfer(alice,10).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
+            const receipt = await tokenContractBob.methods.transfer(bob, alice,10, 0).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
             expect(receipt).toEqual(
                 expect.objectContaining({
                     status: TxStatus.SUCCESS,

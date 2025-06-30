@@ -70,7 +70,7 @@ unconstrained fn mint_when_paused_fails(){
 
 #[test(should_fail_with="Error: token contract is paused")]
 unconstrained fn transfer_when_paused_fails(){
-    let (env, token_contract_address, issuer, _,_) = utils::setup_and_mint(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, user1,_) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     let mint_amount = 100;
     env.impersonate(issuer);
@@ -84,7 +84,7 @@ unconstrained fn transfer_when_paused_fails(){
     let ret = Token::at(token_contract_address).public_get_pause().view(&mut env.public());
     assert(ret == 1);
 
-    Token::at(token_contract_address).transfer(issuer, mint_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user1, mint_amount,0).call(&mut env.private());
 }
 
 
