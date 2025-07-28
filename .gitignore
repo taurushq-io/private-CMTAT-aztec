@@ -1,6 +1,7 @@
 # IDEs
 .vscode/*
 .idea/*
+.env
 
 node_modules
 .vscode
@@ -8,3 +9,4 @@ package-lock.json
 yarn.lock
 /target
 store/
+/src/artifacts

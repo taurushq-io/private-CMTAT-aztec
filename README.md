@@ -24,7 +24,7 @@ the key limitations of public blockchains.
 
 **Disclaimer:** Aztec is under heavy developpment, and this repository
 may be subject to rapid changes. Significant updates will needed once
-Aztec reaches testnet. Additionally, unlike CMTAT, this code has not
+Aztec reaches mainnet. Additionally, unlike CMTAT, this code has not
 been audited and may not be fully compliant with the Swiss law. 
 
 
@@ -77,25 +77,26 @@ features, at your own risk.
 - **Assumptions**:
   - **Total supply visibility**: The `totalSupply` should remain public and be updated according to mint and burn operations.
   - **Issuer and admin addresses**: The addresses of the issuer and admin can be publicly known.
-  - **Third-party transactions**: We want to allow third parties to execute transactions on behalf of our users, so we use **authentication witnesses** when transferring.
+  - **Third-party transactions**: We want to allow third parties to execute transactions on behalf of our users, so we use **authentication witnesses** when transferring. (same functionality as `transferFrom` on EVM)
   - **Mint and burn restrictions**: There is no authentication witness in the `mint` and `burn` functions, as a third party is not allowed to mint or burn; only the issuer can perform these actions.
   - **Admin role**: The admin cannot be changed. Issuers can be added or removed by the admin.
 
 - **Functionalities**:
-  - **Totalsupply - public**: For a particular CMTAT token, anyone may know the total number of tokens in circulation at any point in time.
-  - **Balanceof - private**: For a particular CMTAT token and a particular user, no one apart from the issuer should know the number of tokens currently recorded on the user's ledger address.
+  - **Totalsupply - Public Context**: For a particular CMTAT token, anyone may know the total number of tokens in circulation at any point in time.
 
-  - **Transfer - private** Users may transfer some or all of their tokens to another ledger address (which the transferor does not necessarily control). According to the above functionality, a transfer must be private, such that no one apart from the parties involved and the issuer knows that a transfer has occurred, the participants, or the amount transferred.
+  - **BalanceOf - Private Context**: For a particular CMTAT token and a particular user, no one apart from the issuer should know the number of tokens currently recorded on the user's ledger address.
 
-  > NOTE: The issuer cannot do a force transfer on behalf of the user, as he would do in the CMTAT. The solution is that in the case where we want to have the same behaviour as a force transfer, we freeze the account.
+  - **Transfer - Private Context**: Users may transfer some or all of their tokens to another ledger address (which the transferor does not necessarily control). Each transfer must remain private: only the transacting parties and the issuer may know that the transfer occurred, who the participants are, and how much was transferred.
 
-  - **Mint - private** Issue a given number of tokens to a given ledger address. The issuer and the recipient should be the only ones who know that a transaction is happening. Only the issuer and the receiving address should know the amount minted.
+    > **Note**: The issuer cannot do a force transfer on behalf of the user, as he would do in the Solidity version of CMTAT. The solution is that in the case where we want to have the same behaviour as a force transfer, we freeze the account.
 
-  > **Note - public**: According to the assumption, the total supply will increase accordingly in a public function, and thus the new total supply will be visible to everyone. The supply change amount will be traceable to that particular private proof.
+  - **Mint - Private Context** Issue a given number of tokens to a given ledger address. The issuer and the recipient should be the only ones who know that a transaction is happening. Only the issuer and the receiving address should know the amount minted.
 
-  - **Burn - private** The issuer burns (destroys) a given number of tokens from a given ledger address. The issuer and the given address should be the only ones who know that a transaction is happening.
+    > **Note**: According to the assumption, the total supply will increase accordingly in a public function, and thus the new total supply will be visible to everyone. The supply change amount will be traceable to that particular private proof.
 
-  > **Note - Public**: According to the assumption, the total supply will decrease accordingly in a public function, and thus the new total supply will be visible to everyone. The supply change amount will be traceable to that particular private proof.
+  - **Burn - Private Context** The issuer burns (destroys) a given number of tokens from a given ledger address. The issuer and the given address should be the only ones who know that a transaction is happening.
+
+    > **Note**: Under the above assumptions, a public function will reduce the total supply when a burn happens. Therefore, the updated total supply will be visible to everyone, and the amount of the change can be traced back to a specific private proof.
 
 ### Storage
 
@@ -106,11 +107,11 @@ features, at your own risk.
 
 **Issuer**:
 
-- The new notes of the recipient are encoded and broadcasted to the issuer.
+- The new notes of the recipient are broadcasted to the issuer.
 
 **Failure cases**:
 
-- **Enforcement module**: If the "to" address is frozen, the mint will fail.
+- **Enforcement module**: If the `recipient` address is frozen, the mint will fail.
 - **Authorisation module**: If the caller doesn’t have the minter role, the mint will fail.
 - **Pause module**: If the contract is paused, the mint will fail.
 
@@ -122,12 +123,12 @@ features, at your own risk.
 
 **Issuer**:
 
-- The added notes from sender and recipient are encoded and broadcasted to the issuer.
+- The added notes from sender and recipient are broadcasted to the issuer.
 
 **Failure cases**:
 
-- **Enforcement module**: If the "to" or "from" address is frozen, the transfer will fail.
-- **Validation module**: If operations are enabled, the module checks if "from" or "to" should be restricted.
+- **Enforcement module**: If `from` or `to` addresses are frozen, the transfer will fail.
+- **Validation module**: If operations are enabled, the module checks if `from` or `to` should be restricted.
 - **Pause module**: If the contract is paused, the transfer will fail.
 
 **Limitations**:
@@ -138,13 +139,16 @@ features, at your own risk.
 
 **Issuer**:
 
-- The new notes of the recipient (if any remaining) are encoded and broadcasted to the issuer.
+- The new notes of the recipient (if any remaining) are broadcasted to the issuer.
 
 **Failure cases**:
 
-- **Enforcement module**: If the "from" address is frozen, the burn will fail.
+- **Enforcement module**: If `from` address is frozen, the burn will fail.
 - **Authorisation module**: If the caller doesn’t have the burner role, the burn will fail.
 - **Pause module**: If the contract is paused, the burn will fail.
+- **Authwit**: If `from` doesn't issue an `AuthWit` the burn will fail
+
+ > **Note**: The `AuthWit` issue is a key difference from Solidity smart contract logic, and users should be aware.  
 
 **Limitations**:
 
@@ -156,15 +160,11 @@ features, at your own risk.
   - **Reveals minter address**: Since it is a parameter in the public function call. It is the issuer, whose address is already known, but still, private to public function calls pose a problem as they also reveal that the contract was called.
   - **Randomizing `msg.sender`**: An out-of-protocol option is to deploy a diversified account contract and route transactions through this contract. Application developers might also do something similar to randomize the `msg.sender` of their app contract's address.
   - **Leakage of minted amount**: The amount being minted is leaked as it is passed to the public function from the private one.
-  > In the case of our token, when an issuer mints tokens, it is publicly known how much tokens he mints. This means that if the issuer mints “on-demand“ (every time a user wants to mint some tokens, the issuer mints) then there is a leak of information. This can be mitigated by the issuer minting a fixed amount of tokens at a certain point in time (= circulating supply), and then privately distributing to the users, thus revealing absolutely no information. 
+  > In the case of our token, when an issuer mints tokens, it is publicly known how much tokens he mints. This means that if the issuer mints “on-demand“ (every time a user wants to mint some tokens, the issuer mints) then there is a leak of information. This can be mitigated by the issuer minting a fixed amount of tokens at a certain point in time (= circulating supply), and then privately distributing to the users, thus revealing way less information. 
   - **Traceability**: The public transaction will be traceable back to the private proof.
   - **Disclosure of private function call**: It will leak that a private function (`private_mint`) has been called.
   - **Recipient address privacy**: It will **not** leak the address to which this amount is being sent.
 
-- **Nullifier and note hash security**:
-  - **Randomness**: We must add randomness to the note hash when creating it.
-  - **Nullifier secrecy**: We must add a secret (e.g., `nsk_app`) when calculating the nullifier of a note so that no link can be made between a note and its nullifier.
-  - **Key hardening algorithm**: The algorithm to harden `nsk_m` into `nsk_app` is optimized but not guaranteed to be secure as of now. See [Aztec Key Derivation](https://docs.aztec.network/protocol-specs/addresses-and-keys/keys#key-derivation).
 
 - **Note encryption constraints**:
   - Note encryption should be **constrained**. We could make note encryption and tagging unconstrained, as this is allowed, but we don’t want to.
@@ -173,16 +173,16 @@ features, at your own risk.
 
 ### Modules
 
-Abstract contracts do not exist in Aztec Noir, so the modules are separated in the form of interfaces and implementations. Inheritance also does not exist, which means that every function that can or should be called by a user needs to be exposed in the main contract. Consequently, not everything can be displaced from the main contract (e.g., `mint`, `burn`, and `transfer` are all in the main contract), and most functions are exposed there. There are 34 functions in the main contract.
+Aztec Noir uses Rust-like modularity, which means that there is no Solidity-like abstract contract and inheritance. Instead, we use separated modules in the form of interfaces and implementations. Every function that can or should be called by a user needs to be exposed in the main contract. Consequently, not everything can be displaced from the main contract (e.g., `mint`, `burn`, and `transfer` are all in the main contract), and most functions are exposed there.
 
-#### Authorisation module (access control) - public
+#### Authorisation module (access control) - Public Context
 
 - This module is used by other modules and by the `mint` and `burn` functions.
 - Modules only need to call the `only_role` function, which publicly verifies if an address has sufficient roles for the action; otherwise, it reverts.
 - The default role is the `DEFAULT_ADMIN_ROLE`, which can grant other roles.
 - **Implementation note**: This module's implementation is quite cumbersome, as in the main contract, an instance of this module is passed to each function call. This is because the object is unique, and we cannot pass it as a context (at least until a working implementation is found).
 
-#### Validation module - shared
+#### Validation module - Shared Context
 
 - This module is called only when performing transfers.
 - The `operateOnTransfer` function, used in a private context, is called by the transfer function.
@@ -204,13 +204,13 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Theoretical solution 2**: Have a counter that is set when the `SharedMutable` is changed. For the `COUNTER` amount of time, the token contract is paused to prevent any blacklisted address from retrieving funds. This solution is poor in terms of user experience and developer experience, as the issuer needs to manually unpause the contract.
 - **Practical solution 3**: If we whitelist instead of blacklist, a new whitelisted address will not be able to transfer funds directly, which is not a significant issue.
 
-#### Pause module - public
+#### Pause module - Public Context
 
 - The pause module is a `PublicMutable`.
 - The functions to set and unset the pausable flag are protected under Access Control.
 - The pause check is done in public state for mint/transfer/burn operations.
 
-#### Enforcement module - shared
+#### Enforcement module - Shared Context
 
 - This module is called in `mint`, `transfer`, and `burn` to check if an address has been frozen.
 - Unlike the validation module, this module is mandatory.
@@ -221,27 +221,61 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 ### Issuer's view of transactions and notes
 
 - **Objective**: Enable the issuer to see all transactions.
-- **Options**:
-  - **Emit events**: Emit events that can be viewed by a third party by inputting their `ivpk_m` (issuer's incoming viewing public key).
-    - **Considerations**:
-      - We may not be able to see the exact token holdings but can see all transfers.
-      - We can reconstruct token holdings at a certain point in time using the history library.
-  - **Duplicate notes**: When emitting a note, emit a duplicate encrypted with the issuer's `ivpk_m`.
-    - **Challenges**:
-      - Doubling the notes needed.
-      - Keeping track of them in our own PXE.
+- **Current implementation**: Note emission is duplicated: one for the owner of that note, and one for the issuer. 
+- **Other potential implementations**:
   - **App-siloed key**: Use an app-siloed key that the issuer can use for decrypting any note in the note hash tree of this app.
-  - **Shared encryption key**: Encrypt the note once but allow two people to decrypt it.
-  - **Key rotation and update**: Make the viewing key rotatable and updatable.
 
 ## Deployment
 
-- Download the sandbox (version should match [Nargo.toml](https://github.com/taurusgroup/private-tokens/blob/master/Nargo.toml) dependency versions). Instructions [here](https://docs.aztec.network/guides/getting_started)
-- downgrade to the version specified in the dependencies section of [this file](https://github.com/taurushq-io/private-CMTAT-aztec/blob/master/Nargo.toml) or specified in the latest release by running `VERSION=X.XX.X aztec-up`
-- clone the repo 
-- In the main directory, run: `aztec-nargo compile`
-- Then, run:  `aztec test` 
-- The contract is deployed on the sandbox, by the [setup function](https://github.com/taurushq-io/private-CMTAT-aztec/blob/master/src/test/utils.nr), and all the tests are run
+### Sandbox
+
+Use these deployment instructions for quick testing.
+
+Get the **sandbox, aztec-cli, and other tooling** with this command:
+
+```bash
+bash -i <(curl -s https://install.aztec.network)
+```
+
+Install the correct version of the toolkit with:
+
+```bash
+aztec-up X.XX.X
+```
+version should match [Nargo.toml](https://github.com/taurusgroup/private-tokens/blob/master/Nargo.toml) dependency versions. More instructions [here](https://docs.aztec.network/guides/getting_started)
+
+Start the sandbox with:
+
+```bash
+aztec start --sandbox
+```
+
+Run:
+
+```bash
+yarn install
+yarn compile
+yarn codegen
+yarn test
+```
+
+The contract is deployed on the sandbox, by the [setup function](https://github.com/taurushq-io/private-CMTAT-aztec/blob/master/src/test/utils.nr), and all the tests are run.
+
+### Testnet
+
+---
+
+Use these deployment instructions for Testnet interactions.Testnet interactions are possible via scripts in the `./scrpits` folder. With the below commands, we run the `deploy_contract.ts` script. 
+
+Run:
+
+```bash
+yarn compile
+yarn codegen
+yarn deploy
+```
+
+If you run into troubleshooting issues, consult the [Aztec starter repository](https://github.com/AztecProtocol/aztec-starter/tree/main) and try running it first.
 
 
 ## Comparison with solidity CMTAT
@@ -252,7 +286,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 - **Burn**: We can perform `burn_from` with allowance.
 - **Validation module**: Whitelisting and blacklisting are enabled on demand. The rule engine has been merged into the validation module, providing one interface that manages both and is always deployed along the main contract. The functionalities are private; storage can be read in public.
 - **Pause module**: Same functionalities as CMTAT. Pause is public and instantaneous.
-- **Enforcement module**: Freeze and unfreeze are supported. Functionalities are private; storage can be read in public.
+- **Enforcement module**: Freeze and unfreeze are supported. Functionalities are private; storage can be read in public. There is a delay.
 - **Access control module**: Same functionalities as CMTAT. Admin has the default role, which can be used to grant roles to themselves or others.
 - **Credit events and debt base modules**: Same functionalities as CMTAT.
 
@@ -268,11 +302,8 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
   - The limitation regarding `SharedMutable` delay means changes to the whitelist/blacklist have a delay (minutes to hours) before reflecting on the blockchain.
   - Sanction lists are not yet enabled due to the lack of on-chain lists like Chainalysis on Ethereum.
 
-- **Enforcement module**:
-  - The delay in modifying frozen accounts due to `SharedMutable`.
-
 - **Audit capabilities**:
-  - Users may, in the future, be able to share a shareable key for audit purposes.
+  - Users may, in the future, be able to arbitrarly share to third-parties a shareable key for audit purposes.
 
 - **Event management**:
   - Events are not yet enabled because they are cumbersome; they can only be in the main contract for now and make the code lengthy.
@@ -281,10 +312,10 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 
 - **Force burning without consent**:
   - We will never be able to burn someone else’s tokens without their approval.
-  > This could be possible if the token is implemented at the account contract level, and the issuer has shared keys with the user for that specific account that holds notes for this token
+  > This could be possible if the token is implemented at the account contract level, and the issuer has shared nullifiers with the user for that specific account that holds notes for this token.
 
 - **Immediate shared state changes**:
-  - We cannot have a shared state (public and private) that has no delay when changed due to the protocol's construction.
+  - We cannot have a shared state (public and private) that has no delay when changed, due to the protocol's construction.
 
 ## Limitations
 
@@ -307,10 +338,6 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
   - Only **4 private calls** can be made from a private function, limiting batch functions.
   - Only **4 encrypted notes** can be emitted in a function call, further limiting batching.
 
-- **Function exposure**:
-  - We may need to expose the `schedule_delay_change` function for every `SharedMutable`, which is cumbersome.
-
-
 ## Miscellaneous
 
 - **Wallet responsibilities**:
@@ -327,7 +354,7 @@ Abstract contracts do not exist in Aztec Noir, so the modules are separated in t
 
 - **Transaction details**:
   - Notes are linked to their transaction hash because they are in the same transaction object when waiting in the mempool.
-  - The transaction object cannot be modified between the point when it has been locally proven and when it reaches the sequencer because the output of the private kernel circuit is the input to the public kernel circuits, which also verify.
+  - The transaction object cannot be modified between the point when it has been locally proven and when it reaches the sequencer because the output of the private kernel circuit is the input to the public kernel circuits, which it also verifies.
 
 - **Replay attacks**:
   - The transaction hash is always emitted during local execution as the first nullifier of the transaction to prevent replay attacks. This is enforced by the private kernel circuit.
