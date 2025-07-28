@@ -1,10 +1,13 @@
 # IDEs
-.vscode/*
+.vscode
 .idea/*
+.DS_Store
+.env
 
 node_modules
-.vscode
-package-lock.json
-yarn.lock
-/target
-store/
+target/
+src/artifacts/
+log/
+store/*
+
+codegenCache.json

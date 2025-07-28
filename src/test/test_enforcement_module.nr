@@ -1,9 +1,7 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes};
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::Token;
-use crate::types::enforcementModule::{FreezableFlag};
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, ENFORCEMENT_ROLE};
+use crate::CMTAToken as Token;
+use crate::modules::enforcementModule::{FreezableFlag};
+use crate::modules::access_controlModule::ENFORCEMENT_ROLE;
 
 #[test]
 unconstrained fn get_frozen(){
@@ -85,7 +83,7 @@ unconstrained fn transfer_restricted_when_freezed(){
 
     assert(ret == 1);
     let transfer_amount = 10000;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer,user, transfer_amount,0).call(&mut env.private());
 }
 
 #[test(should_fail_with="Frozen: Sender")]
@@ -95,7 +93,7 @@ unconstrained fn burn_restricted_when_freezed(){
     Token::at(token_contract_address).grant_role(ENFORCEMENT_ROLE, issuer).call(&mut env.public());
     
     let transfer_amount = 10000;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
     let freezable_flag = FreezableFlag {is_freezed: true};
     Token::at(token_contract_address).freeze(user,freezable_flag ).call(&mut env.public());

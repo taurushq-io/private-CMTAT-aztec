@@ -1,15 +1,13 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::{execution::{get_block_number, get_contract_address}}};
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::Token;
-use crate::types::validationModule::{SetFlag, UserFlags, ValidationModule};
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE, MINTER_ROLE};
+use crate::CMTAToken as Token;
+use crate::modules::validationModule::{SetFlag, UserFlags};
+use crate::modules::access_controlModule::{VALIDATION_ROLE, ADDRESS_LIST_ADD_ROLE, ADDRESS_LIST_REMOVE_ROLE};
 
 
 
 #[test]
 unconstrained fn get_operations_test(){
-    let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, _, _) = utils::setup(/* with_account_contracts */ false);
 
     let ret = Token::at(token_contract_address).get_operations().view(&mut env.public());
     assert(ret == 0);
@@ -17,11 +15,11 @@ unconstrained fn get_operations_test(){
 
 #[test]
 unconstrained fn set_operations_test(){
-    let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
     Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer).call(&mut env.public());
 
-    let operations = SetFlag {    operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
+    let operations = SetFlag { operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
     Token::at(token_contract_address).set_operations(operations).call(&mut env.public());
     env.advance_block_by(3);
 
@@ -35,7 +33,7 @@ unconstrained fn transfer_when_blacklisted(){
 
     Token::at(token_contract_address).grant_role(VALIDATION_ROLE, issuer).call(&mut env.public());
 
-    let operations = SetFlag {    operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
+    let operations = SetFlag {operate_blacklist: true,operate_whitelist: false,operate_sanctionlist: false,};
     Token::at(token_contract_address).set_operations(operations).call(&mut env.public());
     env.advance_block_by(3);
 
@@ -49,7 +47,7 @@ unconstrained fn transfer_when_blacklisted(){
     env.advance_block_by(3);
 
     let transfer_amount = 100;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
 }
 
@@ -67,7 +65,7 @@ unconstrained fn transfer_when_not_whitelisted(){
     assert(ret == 2);
 
     let transfer_amount = 100;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
 }
 
@@ -94,7 +92,7 @@ unconstrained fn transfer_when_whitelisted(){
     env.advance_block_by(3);
 
     let transfer_amount = 100;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
     utils::check_private_balance(token_contract_address, issuer, mint_amount - transfer_amount);
     utils::check_private_balance(token_contract_address, user, transfer_amount);
@@ -110,7 +108,7 @@ unconstrained fn transfer_when_no_operations(){
     assert(ret == 0);
 
     let transfer_amount = 100;
-    Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+    Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 
 }
 
@@ -144,5 +142,5 @@ unconstrained fn can_remove_from_list_when_role(){
     env.advance_block_by(3);
 
     let transfer_amount = 100;
-     Token::at(token_contract_address).transfer(user, transfer_amount).call(&mut env.private());
+     Token::at(token_contract_address).transfer(issuer, user, transfer_amount,0).call(&mut env.private());
 }

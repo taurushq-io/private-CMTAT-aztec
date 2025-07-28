@@ -1,4 +1,4 @@
-import { TokenContractArtifact, TokenContract } from "../../artifacts/Token.js"
+import { CMTATokenContractArtifact as TokenContractArtifact, CMTATokenContract as TokenContract} from "../../artifacts/CMTAToken.js"
 import { AccountManager, AccountWallet, ContractDeployer, createLogger, Fr, PXE, TxStatus, getContractInstanceFromDeployParams, Logger } from "@aztec/aztec.js";
 import { generateSchnorrAccounts } from "@aztec/accounts/testing"
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';

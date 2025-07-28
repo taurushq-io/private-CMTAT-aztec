@@ -1,4 +1,4 @@
-import { EasyPrivateVotingContract } from "../src/artifacts/EasyPrivateVoting.js"
+import {CMTATokenContract as TokenContract} from "../src/artifacts/CMTAToken.js"
 import { createLogger, PXE, Logger, SponsoredFeePaymentMethod, Fr } from "@aztec/aztec.js";
 import { setupPXE } from "../src/utils/setup_pxe.js";
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js";
@@ -10,7 +10,7 @@ async function main() {
     let pxe: PXE;
     let logger: Logger;
 
-    logger = createLogger('aztec:aztec-starter');
+    logger = createLogger('aztec:CMTA-Token');
 
     pxe = await setupPXE();
 
@@ -21,7 +21,11 @@ async function main() {
     const wallet = await accountManager.getWallet();
     const address = accountManager.getAddress();
 
-    const profileTx = await EasyPrivateVotingContract.deploy(wallet, address).profile({ profileMode: "full"});
+    const tokenName = 'CMTA-Token'
+    const tokenSymbol = 'CMTAT'
+    const tokenDecimals = 18n
+
+    const profileTx = await TokenContract.deploy(wallet, address, tokenName, tokenSymbol, tokenDecimals).profile({ profileMode: "full"});
     console.dir(profileTx, { depth: 2 });
 }
 

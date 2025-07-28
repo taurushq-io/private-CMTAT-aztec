@@ -11,8 +11,7 @@ import { foundry } from 'viem/chains'
 import { mnemonicToAccount } from 'viem/accounts';
 import { FeeJuiceContract } from "@aztec/noir-contracts.js/FeeJuice";
 import { FPCContract } from "@aztec/noir-contracts.js/FPC";
-import { EasyPrivateVotingContract } from "../src/artifacts/EasyPrivateVoting.js"
-import { TokenContract } from "@aztec/noir-contracts.js/Token";
+import { CMTATokenContractArtifact as TokenContractArtifact, CMTATokenContract as TokenContract} from "../src/artifacts/CMTAToken.js"
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing'
 import { getDeployedSponsoredFPCAddress } from "../src/utils/sponsored_fpc.js";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
@@ -39,7 +38,8 @@ async function main() {
     let pxe: PXE;
     let logger: Logger;
 
-    logger = createLogger('aztec:aztec-starter');
+    logger = createLogger('aztec:CMTAToken');
+    logger.info('Starting Fee Juice script...');
 
     pxe = await setupPXE();
     const nodeInfo = (await pxe.getNodeInfo())
@@ -61,7 +61,6 @@ async function main() {
         //@ts-ignore
         publicClient,
         walletClient,
-        logger,
     );
 
     const claim = await feeJuicePortalManager.bridgeTokensPublic(feeJuiceReceipient, FEE_FUNDING_FOR_TESTER_ACCOUNT, true);
@@ -73,7 +72,7 @@ async function main() {
     await pxe.registerContract({instance: sponseredFPC, artifact: SponsoredFPCContract.artifact});
     const paymentMethod = new SponsoredFeePaymentMethod(sponseredFPC.address);
     // Two arbitraty txs to make the L1 message available on L2
-    const votingContract = await EasyPrivateVotingContract.deploy(wallet1, wallet1.getAddress()).send({fee: {paymentMethod}}).deployed({timeout: 120000});
+    const votingContract = await TokenContract.deploy(wallet1, wallet1.getAddress()).send({fee: {paymentMethod}}).deployed({timeout: 120000});
     const bananaCoin = await TokenContract.deploy(wallet1, wallet1.getAddress(), "bananaCoin", "BNC", 18).send({fee: {paymentMethod}}).deployed({timeout: 120000})
 
     // Claim Fee Juice & Pay Fees yourself

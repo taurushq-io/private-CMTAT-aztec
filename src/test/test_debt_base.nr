@@ -1,16 +1,14 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes};
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use crate::Token;
-use crate::types::extensions::debtBaseModule::{DebtBaseStruct};
-use crate::types::access_controlModule::{DEFAULT_ADMIN_ROLE, DEBT_ROLE};
+use crate::CMTAToken as Token;
+use crate::modules::extensions::debtBaseModule::{DebtBaseStruct};
+use crate::modules::access_controlModule::DEBT_ROLE;
 use dep::compressed_string::FieldCompressedString;
-use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize};
+use dep::aztec::protocol_types::traits::Serialize;
 
 
 #[test]
 unconstrained fn set_and_get_debt_test(){
-    let (env, token_contract_address, issuer, user) = utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, issuer, _) = utils::setup(/* with_account_contracts */ false);
 
     Token::at(token_contract_address).grant_role(DEBT_ROLE, issuer).call(&mut env.public());
 

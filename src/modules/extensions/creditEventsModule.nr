@@ -2,7 +2,7 @@ use dep::aztec::protocol_types::traits::{Packable, Serialize, Deserialize};
 use dep::aztec::{prelude::{AztecAddress, PublicMutable}, state_vars::storage::Storage};
 use dep::aztec::context::{PublicContext};
 use dep::compressed_string::FieldCompressedString;
-use crate::types::access_controlModule::{AccessControlModule,DEBT_CREDIT_EVENT_ROLE};
+use crate::modules::access_controlModule::{AccessControlModule,DEBT_CREDIT_EVENT_ROLE};
 
 
 pub global FLAG_DEFAULT_FLAG: Field = 1;
@@ -13,16 +13,16 @@ global T_SERIALIZED_LEN: u32 = 3;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct CreditEventsStruct {
-    flagDefault: bool,
-    flagRedeemed: bool,
-    rating: FieldCompressedString,
+    pub flagDefault: bool,
+    pub flagRedeemed: bool,
+    pub rating: FieldCompressedString,
 }
 
 pub struct CreditEvents<T, Context> {
     pub credit_event: PublicMutable<CreditEventsStruct,Context>,
     }
 
-
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<T,Context> Storage<1> for CreditEvents<T,Context> {
         fn get_storage_slot(self) -> Field {
             self.credit_event.get_storage_slot()

@@ -3,7 +3,7 @@ use dep::aztec::{prelude::{AztecAddress, PublicMutable}, state_vars::storage::St
 use dep::aztec::context::{PublicContext};
 
     use dep::compressed_string::FieldCompressedString;
-use crate::types::access_controlModule::{AccessControlModule,DEBT_ROLE};
+use crate::modules::access_controlModule::{AccessControlModule,DEBT_ROLE};
 
 
 global T_SERIALIZED_LEN: u32 = 12; 
@@ -11,24 +11,25 @@ global T_SERIALIZED_LEN: u32 = 12;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct DebtBaseStruct {
-    interestRate: Field,
-    parValue: Field,
-    guarantor: FieldCompressedString,
-    bondHolder: FieldCompressedString,
-    maturityDate: FieldCompressedString,
-    interestScheduleFormat: FieldCompressedString,
-    interestPaymentDate: FieldCompressedString,
-    dayCountConvention: FieldCompressedString,
-    businessDayConvention: FieldCompressedString,
-    publicHolidaysCalendar: FieldCompressedString,
-    issuanceDate: FieldCompressedString,
-    couponFrequency: FieldCompressedString,
+  pub interestRate: Field,
+  pub parValue: Field,
+  pub guarantor: FieldCompressedString,
+  pub bondHolder: FieldCompressedString,
+  pub maturityDate: FieldCompressedString,
+  pub interestScheduleFormat: FieldCompressedString,
+  pub interestPaymentDate: FieldCompressedString,
+  pub dayCountConvention: FieldCompressedString,
+  pub businessDayConvention: FieldCompressedString,
+  pub publicHolidaysCalendar: FieldCompressedString,
+  pub issuanceDate: FieldCompressedString,
+  pub couponFrequency: FieldCompressedString,
 }
 
   pub struct DebtBase<T, Context> {
     pub debt_base: PublicMutable<DebtBaseStruct,Context>,
   }
 
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
 impl<T,Context> Storage<1> for DebtBase<T,Context> {
         fn get_storage_slot(self) -> Field {
             self.debt_base.get_storage_slot()
