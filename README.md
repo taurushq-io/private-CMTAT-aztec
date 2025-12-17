@@ -1,31 +1,17 @@
 # Private CMTAT security token
 
-This project implements a private version of the CMTAT security token,
-using [Aztec](https://aztec.network/).
-This allows banks and financial institutions to benefits from
-tokenization while maintaining privacy and compliance.
+This project implements a private version of the CMTAT security token, using [Aztec](https://aztec.network/).
 
-[Aztec](https://aztec.network/) is a privacy-focused Layer 2 solution on
-Ethereum that enables confidential transactions using zero-knowledge
-proofs (ZKPs). 
+This allows banks and financial institutions to benefits from tokenization while maintaining privacy and compliance.
 
-[CMTAT](https://github.com/CMTA/CMTAT?tab=readme-ov-file) is a framework
-for the tokenization of securities in compliance with local regulations.
-This project integrates Aztec with CMTAT, allowing financial
-institutions to adopt the standard while preserving transaction
-confidentiality.
+[Aztec](https://aztec.network/) is a privacy-focused Layer 2 solution on Ethereum that enables confidential transactions using zero-knowledge proofs (ZKPs). 
 
-This repository contains a functional private CMTAT prototype, where
-transactions remain private for users, while issuers retain the ability
-to audit and monitor activity to ensure compliance. This marks a
-significant step forward, enabling institutions to participate in
-tokenized markets without exposing confidential data—overcoming one of
-the key limitations of public blockchains.
+[CMTAT](https://github.com/CMTA/CMTAT?tab=readme-ov-file) is a framework for the tokenization of securities in compliance with local regulations.
+This project integrates Aztec with CMTAT, allowing financial institutions to adopt the standard while preserving transaction confidentiality.
 
-**Disclaimer:** Aztec is under heavy developpment, and this repository
-may be subject to rapid changes. Significant updates will needed once
-Aztec reaches mainnet. Additionally, unlike CMTAT, this code has not
-been audited and may not be fully compliant with the Swiss law. 
+This repository contains a functional private CMTAT prototype, where transactions remain private for users, while issuers retain the ability to audit and monitor activity to ensure compliance. This marks a significant step forward, enabling institutions to participate in tokenized markets without exposing confidential data—overcoming one of the key limitations of public blockchains.
+
+> **Disclaimer:** Aztec is under heavy development, and this repository may be subject to rapid changes. Significant updates will needed once Aztec reaches mainnet. Additionally, unlike CMTAT, this code has not been audited and may not be fully compliant with the CMTA specification. 
 
 
 ## Table of contents
@@ -57,17 +43,13 @@ The private CMTAT supports the following core features:
  - **Auditability** of users private transactions by a central issuer
  - **Transfer restriction** via address blacklisting/whitelisting
 
-Unlike the reference [Solidity CMTAT](https://github.com/CMTA/CMTAT), it
-does not support:
+Unlike the reference [Solidity CMTAT](https://github.com/CMTA/CMTAT), it does not support:
  - Upgradeability
  - Gasless transactions
 
-This reference implementation aims to fulfill the criteria required to
-tokenize financial instruments such as bonds, equity shares, and private
-credit notes.
+This reference implementation aims to fulfill the criteria required to tokenize financial instruments such as bonds, equity shares, and private credit notes.
 
-You may modify the token code by adding, removing, or modifying
-features, at your own risk.
+You may modify the token code by adding, removing, or modifying features, at your own risk.
 
 
 ## Private token implementation
@@ -82,7 +64,7 @@ features, at your own risk.
   - **Admin role**: The admin cannot be changed. Issuers can be added or removed by the admin.
 
 - **Functionalities**:
-  - **Totalsupply - Public Context**: For a particular CMTAT token, anyone may know the total number of tokens in circulation at any point in time.
+  - **Total supply - Public Context**: For a particular CMTAT token, anyone may know the total number of tokens in circulation at any point in time.
 
   - **BalanceOf - Private Context**: For a particular CMTAT token and a particular user, no one apart from the issuer should know the number of tokens currently recorded on the user's ledger address.
 
@@ -277,8 +259,75 @@ yarn deploy
 
 If you run into troubleshooting issues, consult the [Aztec starter repository](https://github.com/AztecProtocol/aztec-starter/tree/main) and try running it first.
 
-
 ## Comparison with solidity CMTAT
+
+### Summary tab
+
+#### Mandatory
+
+| **CMTAT framework mandatory functionalities** | **CMTAT Solidity corresponding features**                    | Aztec                                                        | Visibility | Note                                                         |
+| --------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ---------- | ------------------------------------------------------------ |
+| Know total supply                             | ERC20 `totalSupply`                                          | `total_supply`                                               | Public     | -                                                            |
+| Know balance                                  | ERC20 `balanceOf`                                            | ?                                                            | Private    | -                                                            |
+| Transfer tokens                               | ERC20 `transfer`                                             | `transfer`/ `transfer_batch`                                 | Public     | -                                                            |
+| Create tokens (mint)                          | `Mint/batchMint`                                             | `mint`,`mintBatch`                                           | Private    | Update the total supply, which is a public variable          |
+| Cancel tokens (force burn)                    | Core: `burn/batchBurn` Extension: `forcedTransfer or forcedBurn`<br />*(Nb. we recommend to have a dedicated function to burn tokens without the token holder consent or from a frozen address*) | Partial, require token holder consent<br />`burn`, `burnBatch` | Private    | Workaround: <br />Freeze the account. If the account is frozen indefinitely, decrease the circulating supply. As a central issuer, I know the number of tokens the user has, so I can decrease supply accordingly. |
+| Pause tokens                                  | Pause (*Nb. With CMTAT Solidity it is still possible to burn and mint while transfers are paused.)* | `pause_contract`                                             | Public     | -                                                            |
+| Unpause tokens                                | `unpause`                                                    | `unpause_contract`                                           | Public     | -                                                            |
+| Get the current pause status                  | `paused`                                                     | `public_get_pause`                                           | Public     | -                                                            |
+| Deactivate contract                           | `deactivateContract`                                         | *Not available*                                              | -          | -                                                            |
+| Get the current deactivate status             | `deactivated`                                                | *Not available*                                              | -          | -                                                            |
+| Freeze                                        | `setAddressFrozen` (previously `freeze`)                     | `freeze`                                                     | -          | -                                                            |
+| Unfreeze                                      | `setAddressFrozen` (previously `unfreeze`)                   | `unfreeze`                                                   | -          | -                                                            |
+| Get the current frozen status                 | `isFrozen`                                                   | `is_frozen`                                                  | Public     | -                                                            |
+| Name attribute                                | ERC20 `name` attribute                                       | `public_get_name()`                                          | Public     | -                                                            |
+| Ticker symbol attribute                       | ERC20 `symbol` attribute                                     | `public_get_symbol()`                                        | Public     | -                                                            |
+| Token ID attribute                            | `tokenId`                                                    | *Not available*                                              | -          | -                                                            |
+| Reference to legally required documentation   | `terms` (document name, hash and uri with at least the uri)  | *Not available*                                              | -          | -                                                            |
+
+#### Extensions
+
+| **CMTAT framework extensions**       | **CMTAT Solidity corresponding features**                    | Aztec                                                        | Visibility | Note                                                         |
+| ------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ---------- | ------------------------------------------------------------ |
+| On-chain debt info                   | CMTAT Debt                                                   | detBaseModule                                                | Public     | Some different with the latest CMTAT and Debt specification (2025) |
+| On-chain credit events               | CMTAT Debt                                                   | creditEventsModule                                           | Public     |                                                              |
+| Additional blacklist list management | CMTAT with RuleEngine/rules                                  | validationModule                                             | Public     | -                                                            |
+| Whitelist management                 | CMTAT with RuleEngine/rules                                  | validationModule                                             | Public     | -                                                            |
+| Sanctions list specific              | CMTAT with RuleEngine/rules                                  | validationModule                                             | Public     | -                                                            |
+| On-chain snapshot                    | Specific deployment version or through a SnapshotEngine      | *Not available*                                              | -          | -                                                            |
+| Upgradibility                        | CMTAT Upgradeable version                                    | *Not available*                                              | -          | -                                                            |
+| Feepayer/gasless                     | CMTAT with ERC-2771 module                                   | Aztec has native account abstraction. See [Aztec - Concepts](https://docs.aztec.network/developers/docs/concepts/fees) | -          | -                                                            |
+| Issuer name attribute                | *Not available*<br />(could use the attribute `information`) | `public_get_issuer`                                          | Public     | -                                                            |
+
+##### Debt
+
+The DebtModule has been made with an old version of the specification with the current Debt attributes.
+
+Here are the current available attributes with their types:
+
+| Attribute name         | Type                  |
+| ---------------------- | --------------------- |
+| interestRate           | Field                 |
+| parValue               | Field                 |
+| guarantor              | FieldCompressedString |
+| bondHolder             | FieldCompressedString |
+| maturityDate           | FieldCompressedString |
+| interestScheduleFormat | FieldCompressedString |
+| interestPaymentDate    | FieldCompressedString |
+| dayCountConvention     | FieldCompressedString |
+| businessDayConvention  | FieldCompressedString |
+| publicHolidaysCalendar | FieldCompressedString |
+| issuanceDate           | FieldCompressedString |
+| couponFrequency        | FieldCompressedString |
+
+In the last CMTAT and debt specification version:
+
+- Two new optional attributes `minimum denomination` and `currency` have been added. 
+- `bondHolder` has been renamed in `debtHolder`.
+- `publicHolidaysCalendar` has been removed
+- Information regarding the issuer (Issuer identifier). In CMTAT Solidity, this is represented by two string fields: issuer name and description.
+
+Reference: [Standard for the tokenization of debt instruments using distributed ledger technology](https://cmta.ch/standards/standard-for-the-tokenization-of-debt-instruments-using-distributed-ledger-technology), p. 23-24
 
 ### What can we actually do with private CMTAT?
 
@@ -300,10 +349,10 @@ If you run into troubleshooting issues, consult the [Aztec starter repository](h
 
 - **Validation module enhancements**:
   - The limitation regarding `SharedMutable` delay means changes to the whitelist/blacklist have a delay (minutes to hours) before reflecting on the blockchain.
-  - Sanction lists are not yet enabled due to the lack of on-chain lists like Chainalysis on Ethereum.
+  - Sanction lists are not yet enabled due to the lack of on-chain lists like [Chainalysis oracle for sanctions screening](https://go.chainalysis.com/chainalysis-oracle-docs.html) on Ethereum.
 
 - **Audit capabilities**:
-  - Users may, in the future, be able to arbitrarly share to third-parties a shareable key for audit purposes.
+  - Users may, in the future, be able to arbitrarily share to third-parties a shareable key for audit purposes.
 
 - **Event management**:
   - Events are not yet enabled because they are cumbersome; they can only be in the main contract for now and make the code lengthy.
@@ -374,7 +423,6 @@ We are not aware of any patent or patent application covering the techniques imp
 ## Security policy
 
 Please see [SECURITY.md](./SECURITY.md).
-
 
 
 
