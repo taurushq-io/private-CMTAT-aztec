@@ -74,7 +74,17 @@ yarn test:js             # Jest e2e tests in src/test/e2e/, requires: aztec star
 
 ## 0.4.0 — 2026-09-23
 
-Target: **0.4.0**. Not released yet; everything below is on the development branch. `version()` already returns `0.4.0` in all five contracts.
+MAJOR under the policy above: a packed struct changed shape on `CMTATAztecDebt`, five entry points were renamed, and the constructor takes a new argument, so 0.4.0 is not compatible with a 0.3.0 deployment. `version()` returns `0.4.0` in all five contracts. Built and tested on Aztec **5.2.0**.
+
+### Summary
+
+- Two new contracts that are not tokens: `CMTATAztecAuth` and `CMTATAztecAuthMultiToken` apply CMTAT's pause, deactivation, freeze and a sender-side blacklist / whitelist to the stock `aztec-standards` AIP-20 `Token` and ARC-1155 `MultiToken` through the ARC-403 hook those contracts already call. The repository now ships five contracts over one library.
+- The three token variants gained the four AIP-20 private/public bridges and `balance_of_public`, all behind a new constructor flag `public_side_enabled`, so a deployment that wants none of them behaves exactly as 0.3.0 did. Each bridge runs the full CMTAT chain: both parties screened in private, the issuer's copy of every note, the pause check in the enqueued public half.
+- The mint, transfer, burn and bridge chains moved out of the three `main.nr` files into `lib/src/modules/tokenModule.nr`, so the compliance chain exists once instead of three times. Verified gate-neutral circuit by circuit.
+- Three breaking changes, each deliberate: the delay on every delayed value is one hour instead of six minutes and is now adjustable at runtime up to 24 hours; `CreditEventsStruct` packs into two storage Fields instead of three; and five entry points carry the AIP-20 names so the private profile answers the standard's selectors, which `burn` deliberately does not join because its authorisation differs.
+- Three guarantees that were missing rather than wrong: a debit now spends two notes and recurses for more instead of compiling for sixteen (−42,000 gates on every debit, and a fragmented balance costs a nested call rather than failing), a commitment can be paid exactly once, and mints and burns deliver the same constrained `Transfer` event to the issuer — so the issuer's event stream is a complete, unforgeable ledger and the note copies are only corroboration.
+- The tests were audited as code. They moved out of the contract crates, where a test edit invalidated the artifact; mutation spot-checks found two invariants that no test could fail, including the issuer-copy rule the whole audit story rests on; and `aztec test` was found to be running four of the five contracts against stale artifacts. The suite is 239 Noir tests and 17 end-to-end tests, with the Noir suite now run by GitHub Actions on every push.
+- The documentation was reconciled with the code rather than extended: `doc/standards/` and `doc/design/` merged into `doc/technical/`, the equivalency assessment brought up to this release, `LEARN-AZTEC.md` rewritten against Aztec 5.2.0 after drifting several releases, and a code-quality review of this release added under `doc/audits/tools/v0.4.0/`.
 
 ### Added
 
