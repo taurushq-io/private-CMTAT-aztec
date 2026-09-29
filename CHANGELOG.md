@@ -72,7 +72,7 @@ yarn test:js             # Jest e2e tests in src/test/e2e/, requires: aztec star
   - Check that no Markdown file mixes hard-wrapped and one-line-per-block prose
   - Update this changelog
 
-## 0.4.0 — 2026-09-23
+## 0.4.0 — 2026-09-29
 
 MAJOR under the policy above: a packed struct changed shape on `CMTATAztecDebt`, five entry points were renamed, and the constructor takes a new argument, so 0.4.0 is not compatible with a 0.3.0 deployment. `version()` returns `0.4.0` in all five contracts. Built and tested on Aztec **5.2.0**.
 
