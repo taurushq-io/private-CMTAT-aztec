@@ -62,6 +62,16 @@ pub unconstrained fn setup_and_more_addresses(
     (env, token_contract_address, issuer, user1, user2, user3)
 }
 
+/// `setup_and_more_addresses` with the public side ON, for tests that need several holders on both
+/// sides of the token (the INV-3 invariant test).
+pub unconstrained fn setup_and_more_addresses_public_side() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+    let (mut env, token_contract_address, issuer, user1) =
+        setup_with_public_side(false, /* public_side_enabled */ true);
+    let user2 = env.create_light_account();
+    let user3 = env.create_light_account();
+    (env, token_contract_address, issuer, user1, user2, user3)
+}
+
 pub unconstrained fn setup_and_mint(
     with_account_contracts: bool,
 ) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u128) {
