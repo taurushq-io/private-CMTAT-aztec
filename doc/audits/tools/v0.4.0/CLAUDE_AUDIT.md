@@ -8,7 +8,7 @@
 
 **Severity framework.** Code4rena (Critical / High / Medium / Low / Info).
 
-**Method.** Threat model over the Aztec execution model → enumeration of the privileged and externally reachable surface from the compiled artifacts → targeted review of each value-moving chain → mechanical verification passes (delivery modes, authorisation attributes, delayed state, oracle use) → mutation spot-checks against the test suite → adversarial self-review of every finding. *The specific internal skills used are intentionally not enumerated here.*
+**Method.** Threat model over the Aztec execution model → enumeration of the privileged and externally reachable surface from the compiled artifacts → targeted review of each value-moving chain → mechanical verification passes (delivery modes, authorisation attributes, delayed state, oracle use) → mutation spot-checks against the test suite → adversarial self-review of every finding → a prose pass over the report itself, so that no intensifier stands in for a measurement. *The specific internal skills used are intentionally not enumerated here.*
 
 **This is a tool-assisted review, not a substitute for a professional security audit.** The contracts remain unaudited by a third party.
 
@@ -19,6 +19,14 @@
 **In scope.** The five contract packages and `lib/src/modules/*`, including the value-moving chains, the authorization-hook rules, the access-control, pause, enforcement, validation and extra-information modules, and the two debt extensions. The Noir test suite was reviewed as part of the work, since a control attested only by a test that cannot fail is not attested.
 
 **Out of scope.** The Aztec protocol itself (L1 rollup contracts, governance, proving system); the `aztec-standards` fork carried as a submodule, except where the authorization contracts couple to it by selector; the TypeScript scripts and the end-to-end suite, except where they establish the deployed configuration; economic and governance design.
+
+**Depth of review, stated so the reader knows which parts carry weight.** Coverage was not uniform, and a scope list alone would imply that it was.
+
+| Reviewed systematically | Spot-checked only | Not reviewed |
+|---|---|---|
+| The six value-moving chains; access control and the role model; `DelayedPublicMutable` semantics; note-delivery modes; the 24 authorisation attributes; the commitment paths; the authorization-hook rules; what each entry point publishes | Batch supply accounting (`mint_batch` / `burn_batch` accumulators); the public-balance arithmetic in `hybridModule`; the two authorization contracts' list helpers | The debt and credit-events extensions; the validation module's list-mode dispatch; `extraInformationModule`; `cancel_authwit`; `sync_state` / `offchain_receive`; constructor parameter validation; the hook's burn-selector constants checked against the fork's actual selectors |
+
+The spot checks found nothing: `mint_batch` accumulates each amount and enqueues `_mint` with the exact total, and `PublicBalances::increase` / `decrease` are sound, with Noir's `u128` trapping on overflow rather than wrapping. A spot check is not a review, and the third column has had none.
 
 **Not attempted.** Formal verification, and any claim about gas or circuit cost beyond what the existing code-quality review measured.
 
@@ -81,9 +89,15 @@ fn transfer_private_to_commitment(from, commitment, amount, authwit_nonce) {
 
 **This is a documentation defect, not a code defect.** At completion the contract holds only the commitment, never the recipient's address — only `open_commitment` sees `to` — so no correct `Transfer{from, to, amount}` can be emitted there. The design's actual answer is sound and is documented twice elsewhere (`doc/README.md:557`, `doc/technical/commitment-reuse.md:172`): the issuer holds every commitment through the constrained `CommitmentInitialized` event, derives the completion-log tag from it, and reads the amount, which is unencrypted. Both event tables in the specification are exhaustive and correctly omit the commitment path. Only the prose sentence over-reaches.
 
-**Reachability.** `public_side_enabled` is `false` in every deployment the repository ships or documents — `scripts/deploy_contract.ts:28` and `src/test/e2e/index.test.ts:98`, both commented *"keep the fully private token"*, and the default `setup()` of all three token test crates. The flag is immutable after construction.
+**Reachability.** `public_side_enabled` is `false` in every deployment the repository ships or documents — `scripts/deploy_contract.ts:28` and `src/test/e2e/index.test.ts:98`, both commented *"keep the fully private token"*, and the default `setup()` of all three token test crates. The flag is immutable after construction. *Note on this evidence: those two files are in the TypeScript layer, which §1 places out of scope. The downgrade to Info therefore rests partly on material this review did not audit — it establishes the shipped default, not that no deployer will turn the flag on.*
 
-**Recommendation.** Qualify the sentence at `doc/README.md:368` to the fully private paths it is true of — mint, burn, private transfer and their batches — and point at `:557` for the commitment path. Add the replay-reconciliation test in §8 so the claim is machine-checked rather than asserted.
+**What can be implemented, and what cannot.**
+
+- **Feasible, and the actual fix:** qualify the sentence at `doc/README.md:368` to the fully private paths it is true of — mint, burn, private transfer and their batches — and point at `:557` for the commitment path. One sentence; no code, no ABI, no storage change.
+- **Feasible, and worth adding:** the replay-reconciliation test in §8, so the completeness claim is machine-checked rather than asserted.
+- **Not feasible: emitting a correct `Transfer` at completion.** `complete_commitment` receives the commitment as an opaque `Field` and rebuilds the partial note with `PartialUintNote::from_field`; the recipient exists only inside the note the library created at opening (`UintNote::partial(to, …)`) and is never returned to the contract. Nor can the payer be asked to supply `to`: it would be an unverifiable claim, because the payer never held the opening randomness the commitment binds, so the contract could not check it. Emitting an event with an unverified recipient would be worse than emitting none — it would make the ledger forgeable by the payer, which is precisely the property constrained delivery exists to prevent.
+- **Not feasible without breaking privacy: storing `commitment → to` at opening.** In public state it would publish the recipient, destroying what the commitment flow protects. In private state the contract cannot read a note back, because reading requires the owner's nullifying key and a contract holds none.
+- **Nothing needs to be built, because the mechanism already exists.** The issuer receives a constrained `CommitmentInitialized { to, completer, commitment }` at opening and can derive the completion-log tag from the commitment, where the amount is unencrypted. The reconstruction is complete today; only the prose describing it is wrong.
 
 **Severity adjustment.** Raised at Low, lowered to Info by the adversarial pass on three grounds: unreachable in every configuration the repository deploys, the correct mechanism documented in two other places, and no available code fix. Recorded against that verdict: the audit trail is the declared purpose of the instrument, this is the sentence an issuer would build regulatory reporting from, and the failure mode is undetectable — which makes Low defensible.
 
@@ -163,7 +177,9 @@ No public half receives an argument that its private half was protecting. Two di
 |---|---|---|---|
 | F-1 | ⚠️ Open | — | — |
 
-The review was run against the frozen `0.4.0` tree, and its only finding is a documentation over-reach with no code fix available. The recommended edit to `doc/README.md:368` had not been made when this report was written. This section is kept rather than omitted so that a later reader can see the fix status at the time of publication, and so that a doc-only change is never mistaken for a code change.
+The review was run against the frozen `0.4.0` tree, and the recommended edit to `doc/README.md:368` had not been made when this report was written. This section is kept rather than omitted so that a later reader can see the fix status at publication, and so that a doc-only change is never mistaken for a code change.
+
+**What remediation is available, per item.** F-1's only fix is the one-sentence documentation correction above: a code fix is **not feasible**, for the reasons given under the finding, and no contract change is recommended. The dismissed `only_role` observation needs **no implementation at all** — the behaviour is deliberate, documented, and depended upon by two tests. The one unverified invariant, INV-3, is fixed by adding a test rather than by changing the contract. In short: **nothing in this report calls for a change to contract code.** Every actionable item is a documentation correction or a test.
 
 ---
 
@@ -181,6 +197,8 @@ Hardening and quality items. **These are not vulnerabilities**, and none of them
 | 6 | Test the authorization hook with a selector that is neither a known burn nor a transfer | hook classification | Low | No | Low |
 | 7 | Add the NatSpec `@dev` / `Requirements:` comment to `only_role` and `has_role` | project convention | Low | No | Low |
 | 8 | Commitment expiry | the disclosed screening window | High | Yes | Design decision |
+
+Items 1-7 are all implementable as written, with no contract change: they are tests, comments, or a documentation edit. Item 8 is the only one that would touch the contract, and it is a design decision rather than a defect.
 
 **Rationale for the ones that are not self-evident.**
 
