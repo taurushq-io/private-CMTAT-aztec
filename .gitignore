@@ -23,3 +23,12 @@ aztec-wallet-data/
 
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
+
+# Working deliverables of a tool-assisted audit: the threat model, the test-gap
+# analysis, the raw findings file and the per-contract artifact surface dumps.
+# Only the published report, CLAUDE_AUDIT.md, is committed — these stay local so
+# that a `git add --all` cannot pull them in.
+doc/audits/**/THREAT_MODEL.md
+doc/audits/**/TEST_IMPROVEMENT.md
+doc/audits/**/RESULT.md
+doc/audits/**/surface/
