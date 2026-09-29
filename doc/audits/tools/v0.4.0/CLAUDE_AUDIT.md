@@ -61,7 +61,7 @@ Each of these would have been High or Critical had it held. Each was probed and 
 
 | ID | Severity | Status | Component | PoC |
 |---|---|---|---|---|
-| F-1 | Info | Open | `doc/README.md:368` | ✗ (test proposed) |
+| F-1 | Info | ✅ Fixed | `doc/README.md:368` | `test_invariants.nr` (log counts) |
 
 **Tally: 0 Critical, 0 High, 0 Medium, 0 Low, 1 Info.**
 
@@ -93,7 +93,7 @@ fn transfer_private_to_commitment(from, commitment, amount, authwit_nonce) {
 
 **What can be implemented, and what cannot.**
 
-- **Feasible, and the actual fix:** qualify the sentence at `doc/README.md:368` to the fully private paths it is true of — mint, burn, private transfer and their batches — and point at `:557` for the commitment path. One sentence; no code, no ABI, no storage change.
+- **Done — the fix:** the sentence at `doc/README.md:368` is now qualified to the fully private paths it is true of — mint, burn, private transfer and their batches — and point at `:557` for the commitment path. One sentence; no code, no ABI, no storage change.
 - **Done during this review:** the gap is now machine-checked. A full balance-level replay is not expressible in the TXE, because a test cannot read a private event's content (`discover_event` is `pub(crate)`), so the two tests in `test_invariants.nr` pin the absence itself by counting private logs: 4 for a private transfer, 2 for a commitment payment of the same value, the difference being exactly the event's two deliveries.
 - **Not feasible: emitting a correct `Transfer` at completion.** `complete_commitment` receives the commitment as an opaque `Field` and rebuilds the partial note with `PartialUintNote::from_field`; the recipient exists only inside the note the library created at opening (`UintNote::partial(to, …)`) and is never returned to the contract. Nor can the payer be asked to supply `to`: it would be an unverifiable claim, because the payer never held the opening randomness the commitment binds, so the contract could not check it. Emitting an event with an unverified recipient would be worse than emitting none — it would make the ledger forgeable by the payer, which is precisely the property constrained delivery exists to prevent.
 - **Not feasible without breaking privacy: storing `commitment → to` at opening.** In public state it would publish the recipient, destroying what the commitment flow protects. In private state the contract cannot read a note back, because reading requires the owner's nullifying key and a contract holds none.
@@ -171,11 +171,11 @@ No public half receives an argument that its private half was protecting. Two di
 
 ## 7. Remediation — what was implemented
 
-**No contract code changed. Two tests were added.**
+**No contract code changed. One documentation correction and three tests.**
 
 | Finding | Status | What changed | Verified by |
 |---|---|---|---|
-| F-1 — documentation | ⚠️ Open | The sentence at `doc/README.md:368` is unchanged | — |
+| F-1 — documentation | ✅ Fixed | The claim is scoped to the fully private token, and the two public-side exceptions are stated: the bridges record the movement but mask the private counterparty, and a commitment completion emits no event, the issuer reconstructing it from `CommitmentInitialized` plus the commitment-tagged completion log | The two log-count tests; behaviour unchanged, no contract code touched |
 | F-1 — machine check | ✅ Added | Two tests pin the event-stream gap by log count | `test_invariants::a_private_transfer_leaves_a_transfer_event_in_the_stream` (4 logs) and `…a_commitment_payment_leaves_no_transfer_event_in_the_stream` (2 logs) |
 | INV-3 | ✅ Closed | No contract change; the invariant now has a test | `test_invariants::supply_equals_the_sum_of_every_balance_after_a_mixed_sequence` |
 
