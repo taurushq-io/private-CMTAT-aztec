@@ -1,5 +1,5 @@
 @startuml
-title Workspace layout — three variants over one module library
+title Workspace layout — three token variants and two authorization contracts over one module library
 
 skinparam componentStyle rectangle
 skinparam maxMessageSize 250
@@ -8,44 +8,69 @@ package "contracts/ — one contract per Nargo package" {
   component "CMTATAztecLight\ncore token" as Light
   component "CMTATAztec\ncore + validation" as Base
   component "CMTATAztecDebt\ncore + validation + debt" as Debt
+  component "CMTATAztecAuth\nARC-403 hook for AIP-20 Token" as Auth
+  component "CMTATAztecAuthMultiToken\nARC-403 hook for ARC-1155" as AuthMT
 }
 
 package "lib/ — cmtat_aztec_lib (type = lib)" {
+  component "tokenModule\nmint / transfer / burn / bridge chains,\npublic halves, Screening trait" as Tok
+  component "hybridModule\npublic balances, partial notes\n(MIT-only, derived from AIP-20)" as Hyb
+  component "authorizationHookModule\nARC-403 rules + burn selectors" as Hook
   component "access_controlModule\nroles 1..11" as AC
   component "pauseModule\npause + permanent deactivation" as Pause
   component "enforcementModule\nper-address freeze" as Enf
-  component "extraInformationModule\nterms + tokenId" as Extra
   component "validationModule\nblacklist / whitelist" as Val
+  component "extraInformationModule\nterms + tokenId" as Extra
   component "creditEventsModule" as Credit
   component "debtModule\nDebtIdentifier + DebtInstrument" as DebtM
 }
+
+package "test-helpers/ — cmtat_aztec_test_helpers (type = lib)" {
+  component "advance_past_delay\ncall_private_on_behalf_of" as TH
+}
+
+Light --> Tok : FreezeOnly
+Base --> Tok : FreezeAndLists
+Debt --> Tok : FreezeAndLists
+Tok --> Hyb
+Tok --> Enf
+Tok --> Val
+Tok --> Pause
+Tok --> AC
 
 Light --> AC
 Light --> Pause
 Light --> Enf
 Light --> Extra
-
-Base --> AC
-Base --> Pause
-Base --> Enf
-Base --> Extra
 Base --> Val
-
-Debt --> AC
-Debt --> Pause
-Debt --> Enf
-Debt --> Extra
+Base --> Extra
 Debt --> Val
+Debt --> Extra
 Debt --> Credit
 Debt --> DebtM
 
+Auth --> Hook
+AuthMT --> Hook
+Hook --> Enf
+Hook --> Val
+Hook --> Pause
+Auth --> AC
+AuthMT --> AC
+
+Light ..> TH : tests only
+Base ..> TH : tests only
+Debt ..> TH : tests only
+Auth ..> TH : tests only
+AuthMT ..> TH : tests only
+
 note as N1
-  Noir has no inheritance and allows ONE contract per package,
-  so a variant is a separate package composing a different subset
-  of modules — not a subclass. Every user-callable entry point
-  must be re-declared in that variant's own main.nr; a module
-  method alone is not callable. The three main.nr files are
-  therefore near-identical by construction.
+  Noir has no inheritance and allows ONE contract per package.
+  Since 0.4.0 the value-moving chains live once in tokenModule;
+  a variant's main.nr keeps the entry-point declarations, their
+  attributes, the enqueues and the events (which Noir requires in
+  the contract module) plus one line choosing its Screening.
+  A module method alone is not callable: every entry point is
+  re-declared in the variant that exposes it.
 end note
 
 N1 .. Base

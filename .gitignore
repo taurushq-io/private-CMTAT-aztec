@@ -11,3 +11,24 @@ log/
 store/*
 
 codegenCache.json
+
+# Local wallet state written by `aztec-wallet` / `aztec start --local-network` into the
+# working directory: an LMDB store of accounts, salts and their keys. Per-machine, rewritten
+# on every run, and never something a repository should carry.
+aztec-wallet-data/
+
+# Cache written by the `aztec` CLI wrapper: the list of environment variable names it forwards
+# into its container. Machine-local, regenerated on demand, and specific to the installed CLI.
+.latest_aztec_cli_vars
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Working deliverables of a tool-assisted audit: the threat model, the test-gap
+# analysis, the raw findings file and the per-contract artifact surface dumps.
+# Only the published report, CLAUDE_AUDIT.md, is committed — these stay local so
+# that a `git add --all` cannot pull them in.
+doc/audits/**/THREAT_MODEL.md
+doc/audits/**/TEST_IMPROVEMENT.md
+doc/audits/**/RESULT.md
+doc/audits/**/surface/

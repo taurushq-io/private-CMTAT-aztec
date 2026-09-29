@@ -9,6 +9,7 @@ actor "Holder\n(`account`)" as Holder
 box "Client side" #F4F8FC
 participant "burn(account, amount, authwit_nonce)\nexternal private" as Priv
 participant "PXE\n(holder's notes)" as PXE
+  participant "_recurse_debit\nexternal private, only_self" as Recur
 end box
 database "Public state" as PS
 box "Sequencer — public" #FDF4F4
@@ -36,10 +37,38 @@ Priv -> PS : read is_frozen(account)
 note right of Priv : fails with "Frozen: Sender" —\n`account` is the address being debited
 Priv -> PS : operateOnBurn(account)\nblacklist or whitelist, whichever is enabled
 
-Priv -> PXE : sub(amount) on `account`
-PXE --> Priv : nullify the spent notes, create a change note
+  group Debit — the note budget (A-5)
+    Priv -> PXE : try_debit(account, amount, DEBIT_INITIAL_MAX_NOTES = 2)
+    alt two notes cover the amount — the common case
+      PXE --> Priv : covered, change
+    else the balance is spread over more notes
+      PXE --> Priv : not covered, remaining
+      loop until covered, 8 notes per call
+        Priv -> Recur : call_self _recurse_debit(account, remaining)
+        Recur -> PXE : try_debit(account, remaining, DEBIT_RECURSIVE_MAX_NOTES = 8)
+        PXE --> Recur : covered, change  /  not covered, remaining
+      end
+      Recur --> Priv : change
+    end
+    note over Priv, Recur
+      The circuit is sized for two notes, not sixteen: about 3,050 gates
+      per unused slot were being paid on every debit. A fragmented balance
+      pays one nested private call instead (~101,000 gates), and only then.
+      "Balance too low" still fires at any depth when nothing can be spent.
+      The change note is created ONCE, here at the top level.
+    end note
+  end
+PXE --> Priv : the spent notes are nullified
 Priv -> Holder : change note, onchain_constrained
 Priv -> Issuer : copy of the change note, offchain
+Priv -> Issuer : Transfer{from = account, to = 0, amount}, onchain_constrained
+note right of Issuer
+  Added in 0.4.0 (review finding H-10), for the same reason as the mint:
+  the note copy is offchain and unprocessable by a stock PXE, so the
+  event is what makes the burn part of the issuer's on-chain ledger.
+  burn_batch emits one event for the batch total, since it debits one
+  account. Cost: one constrained delivery, about 24,000 gates.
+end note
 
 Priv -> Pub : enqueue_self _burn(msg_sender(), amount)
 note over Pub

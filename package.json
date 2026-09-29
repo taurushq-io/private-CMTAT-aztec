@@ -26,6 +26,7 @@
     "@aztec/accounts": "5.2.0",
     "@aztec/aztec.js": "5.2.0",
     "@aztec/builder": "5.2.0",
+    "@aztec/ethereum": "5.2.0",
     "@aztec/kv-store": "5.2.0",
     "@aztec/noir-contracts.js": "5.2.0",
     "@aztec/pxe": "5.2.0",
@@ -39,6 +40,9 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "tsx": "^4.20.3"
+  },
+  "resolutions": {
+    "zod": "4.4.3"
   },
   "jest": {
     "testTimeout": 200000

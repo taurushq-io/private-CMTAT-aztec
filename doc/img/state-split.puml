@@ -10,6 +10,8 @@ package "Public state — on chain, readable by anyone" #FDF4F4 {
   component "name, symbol, decimals\nPublicImmutable" as Meta
   component "terms, tokenId" as Terms
   component "freeze flags, list flags,\noperations switch, issuer_address\nDelayedPublicMutable" as Delayed
+  component "public_balances\nonly when public_side_enabled = true" as PB
+  component "roles_delay\nthe current delay, PublicMutable" as RD
 }
 
 package "Private state — notes in each holder's own PXE" #F4F8FC {
@@ -34,5 +36,14 @@ note as N2
   pause check has to run in the enqueued public half.
 end note
 Delayed .. N2
+
+note as N3
+  public_balances exists only if the issuer deployed with
+  public_side_enabled = true. It is the landing and departure point of
+  the four AIP-20 bridges: a holder who uses one publishes its own side
+  of that move, by choice. With the flag false every bridge reverts and
+  the token is fully private.
+end note
+PB .. N3
 
 @enduml

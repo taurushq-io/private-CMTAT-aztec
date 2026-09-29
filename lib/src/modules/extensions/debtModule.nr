@@ -1,16 +1,15 @@
+use crate::modules::access_controlModule::{AccessControlModule, DEBT_ROLE};
 use aztec::context::PublicContext;
 use aztec::protocol::address::AztecAddress;
 use aztec::protocol::traits::{Deserialize, Packable, Serialize};
 use aztec::state_vars::{PublicMutable, StateVariable};
 use compressed_string::FieldCompressedString;
-use crate::modules::access_controlModule::{AccessControlModule, DEBT_ROLE};
 
 pub global DEBT_IDENTIFIER_SERIALIZED_LEN: u32 = 4;
 pub global DEBT_INSTRUMENT_SERIALIZED_LEN: u32 = 12;
 // `DebtInformation` is the two sub-structs back to back, so `get_debt()` returns the identifier
 // first and the instrument after it.
-pub global T_SERIALIZED_LEN: u32 =
-    DEBT_IDENTIFIER_SERIALIZED_LEN + DEBT_INSTRUMENT_SERIALIZED_LEN;
+pub global T_SERIALIZED_LEN: u32 = DEBT_IDENTIFIER_SERIALIZED_LEN + DEBT_INSTRUMENT_SERIALIZED_LEN;
 
 /**
 * @dev Who is involved in the debt, mirroring the Solidity `ICMTATDebt.DebtIdentifier`.

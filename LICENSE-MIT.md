@@ -1,5 +1,6 @@
 Copyright 2026 Capital Market and Technology Association (CMTA)
 Copyright 2025 Taurus SA (history up to and including commit 61f4220d5565840fd4fcdd2b723c9f55eb824c60, releases 0.1.0, 0.1.1 and 0.2.0)
+Copyright (c) 2024 Wonderland (portions of lib/src/modules/hybridModule.nr, derived from aztec-standards; that file is licensed under this MIT License only)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

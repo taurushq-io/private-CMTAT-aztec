@@ -10,4 +10,3 @@ compressed_string = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = 
 uint_note = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.2.0", directory = "uint-note" }
 balance_set = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.2.0", directory = "balance-set" }
 cmtat_aztec_lib = { path = "../../lib" }
-cmtat_aztec_test_helpers = { path = "../../test-helpers" }

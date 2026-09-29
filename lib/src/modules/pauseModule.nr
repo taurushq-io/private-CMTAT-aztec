@@ -1,7 +1,7 @@
+use crate::modules::access_controlModule::{AccessControlModule, DEFAULT_ADMIN_ROLE, PAUSE_ROLE};
 use aztec::context::PublicContext;
 use aztec::protocol::address::AztecAddress;
 use aztec::state_vars::{PublicMutable, StateVariable};
-use crate::modules::access_controlModule::{AccessControlModule, DEFAULT_ADMIN_ROLE, PAUSE_ROLE};
 
 pub global PAUSED_FLAG: u64 = 1;
 pub global T_SERIALIZED_LEN: u32 = 1;

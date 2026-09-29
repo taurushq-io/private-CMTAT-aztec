@@ -5,5 +5,11 @@ members = [
     "contracts/cmtat-aztec",
     "contracts/cmtat-aztec-debt",
     "contracts/cmtat-aztec-light",
+    "contracts/cmtat-aztec-auth",
+    "contracts/cmtat-aztec-auth-multitoken",
+    "tests/cmtat-aztec",
+    "tests/cmtat-aztec-debt",
+    "tests/cmtat-aztec-light",
+    "tests/cmtat-aztec-auth",
+    "tests/cmtat-aztec-auth-multitoken",
 ]
-default-member = "contracts/cmtat-aztec"

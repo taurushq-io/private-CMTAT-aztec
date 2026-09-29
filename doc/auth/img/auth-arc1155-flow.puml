@@ -1,0 +1,44 @@
+@startuml
+title ARC-1155 MultiToken wired to CMTATAztecAuthMultiToken — the hook carries the id
+
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 260
+
+actor Holder
+box "Client side — proved on the holder's device" #F4F8FC
+participant "MultiToken (aztec-standards)\ntransfer_private_to_private(from, to, id, amount, nonce)\nburn_private(from, id, amount, nonce)" as Tok
+participant "CMTATAztecAuthMultiToken\nauthorize_private(from, id, amount, selector)" as Auth
+participant "Public state\n(historical read at the anchor block)" as PS
+end box
+box "Sequencer — public phase of the same transaction" #FFF8E8
+participant "CMTATAztecAuthMultiToken\n_require_lifecycle_allows(is_burn)\nonly_self" as AuthPub
+end box
+
+Holder -> Tok : transfer_private_to_private / burn_private
+Tok -> Tok : authwit check (authorize_once)
+Tok -> Auth : self.call(auth_contract.authorize_private(from, id, amount, selector))
+note over Tok, Auth
+  Same ARC-403 shape plus the token id. The id stays in the private domain:
+  the contract accepts it and ignores it — pause, deactivation, freeze and the
+  lists apply to every id alike. It is never forwarded to the public half.
+end note
+
+group Rules evaluated in private — DelayedPublicMutable, 360 s to bite
+  Auth -> PS : is_frozen(from)
+  Auth -> Auth : assert not frozen
+  Auth -> PS : operations flag, list entry of from
+  Auth -> Auth : blacklist / whitelist check on from
+end
+
+Auth -> Auth : is_burn = selector ∈ {burn_private 0x3198d2a7, burn_public 0x1d8b2815}\n(the id-bearing signatures, so different values from AIP-20)
+Auth -> AuthPub : enqueue_self _require_lifecycle_allows(is_burn)
+Auth --> Tok : ok
+Tok -> Tok : nullify from's notes of `id`, create change note\n(transfer: recipient note for `to`)
+
+== Public phase ==
+AuthPub -> AuthPub : is_burn ? assert not deactivated\n        : assert not paused
+alt refused
+  AuthPub --> Holder : revert — the whole transaction fails
+end
+
+@enduml

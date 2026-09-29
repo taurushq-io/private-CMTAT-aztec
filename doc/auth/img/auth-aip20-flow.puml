@@ -1,0 +1,54 @@
+@startuml
+title AIP-20 Token wired to CMTATAztecAuth — private transfer, burn and the hook
+
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 260
+
+actor Holder
+box "Client side — proved on the holder's device" #F4F8FC
+participant "Token (aztec-standards)\ntransfer_private_to_private(from, to, amount, nonce)\nburn_private(from, amount, nonce)" as Tok
+participant "CMTATAztecAuth\nauthorize_private(from, amount, selector)" as Auth
+participant "Public state\n(historical read at the anchor block)" as PS
+end box
+box "Sequencer — public phase of the same transaction" #FFF8E8
+participant "CMTATAztecAuth\n_require_lifecycle_allows(is_burn)\nonly_self" as AuthPub
+participant "Token\ndecrease_total_supply_internal\n(burn only)" as TokPub
+end box
+
+Holder -> Tok : transfer_private_to_private / burn_private
+Tok -> Tok : authwit check (authorize_once)
+Tok -> Auth : self.call(auth_contract.authorize_private(from, amount, selector))
+note over Tok, Auth
+  ARC-403: the token passes the spender, the amount and its own selector.
+  It never passes `to` (nor the initiator), so nothing below can screen the recipient.
+end note
+
+group Rules a private function can evaluate — DelayedPublicMutable, 360 s to bite
+  Auth -> PS : is_frozen(from)
+  Auth -> Auth : assert not frozen ("Frozen: from address")
+  Auth -> PS : operations flag, list entry of from
+  Auth -> Auth : blacklist mode: assert from not listed\nwhitelist mode: assert from listed
+end
+
+Auth -> Auth : is_burn = selector ∈ {burn_private 0xc282ed79, burn_public 0xc611b0c5}
+Auth -> AuthPub : enqueue_self _require_lifecycle_allows(is_burn)
+note over Auth, AuthPub
+  The pause and deactivation flags are PublicMutable — immediate, as an emergency
+  lever must be — so they cannot be read here. The enqueued call carries ONE boolean.
+  from, amount and to are never published.
+end note
+Auth --> Tok : ok
+
+Tok -> Tok : nullify from's notes, create change note\n(transfer: recipient note for `to`)
+alt burn
+  Tok -> TokPub : enqueue decrease_total_supply_internal(amount)
+end
+
+== Public phase ==
+AuthPub -> AuthPub : is_burn ? assert not deactivated\n        : assert not paused
+alt refused
+  AuthPub --> Holder : revert — the whole transaction fails,\nprivate half included
+end
+TokPub -> TokPub : total_supply -= amount (burn only)
+
+@enduml

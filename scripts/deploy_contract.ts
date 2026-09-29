@@ -25,6 +25,7 @@ async function main() {
         tokenName,
         tokenSymbol,
         tokenDecimals,
+        false, // public_side_enabled: keep the fully private token
     ).send({ from: address, fee: { paymentMethod: sponsoredPaymentMethod } });
 
     logger.info(`CMTA Token Contract deployed at: ${tokenContract.address}`);

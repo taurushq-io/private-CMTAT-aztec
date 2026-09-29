@@ -1,9 +1,9 @@
+use crate::modules::access_controlModule::{AccessControlModule, EXTRA_INFORMATION_ROLE};
 use aztec::context::PublicContext;
 use aztec::protocol::address::AztecAddress;
 use aztec::protocol::traits::{Deserialize, Packable, Serialize};
 use aztec::state_vars::{PublicMutable, StateVariable};
 use compressed_string::FieldCompressedString;
-use crate::modules::access_controlModule::{AccessControlModule, EXTRA_INFORMATION_ROLE};
 
 global TERMS_SERIALIZED_LEN: u32 = 5;
 // `terms` occupies TERMS_SERIALIZED_LEN slots, `tokenId` the one after them.

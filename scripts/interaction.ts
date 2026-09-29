@@ -45,7 +45,7 @@ async function main() {
 
     logger.info('Minting tokens to Alice ...');
     await token.methods
-        .mint(user1, initialSupply)
+        .mint_to_private(user1, initialSupply)
         .send({ from: issuer, fee: { paymentMethod: sponsoredPaymentMethod } });
 
     const { result: balanceAlice } = await token.methods.balance_of_private(user1).simulate({ from: user1 });

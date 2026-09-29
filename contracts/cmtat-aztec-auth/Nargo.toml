@@ -1,0 +1,10 @@
+[package]
+name = "cmtat_aztec_auth"
+type = "contract"
+authors = [ "" ]
+compiler_version = ">=0.18.0"
+
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.2.0", directory = "aztec" }
+compressed_string = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.2.0", directory = "compressed-string" }
+cmtat_aztec_lib = { path = "../../lib" }

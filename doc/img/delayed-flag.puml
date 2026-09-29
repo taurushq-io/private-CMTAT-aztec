@@ -32,9 +32,9 @@ note right of PS
   The EFFECTIVE value does not change until the delay elapses.
 end note
 
-group Window: CHANGE_ROLES_DELAY_SECONDS (currently 360s)
+group Window: roles_delay() — one hour initially, adjustable with set_roles_delay
   Target -> PS : reads the pending change — it is public
-  Target -> Priv : transfer(...) — still succeeds
+  Target -> Priv : transfer_private_to_private(...) — still succeeds
   Priv -> PS : is_frozen(target) still reads false
   note over Target, Priv
     The target can move funds until the delay elapses. This window
@@ -48,7 +48,7 @@ end
 
 == After the delay ==
 
-Target -> Priv : transfer(...)
+Target -> Priv : transfer_private_to_private(...)
 Priv -> PS : is_frozen(target) now reads true
 Priv --> Target : revert "Frozen: Sender"
 
@@ -56,6 +56,10 @@ note over Officer, Priv
   The same delay applies to every DelayedPublicMutable in the contract:
   the freeze flags, the blacklist and whitelist entries, the operations
   switch, and issuer_address.
+  CHANGE_ROLES_DELAY_SECONDS = 3600 is the value at deployment. Since
+  0.4.0 an admin may move it with set_roles_delay, bounded by
+  MAX_ROLES_DELAY_SECONDS = 86400; an increase is immediate, a decrease
+  takes effect after the difference.
 end note
 
 @enduml

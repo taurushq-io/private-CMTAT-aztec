@@ -1,3 +1,5 @@
+> **Superseded for the 0.4.0 release by [`../v0.4.0/CLAUDE_ANALYSIS.md`](../v0.4.0/CLAUDE_ANALYSIS.md)**, which carries the open findings forward (B-3, B-4, F-1, H-6), reopens J-2 (the correction below was wrong: `aztec compile` does warn about tests in contract crates; `aztec-nargo compile` does not) and adds a check on the tests themselves.
+
 # private-CMTAT-aztec — Aztec.nr Code Quality Review
 
 | | |
@@ -36,7 +38,7 @@
 | C-4 | Constructor configures the contract with no event at all | ✅ fixed |
 | C-5 | No undelivered messages anywhere | ✅ checked — clean |
 | C-6 | Nine state-changing admin entry points emit nothing | ✅ fixed |
-| D-1 | The three `main.nr` files are 99–100% identical | ⬜ decide — guard mechanically, extraction is not available |
+| D-1 | The three `main.nr` files are 99–100% identical | ✅ closed in 0.4.0 — the value-moving chains were extracted into `lib/src/modules/tokenModule.nr` (`doc/technical/token-module.md`); "extraction is not available" held for the entry-point declarations only |
 | D-2 | `test/utils.nr` duplicated 75/78 lines across three crates | ✅ fixed (partially, as scoped) — the two contract-agnostic helpers moved to a `test-helpers` lib crate |
 | E-1 | `#[view]` missing on four read-only entry points | ✅ fixed |
 | E-2 | Getters returning without `pub`, unlike every sibling | ✅ fixed — four, not three |
@@ -58,7 +60,7 @@
 | J-2 | `#[test]` functions live inside the contract crates | ⚠️ **corrected** — no compiler warning at 5.2.0 |
 | J-3 | Module structs are genuinely reusable | ✅ verified by compiling a downstream probe |
 
-**Counts:** 35 rows — 28 ✅ (9 checked/keep, 18 fixed, 1 decided), 2 ⚠️ corrected, 5 ⬜ open (4 *decide*: B-3, D-1, F-1, H-6; 1 *leave*: B-4). The *implement* set is exhausted. *Counted from the table; earlier revisions of this line over-stated the row total by one.*
+**Counts:** 35 rows — 29 ✅ (9 checked/keep, 19 fixed, 1 decided), 2 ⚠️ corrected, 4 ⬜ open (3 *decide*: B-3, F-1, H-6; 1 *leave*: B-4). The *implement* set is exhausted. *Counted from the table; earlier revisions of this line over-stated the row total by one.*
 
 G-6 was not found by reading; it surfaced while regenerating artifacts after the A-1 fix. It is included because it breaks the project's own documented build sequence.
 
@@ -66,7 +68,6 @@ G-6 was not found by reading; it surfaced while regenerating artifacts after the
 
 | ID | Item | Why it is still open |
 |---|---|---|
-| D-1 | Cross-variant drift | Latent: it costs nothing while the three `main.nr` files agree, and becomes expensive the moment one of them is edited alone. |
 | B-3 | Credit-events packing | Unambiguously correct — Solidity gets the same layout for free, and unlike B-1 no measurement argues against it — but it is a storage break on a variant that only bond issuers deploy. Worth folding into a break that is happening anyway; not worth causing one. |
 | F-1 | AIP-20 | Answered in F-1: do not adopt it — public balances defeat the premise and partial notes cannot coexist with recipient screening. Two things remain: state the non-conformance in the README, and treat AIP-20's note budget as a separate optimisation worth a measured 43,046 gates per transfer. |
 | H-6 | The delay itself | 360 seconds is far below the library's recommended "couple hours": every value-moving transaction expires six minutes after its anchor block, and a delay shorter than other contracts' is a fingerprint. Against that, a short delay is a short freeze window. Needs the network's typical delay, real proving times, and a compliance call. |
@@ -435,7 +436,7 @@ That was verified by removing `#[view]` from `terms` and rebuilding. So switchin
 
 ### F-1. Should this token implement AIP-20?
 
-> The full standard-to-standard comparison behind this finding is in [`doc/standards/cmtat-vs-aip20.md`](../standards/cmtat-vs-aip20.md), and the engineering question — could this project be *rebuilt on* the `aztec-standards` library — is answered in [`doc/standards/building-on-aip20.md`](../standards/building-on-aip20.md). This section states the decision for *this* contract.
+> The full standard-to-standard comparison behind this finding is in [`doc/technical/cmtat-vs-aip20.md`](../../../technical/cmtat-vs-aip20.md), and the engineering question — could this project be *rebuilt on* the `aztec-standards` library — is answered in [`doc/technical/building-on-aip20.md`](../../../technical/building-on-aip20.md). This section states the decision for *this* contract.
 >
 > ⚠️ One correction from reading that library's source: AIP-20 **does** have a transfer-authorization hook (ARC-403), which this finding's first revision did not know about. It does not change the verdict — the hook is not passed the recipient, so it cannot express CMTAT's screening — but it narrows the gap from "no extension point" to "one missing argument".
 

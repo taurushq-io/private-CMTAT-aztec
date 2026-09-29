@@ -12,6 +12,7 @@ import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 import { Fr, GrumpkinScalar } from "@aztec/aztec.js/fields";
 import { createLogger } from "@aztec/aztec.js/log";
 import * as dotenv from 'dotenv';
+import { l1Mnemonic } from '../src/utils/l1_dev_account.js';
 
 import { CMTATAztecContract as TokenContract } from "../src/artifacts/CMTATAztec.js";
 import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
@@ -20,7 +21,8 @@ import { setupWallet } from "../src/utils/setup_pxe.js";
 
 dotenv.config();
 
-const MNEMONIC = 'test test test test test test test test test test test junk';
+
+const MNEMONIC = l1Mnemonic();
 const FEE_FUNDING_FOR_TESTER_ACCOUNT = 1000000000000000000n;
 
 async function main() {
