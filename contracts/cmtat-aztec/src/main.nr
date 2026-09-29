@@ -55,7 +55,7 @@ pub contract CMTATAztec {
     //
     // Padded to 31 characters because `FieldCompressedString::from_string` takes a `str<31>`;
     // consumers should trim the trailing spaces.
-    pub global VERSION: str<31> = "0.4.0                          ";
+    pub global VERSION: str<31> = "0.5.0                          ";
 
     // How many addresses one batched call may act on.
     //
