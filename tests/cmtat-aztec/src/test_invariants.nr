@@ -24,7 +24,7 @@ global MINT: u128 = 10_000;
 /// Every operation that moves supply is here: a mint, a burn, a private transfer, and both bridges.
 #[test]
 unconstrained fn supply_equals_the_sum_of_every_balance_after_a_mixed_sequence() {
-    let (env, token, issuer, user1, user2, user3) = utils::setup_and_more_addresses_public_side();
+    let (env, token, issuer, user1, user2, user3) = utils::setup_and_more_addresses_with_public_side(false, /* public_side_enabled */ true);
     env.call_public(issuer, Token::at(token).grant_role(MINTER_ROLE, issuer));
     env.call_public(issuer, Token::at(token).grant_role(BURNER_ROLE, issuer));
 
