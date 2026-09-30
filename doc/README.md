@@ -359,6 +359,10 @@ This one is worth explaining, because both choices — who receives it, and how 
 
 **Why constrained.** An `onchain_unconstrained` delivery is "on-chain delivery without constrained encryption": the circuit computes `from` correctly, but nothing proves that what the sender's PXE posts encrypts that value. The recipient would decrypt whatever the sender chose — a receipt the sender can forge is not a convenience but a settlement-confirmation attack surface. Constrained delivery makes the receipt provable. It costs about **20,200 gates per delivery**, measured.
 
+**What "constrained" constrains, precisely: the AES-128 encryption itself.** This is worth stating because it is easy to assume the cost buys only the tag. Under `onchain_constrained()` the framework guarantees that "both the encryption and the discovery tag are constrained and stored onchain", and charges "proving time overhead for encryption and tagging" (aztec-nr's `note_delivery` documentation). The implementation bears that out: `aztec-nr`'s `messages/encryption/aes128.nr` encrypts with `std::aes128::aes128_encrypt`, a Noir standard-library function, so it compiles to constraints in the circuit — while *decryption* runs through an oracle, `try_aes128_decrypt`, and is therefore unconstrained. The asymmetry is the right way round: the sender must prove it encrypted correctly, and the recipient's PXE only has to try keys during discovery, where nothing needs proving.
+
+Two clarifications that follow from it. The constraints live in **this contract's own circuit**, not in the protocol's kernel circuits — which is why the 20,200 gates show up per function in `aztec profile gates`, and why AES-128 is unavailable in public (AVM) functions while working in private ones. And the guarantee applies only to the constrained mode: `onchain_unconstrained()` and `offchain()` both encrypt *without* constraints, so the issuer's offchain audit copies carry no such proof — the reason the `Transfer` events, not the note copies, are the audit trail.
+
 **Why the issuer.** The issuer's note copies are offchain, and a stock PXE cannot store a note it does not own by either delivery mode (see *Limitations*). Without the events, three things followed:
 
 - the issuer's whole audit trail had no data availability;
@@ -912,6 +916,25 @@ Two jobs remain, and they are why the delay has a value at all:
 At any value it also leaks the anchor block's timestamp, `expiry − delay`, which is a timing fact rather than an identifying one.
 
 The privacy set would matter again only for a path with no public half. For transfers that would mean a delayed pause; mints and burns can never qualify, since the role check and `total_supply` are public state. See *What each operation publishes* above.
+
+**Q: Would burning be simpler with AIP-20's `burn_private` than with this token's `burn`, for an issuer that holds the tokens itself?**
+
+No, and the premise does not hold: AIP-20 uses the identical authentication-witness mechanism. Its `burn_private` carries `#[authorize_once("from", "_nonce")]`, the same macro and the same `from`-plus-nonce convention as this token's `burn`. The two differ in *authorisation* — holder-authorised there, `BURNER_ROLE` here — and not in the machinery around it.
+
+For a party burning its own tokens, that machinery costs nothing in either contract. The macro validates a witness only when `msg_sender()` differs from the named account; the account itself passes `authwit_nonce = 0` and no witness is created, collected or nullified. An issuer burning its own treasury calls `burn(issuer, amount, 0)` and is done.
+
+| Burning one's own tokens | AIP-20 `burn_private` | this token's `burn` |
+|---|---|---|
+| Witness to create | none | none |
+| Nonce | `0` | `0` |
+| Additional requirement | — | `BURNER_ROLE` on the caller, granted once |
+
+**If the comparison is against the ARC-403 hook rather than the authwit, it inverts.** AIP-20's `burn_private` calls `_call_auth_private(from, amount)`, so a fork token wired to [`CMTATAztecAuth`](./auth/README.md) makes a cross-contract call to the authorization contract on every burn — `authorize_private` measures 14,650 gates — on top of the token's own work, and adds a second deployed contract whose pointer is immutable. This token screens freeze and lists inline, in the same circuit. For the issuer's own burn the standard-plus-hook route has more moving parts, not fewer.
+
+One asymmetry does favour AIP-20. This token screens the **account** of a burn, and when the issuer burns its own tokens the account is the issuer, so an issuer that were itself frozen or outside an active whitelist could not burn its own treasury. A plain AIP-20 token with no hook applies no such check.
+
+Whether that is a defect or the intended behaviour is a policy question: an issuer subject to its own enforcement role is defensible. It is a foot-gun either way, and worth deciding deliberately rather than discovering.
+
 
 ## Glossary
 
