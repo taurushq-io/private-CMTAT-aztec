@@ -95,6 +95,10 @@ yarn test:js             # Jest e2e tests in src/test/e2e/, requires: aztec star
   - The bridges publish a `Transfer` naming their public party and the `PRIVATE_ADDRESS_MAGIC_VALUE` sentinel for the private one, so the movement is recorded but the private counterparty is not.
   - A commitment completion emits no `Transfer` at all, and cannot: at completion the contract holds the commitment and never the recipient's address, so an event naming an unverifiable recipient would be forgeable by the payer. The issuer reconstructs these from `CommitmentInitialized` plus the commitment-tagged completion log, which the same section already described.
   - Both paths exist only when a token is deployed with `public_side_enabled = true`; nothing changed for a fully private deployment, and no contract code changed at all.
+- Added `doc/audits/tools/v0.5.0/CLAUDE_ANALYSIS.md`, the code-quality review of this release. It is a delta review and says so: the only change to contract or library source since `v0.4.0` is the `VERSION` string, so the 0.4.0 review remains the current analysis of the code.
+  - The bump is **gate-neutral, measured**: all 40 circuits in the 0.4.0 baseline report the same gate count at 0.5.0, compared mechanically rather than by eye.
+  - Three findings against this release's own new code. The new `setup_and_more_addresses_public_side` helper duplicates its sibling and drops the `with_account_contracts` parameter; the Debt and Light suites assert `total_supply` nowhere at all, and Light compiles its own shorter bridge circuits, so nothing would catch a supply error reachable only through it; and the mechanism that compensates for the security review's F-1 — the issuer's `CommitmentInitialized` event — has no test, so removing its delivery would leave the whole suite green.
+  - The checks that examine unchanged source were not re-run, and the report lists which and why rather than implying a full pass.
 - Added `doc/audits/tools/v0.4.0/CLAUDE_AUDIT.md`, the tool-assisted security review of the 0.4.0 release. The review is described in the 0.4.0 section below; the file itself landed after the tag.
 
 ## 0.4.0 — 2026-09-29
