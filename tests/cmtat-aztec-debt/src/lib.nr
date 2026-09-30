@@ -4,3 +4,4 @@ mod test_debt;
 mod smoke;
 mod test_hybrid;
 mod test_selectors;
+mod test_invariants;

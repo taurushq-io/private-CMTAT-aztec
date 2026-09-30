@@ -21,7 +21,7 @@ $ git diff v0.4.0..HEAD --stat -- contracts/ lib/ test-helpers/
 |---|---|---|
 | A-1 | The `0.4.0 → 0.5.0` bump is gate-neutral across all 40 measured circuits | ⬜ leave — verified, nothing to change |
 | D-1 | `setup_and_more_addresses_public_side` duplicates its sibling and drops a parameter | ⬜ open — one-line fix, proposed below |
-| K-1 | Debt and Light assert `total_supply` nowhere at all | ⬜ open — predates 0.5.0 |
+| K-1 | Debt and Light assert `total_supply` nowhere at all | ✅ fixed — one twin per variant, both passing |
 | K-2 | The mechanism that compensates for audit finding F-1 has no test | ⬜ open — the strongest finding here |
 | K-3 | The new log-count assertions are framework-version-brittle | ⬜ leave — house style, cost recorded |
 
@@ -30,7 +30,6 @@ $ git diff v0.4.0..HEAD --stat -- contracts/ lib/ test-helpers/
 | ID | Item | Why it is still open |
 |---|---|---|
 | K-2 | No test asserts the issuer receives `CommitmentInitialized` | Found while reviewing this release's own tests; a mechanical fix, not yet written |
-| K-1 | No supply assertion in the Debt or Light suites | Needs a decision on how much the variant suites should mirror the base one |
 | — | Mutations M-3 … M-5 from the 0.4.0 security review | Three five-contract compile cycles; carried forward |
 | — | `doc/cmtat-assessment/README.md` still reports `0.4.0` | Correct until the assessment is redone against 0.5.0 |
 
@@ -108,8 +107,8 @@ The claim holds. No mismatch found in the `doc/README.md` text this release chan
 | Contract | Tests | Entry points tested | Asserts with a negative test | Mutants survived |
 |---|---:|---|---|---|
 | `CMTATAztec` | 146 | all 17 private, all public getters | 18 of 19 distinct messages | 0 of 2 run |
-| `CMTATAztecDebt` | 12 | smoke + selectors + debt/credit events | shares the library's asserts | not run |
-| `CMTATAztecLight` | 7 | smoke + selectors + hybrid | shares the library's asserts | not run |
+| `CMTATAztecDebt` | 13 | smoke + selectors + debt/credit events | shares the library's asserts | not run |
+| `CMTATAztecLight` | 8 | smoke + selectors + hybrid | shares the library's asserts | not run |
 | `CMTATAztecAuth` / `MultiToken` | 38 / 37 | hook, lists, admin, delay | — | not run |
 
 The single unmatched assert message across the codebase is `Storage slot 0 not allowed…`, a `StateVariable::new` guard no entry point can reach — untestable rather than untested. Two mutations were run during the 0.4.0 security review and both were killed; three remain.
@@ -132,7 +131,9 @@ Neither variant's suite asserts supply anywhere, per-operation or in aggregate. 
 
 A supply error reachable only through Light's shorter chain would be caught by nothing.
 
-**Verdict: decide.** The question is how far the variant suites should mirror the base one — a standing choice this project has made deliberately elsewhere (`test_selectors.nr` exists precisely because declarations are the one thing the shared module cannot cover). One `supply_equals_the_sum_of_every_balance` twin in the Light crate is the smallest useful answer.
+**Verdict: implemented.** A `supply_equals_the_sum_of_every_balance_after_a_mixed_sequence` twin now exists in both variant crates, each stating in its header why it is there: Light because its chains are distinct code, Debt because supply was asserted nowhere in that crate although the arithmetic is shared. Both pass.
+
+The recommendation in D-1 was deliberately *not* followed here: `setup_and_more_addresses` is unused in both variant crates, so adding a `public_side_enabled` twin of it would have introduced dead code to close a duplication finding. The tests follow each crate's own pattern instead — `setup_with_public_side(false, true)` plus one inline `create_light_account()`, as their `test_hybrid.nr` already does — so neither new file repeats the copy-paste D-1 describes.
 
 ### K-2. The mechanism that compensates for F-1 has no test
 

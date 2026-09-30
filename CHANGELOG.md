@@ -87,7 +87,8 @@ yarn test:js             # Jest e2e tests in src/test/e2e/, requires: aztec star
   - Two tests pin the reach of the `Transfer` event stream by counting what a transaction leaves. A warm `transfer_private_to_private` leaves two notes and four private logs — one per note plus the event's two constrained deliveries, to the recipient and to the issuer. A `transfer_private_to_commitment` of the same value leaves the same two notes and **two** logs: no event at all, because at completion the contract holds the commitment and never the recipient's address. Either path gaining or losing an event now fails the suite.
   - A balance-level replay of the event stream is not expressible in the TXE, which cannot read a private event's content, so these count logs instead; the reasoning is in the tests' own comments.
   - New helper `setup_and_more_addresses_public_side` in the base crate's `utils.nr`, for tests needing several holders with the public side on.
-- The Noir suite is 242 tests (146 base, 12 Debt, 7 Light, 38 and 37 authorization) plus 2 library tests.
+- The Debt and Light suites gained the supply invariant, which neither asserted anywhere before — not in aggregate and not per operation (0.5.0 review, K-1). Light is the variant that needed it: `FreezeOnly` screening and no validation module mean its value-moving chains compile to their own shorter circuits, so a supply error reachable only through them had nothing to catch it. Debt shares the token module byte for byte, and its twin exists because the crate asserted supply nowhere at all.
+- The Noir suite is 244 tests (146 base, 13 Debt, 8 Light, 38 and 37 authorization) plus 2 library tests.
 
 ### Documentation
 
