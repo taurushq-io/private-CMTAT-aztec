@@ -4,7 +4,7 @@
 
 **Codebase.** `private-CMTAT-aztec` at `0.4.0` — the five contracts `CMTATAztec`, `CMTATAztecDebt`, `CMTATAztecLight`, `CMTATAztecAuth` and `CMTATAztecAuthMultiToken`, and the shared library `cmtat_aztec_lib`. Built against **Aztec / aztec-nr v5.2.0** with CLI `5.2.0`, verified consistent across `lib/Nargo.toml`, `package.json` and the installed toolchain before any review began.
 
-**Audited artifacts.** The review was performed against compiled artifacts, not source alone: every externally callable function was enumerated from `target/*.json` with `aztec inspect-contract`, so the surface reviewed is the one that ships rather than the one the source appears to declare. The base artifact's contract class identifier was `0x22f0b218eb7f21905705cbaf2e82f0610e794ea31ed4a247fcf7bac8d3464f73`, which reproduces from this release's sources with `yarn compile`.
+**Audited artifacts.** The review was performed against compiled artifacts, not source alone: every externally callable function was enumerated from `target/*.json` with `aztec inspect-contract`, so the surface reviewed is the one that ships rather than the one the source appears to declare. The base artifact's contract class identifier was `0x22f0b218eb7f21905705cbaf2e82f0610e794ea31ed4a247fcf7bac8d3464f73`, which reproduces from the `v0.4.0` tag with `yarn compile`. It is specific to that release: `VERSION` is compiled into the bytecode, so 0.5.0 carries a different class identifier although no circuit changed size.
 
 **Severity framework.** Code4rena (Critical / High / Medium / Low / Info).
 

@@ -124,3 +124,30 @@ unconstrained fn a_commitment_payment_leaves_no_transfer_event_in_the_stream() {
     assert_eq(effects.private_logs.len(), 2, "the two notes, and no Transfer event");
     assert_eq(effects.nullifiers.len(), 4, "includes the commitment-paid nullifier of K-6");
 }
+
+// --- K-2: the mechanism that replaces the Transfer event on the commitment path ------------------
+
+/// `doc/README.md` says the issuer reconstructs a commitment payment from the constrained
+/// `CommitmentInitialized { to, completer, commitment }` event it receives when the commitment is
+/// opened, plus the commitment-tagged completion log. The two tests above pin the *absence* of a
+/// `Transfer` on that path; this one pins the *presence* of the substitute, so that dropping the
+/// issuer's delivery from `_open_commitment` cannot leave the suite green.
+#[test]
+unconstrained fn opening_a_commitment_delivers_the_issuer_its_record() {
+    let (env, token, issuer, user) = utils::setup_with_public_side(false, true);
+    // Warm-up: first contact between `user` and the issuer creates the tagging handshakes, which
+    // would otherwise land in the measured transaction (see `test_issuer_records.nr`).
+    let _ = env.call_private(user, Token::at(token).initialize_transfer_commitment(user, issuer));
+    env.mine_block();
+    let _ = env.call_private(user, Token::at(token).initialize_transfer_commitment(user, issuer));
+    let effects = get_last_tx_effects();
+    // Measured. No note hash: a partial note's validity commitment is a nullifier, not a note, which
+    // is why `doc/README.md` lists this entry point as publishing nothing.
+    assert_eq(effects.note_hashes.len(), 0, "a partial note creates no note hash");
+    // Two logs, and this is the assertion K-2 exists for: the partial note delivered to `to`, and the
+    // `CommitmentInitialized` event delivered constrained to the issuer. Drop the `deliver_to` in
+    // `_open_commitment` and this becomes 1, so the issuer's only record of who a commitment belongs
+    // to cannot be removed while the suite stays green.
+    assert_eq(effects.private_logs.len(), 2, "the partial note, and the issuer's record");
+    assert_eq(effects.nullifiers.len(), 4, "the validity commitment, the event and its delivery");
+}

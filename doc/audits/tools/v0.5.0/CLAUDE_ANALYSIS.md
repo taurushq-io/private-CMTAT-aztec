@@ -22,14 +22,13 @@ $ git diff v0.4.0..HEAD --stat -- contracts/ lib/ test-helpers/
 | A-1 | The `0.4.0 → 0.5.0` bump is gate-neutral across all 40 measured circuits | ⬜ leave — verified, nothing to change |
 | D-1 | `setup_and_more_addresses_public_side` duplicates its sibling and drops a parameter | ⬜ open — one-line fix, proposed below |
 | K-1 | Debt and Light assert `total_supply` nowhere at all | ✅ fixed — one twin per variant, both passing |
-| K-2 | The mechanism that compensates for audit finding F-1 has no test | ⬜ open — the strongest finding here |
+| K-2 | The mechanism that compensates for audit finding F-1 has no test | ✅ fixed — test added and mutation-verified |
 | K-3 | The new log-count assertions are framework-version-brittle | ⬜ leave — house style, cost recorded |
 
 ## Outstanding
 
 | ID | Item | Why it is still open |
 |---|---|---|
-| K-2 | No test asserts the issuer receives `CommitmentInitialized` | Found while reviewing this release's own tests; a mechanical fix, not yet written |
 | — | Mutations M-3 … M-5 from the 0.4.0 security review | Three five-contract compile cycles; carried forward |
 | — | `doc/cmtat-assessment/README.md` still reports `0.4.0` | Correct until the assessment is redone against 0.5.0 |
 
@@ -49,7 +48,9 @@ Spot values, unchanged in all three token variants: `transfer_private_to_private
 
 `VERSION` is a compile-time constant returned through `FieldCompressedString`, so the expectation was that no circuit would move. Expectations about circuit cost are exactly what this review is not allowed to trade on, so it was measured: every one of the 40 functions in the 0.4.0 table reports the same gate count at 0.5.0.
 
-**Verdict: leave.** The value is worth recording rather than assuming, because it establishes that the release changed no cost and that any future movement in these numbers came from something else.
+**Gate-neutral is not identity-neutral, and the distinction matters for deployment.** `VERSION` is compiled into the bytecode, so while no circuit changed size, the base contract's class identifier moved from `0x22f0b218eb7f21905705cbaf2e82f0610e794ea31ed4a247fcf7bac8d3464f73` at `v0.4.0` to `0x2b3523053c8b920f28dcd31801deb77f1637160395015df34574a6775f20054a` at 0.5.0. A 0.5.0 deployment is therefore a different contract class from a 0.4.0 one even though every circuit is identical — which is the behaviour the project wants, since `version()` exists precisely so that releases are distinguishable, and it is why the class ID and `version()` are described as complementary in `doc/README.md`.
+
+**Verdict: leave.** The value is worth recording rather than assuming, because it establishes that the release changed no cost, and that any future movement in these numbers came from something else.
 
 ## D. Duplication
 
@@ -106,7 +107,7 @@ The claim holds. No mismatch found in the `doc/README.md` text this release chan
 
 | Contract | Tests | Entry points tested | Asserts with a negative test | Mutants survived |
 |---|---:|---|---|---|
-| `CMTATAztec` | 146 | all 17 private, all public getters | 18 of 19 distinct messages | 0 of 2 run |
+| `CMTATAztec` | 147 | all 17 private, all public getters | 18 of 19 distinct messages | 0 of 2 run |
 | `CMTATAztecDebt` | 13 | smoke + selectors + debt/credit events | shares the library's asserts | not run |
 | `CMTATAztecLight` | 8 | smoke + selectors + hybrid | shares the library's asserts | not run |
 | `CMTATAztecAuth` / `MultiToken` | 38 / 37 | hook, lists, admin, delay | — | not run |
@@ -148,7 +149,18 @@ One hit, and it is a comment. So the release pins the absence of the primary mec
 
 The shape already exists in the repository: `test_issuer_records.nr` counts what an event leaves in a transaction, and `test_issuer_copies.nr` reads offchain messages from a second party's view. Either is enough to pin this.
 
-**Verdict: implement.** This is the most valuable test this release could still gain, and it is mechanical.
+**Verdict: implemented, and verified by mutation rather than asserted.** `opening_a_commitment_delivers_the_issuer_its_record` pins what the transaction leaves: **0 note hashes** — a partial note's validity commitment is a nullifier, not a note, which is why the specification lists this entry point as publishing nothing — **2 private logs**, the partial note to `to` and the `CommitmentInitialized` event to the issuer, and 4 nullifiers.
+
+The two logs are the point: one of them *is* the record K-2 says is unprotected. Replacing the `deliver_to(issuer, …)` in `_open_commitment` with `let _ = issuer;` in a throwaway worktree makes exactly this test fail, with its own message:
+
+```
+test_invariants::opening_a_commitment_delivers_the_issuer_its_record ... FAIL
+error: Assertion failed: the partial note, and the issuer's record
+```
+
+Only that test failed — `a_recipient_frozen_after_opening_a_commitment_is_still_paid` still passed on the mutated build — so the test discriminates rather than tripping on any change to the path.
+
+**What it does not cover.** It asserts the record was *delivered*, not that its three fields are right, because a test cannot read a private event's content (`discover_event` is `pub(crate)`). It catches a deleted delivery; it would not catch a corrupted payload. It also inherits K-3's brittleness: these three numbers need re-measuring at the next Aztec bump, not relaxing to inequalities.
 
 ### K-3. The new count assertions are framework-brittle
 
