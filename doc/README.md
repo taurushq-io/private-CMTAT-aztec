@@ -597,7 +597,7 @@ Seven entry points carry the exact names and parameter types of the AIP-20 `Toke
 
 This is a **partial profile, not conformance**. Aztec has no interface detection, so the gaps show up at the first call rather than at discovery:
 
-- `burn(account, amount, authwit_nonce)` deliberately keeps its own name and selector. AIP-20's `burn_private` is holder-authorised; CMTAT's burn is redemption, an issuer act gated by `BURNER_ROLE` on top of the holder's consent. A wallet calling `0xc282ed79` as a self-burn would fail with a role error it cannot anticipate.
+- `burn(account, amount, authwit_nonce)` deliberately keeps its own name and selector. AIP-20's `burn_private` is holder-authorised; CMTAT's burn is redemption, an issuer act gated by `BURNER_ROLE` on top of the holder's consent. A wallet calling `0xc282ed79` — the selector of that `burn_private`, which the standard defines as a holder-authorised self-burn — would call it as exactly that and fail with a role error it cannot anticipate.
 - The four private/public bridges, `initialize_transfer_commitment` and `balance_of_public` are present since 0.4.0 but **behind the `public_side_enabled` deployment flag** — see [Private/public bridges](#privatepublic-bridges). Still absent: `transfer_public_to_public`, `transfer_public_to_commitment`, `mint_to_public`, `mint_to_commitment`, `burn_public` and `get_auth_contract`.
 - The constructor differs, so deployment tooling differs regardless.
 - `transfer_batch`, `mint_batch`, `burn_batch` and `cancel_authwit` are this project's extras with no AIP-20 counterpart.
@@ -669,6 +669,8 @@ A freshly deployed token is unusable for an hour of chain time, because every mi
 
 
 ## Gas sponsorship
+
+**What Fee Juice is.** Every Aztec transaction pays for its own computation in **Fee Juice**, the protocol's native fee asset: bridged from Ethereum through the enshrined `FeeJuicePortal`, held as a *public* balance, and **non-transferable** — it can be spent on fees and on nothing else, and it cannot be sent from one account to another. Those two properties are what make the rest of this section matter: an issuer cannot simply top up its holders the way it would subsidise gas with an ERC-20, and a holder who pays its own fee publishes that it transacted, because a public balance visibly decreases.
 
 **A holder does not need Fee Juice to use this token, and the token carries no code to make that true.** On Aztec the fee payer is chosen per transaction, not configured in the contract: any transaction may nominate a **fee-paying contract** (FPC) with `set_as_fee_payer()` during its non-revertible setup phase. There is no trusted forwarder, no `_msgSender()` override and no relayer to trust — which is why this implementation has no equivalent of CMTAT's ERC-2771 module and does not need one. The equivalency assessment answers the *fee payer / gasless* row `n.a.` for exactly this reason: the criterion asks for a module the protocol makes redundant.
 
