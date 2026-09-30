@@ -712,7 +712,7 @@ This repository already uses the second: `src/utils/sponsored_fpc.ts` supplies t
 
 - **Validation module enhancements**:
   - The limitation regarding `DelayedPublicMutable` delay means changes to the whitelist/blacklist have a delay (minutes to hours) before reflecting on the blockchain.
-  - A sanction-list mode is not provided, for lack of an on-chain list to check against — there is no Aztec equivalent of the Chainalysis oracle used on Ethereum.
+  - A sanction-list mode is not provided, for lack of an on-chain list to check against — there is no Aztec equivalent of the [Chainalysis oracle](https://go.chainalysis.com/chainalysis-oracle-docs.html) used on Ethereum.
 
 - **Audit capabilities**:
   - Users may, in the future, be able to arbitrarly share to third-parties a shareable key for audit purposes.
@@ -781,7 +781,7 @@ This repository already uses the second: `src/utils/sponsored_fpc.ts` supplies t
 | Roles | 11, numeric, in public state | 14, named, OpenZeppelin `AccessControl` |
 | Deployment variants | 3 token variants (`CMTATAztec`, `CMTATAztecDebt`, `CMTATAztecLight`), plus 2 ARC-403 authorization contracts | 4 (Lite, standard, RuleEngine, Whitelist) |
 
-Forced transfer is the sharpest divide, and the strongest argument for the FHE variant in a regulated deployment: CMTAT requires it for regulatory recovery, it is a hard cryptographic impossibility here, and it is an ordinary function under FHE because the contract can compute on ciphertext it does not own.
+Forced transfer is the sharpest divide, and the strongest argument for the FHE variant in a regulated deployment: CMTAT provides it for regulatory recovery — as an optional capability, criterion 22 of the equivalency assessment, not a mandatory one — it is a hard cryptographic impossibility here, and it is an ordinary function under FHE because the contract can compute on ciphertext it does not own.
 
 ### Issuer auditability
 
@@ -796,7 +796,7 @@ Forced transfer is the sharpest divide, and the strongest argument for the FHE v
 
 | Axis | private-CMTAT-aztec | CMTAT-Confidential |
 |---|---|---|
-| Security audit | **None** — see the disclaimer at the top of this file | **OpenZeppelin audit of v1.0.0**: 8 findings, none critical or high, 1 medium (fixed) |
+| Security audit | **None** — see the disclaimer at the top of this file | **OpenZeppelin audit of v1.0.0** |
 | Audit scope caveat | — | The audit excluded the CMTAT library itself (pinned to an unaudited release candidate), the RuleEngine, the OpenZeppelin confidential contracts and the FHEVM |
 | Network status | No Aztec mainnet yet, and the API still changes heavily between majors | Deployable on EVM mainnet wherever the Zama protocol is available |
 | Batching | Capped at `MAX_ADDR_PER_CALL` by the per-call protocol limits | Ordinary Solidity loops, bounded only by gas |
@@ -812,8 +812,8 @@ Note that the two disagree about total supply in opposite directions: this imple
 ## Limitations
 
 - **Issuer's view of user balances**: [SEE](#issuers-view-of-transactions-and-notes)
-- **Force transfer requirement**: [SEE](#transfer-private-specifications)
-  - According to Swiss law, the issuer should be able to force the transfer of notes.
+- **Forced transfer**: [SEE](#transfer-private-specifications)
+  - Depending on the jurisdiction, a forced-transfer function may be required — for a court-ordered transfer, a lost-key recovery or an inheritance. This implementation cannot offer one.
   - **Current limitation**: This is not possible in Aztec as it would require the issuer to nullify a user's notes without consent.
   - **Workaround**:
     - Freeze the account.

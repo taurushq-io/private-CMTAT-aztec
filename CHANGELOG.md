@@ -92,6 +92,9 @@ yarn test:js             # Jest e2e tests in src/test/e2e/, requires: aztec star
 
 ### Documentation
 
+- Two overstated claims about forced transfer corrected in `doc/README.md` and `doc/technical/cmtat-vs-aip20.md`.
+  - The limitations list asserted that "according to Swiss law, the issuer should be able to force the transfer of notes". That is not the case, and the claim is replaced by the jurisdiction-neutral statement that a forced-transfer function may be required depending on the jurisdiction — for a court order, a lost key or an inheritance — followed as before by the reason this implementation cannot offer one.
+  - The CMTAT-Confidential comparison said "CMTAT requires it for regulatory recovery", and the AIP-20 comparison called `forcedTransfer` "mandatory-adjacent". Both contradicted this repository's own equivalency assessment, where forced transfer is criterion 22 under **Optional**. Both now say optional and cite the criterion. The capability's importance to a regulated deployment is unchanged; what was wrong was calling it mandatory.
 - `doc/README.md` no longer presents the `Transfer` event stream as covering every movement without qualification. The claim is now scoped to the fully private token, where it holds, and the two public-side exceptions are stated.
   - The bridges publish a `Transfer` naming their public party and the `PRIVATE_ADDRESS_MAGIC_VALUE` sentinel for the private one, so the movement is recorded but the private counterparty is not.
   - A commitment completion emits no `Transfer` at all, and cannot: at completion the contract holds the commitment and never the recipient's address, so an event naming an unverifiable recipient would be forgeable by the payer. The issuer reconstructs these from `CommitmentInitialized` plus the commitment-tagged completion log, which the same section already described.
