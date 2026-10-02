@@ -1,0 +1,12 @@
+[package]
+name = "cmtat_aztec"
+type = "contract"
+authors = [ "" ]
+compiler_version = ">=0.18.0"
+
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.2.0", directory = "aztec" }
+compressed_string = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.2.0", directory = "compressed-string" }
+uint_note = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.2.0", directory = "uint-note" }
+balance_set = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.2.0", directory = "balance-set" }
+cmtat_aztec_lib = { path = "../../lib" }

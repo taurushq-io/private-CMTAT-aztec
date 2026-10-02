@@ -1,30 +1,34 @@
-import { createLogger, Fr, AccountManager } from "@aztec/aztec.js";
-import type { PXE, Logger } from "@aztec/aztec.js";
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
-import { getSponsoredFPCInstance } from "./sponsored_fpc.js";
-import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
+import { NO_FROM } from '@aztec/aztec.js/account';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
-export async function deploySchnorrAccount(pxe: PXE): Promise<AccountManager> {
+import { getSponsoredPaymentMethod } from './sponsored_fpc.js';
 
-    let logger: Logger;
-    logger = createLogger('aztec:deploySchnorrAccount');
+/**
+ * Creates a Schnorr account with a random secret, salt and signing key, and deploys it paying with the
+ * sponsored FPC. Returns the deployed account's address.
+ */
+export async function deploySchnorrAccount(wallet: EmbeddedWallet): Promise<AztecAddress> {
+    const logger = createLogger('aztec:deploySchnorrAccount');
 
-    const sponsoredFPC = await getSponsoredFPCInstance();
-    await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
-    const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
+    const sponsoredPaymentMethod = await getSponsoredPaymentMethod(wallet);
 
-    let secretKey = Fr.random();
-    logger.info(`Generated random secret key: ${secretKey.toString()}`);
-    let salt = Fr.random();
+    const secret = Fr.random();
+    logger.info(`Generated random secret key: ${secret.toString()}`);
+    const salt = Fr.random();
     logger.info(`Generated random salt: ${salt.toString()}`);
+    const signingKey = GrumpkinScalar.random();
 
-    let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
-    await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout: 120000});
-    let wallet = await schnorrAccount.getWallet();
+    const account = await wallet.createSchnorrAccount(secret, salt, signingKey);
 
-    logger.info(`Schnorr account deployed at: ${wallet.getAddress()}`);
+    // A brand new account cannot pay for its own deployment, so it is sent without account contract
+    // mediation and the FPC picks up the fee.
+    const deployMethod = await account.getDeployMethod();
+    await deployMethod.send({ from: NO_FROM, fee: { paymentMethod: sponsoredPaymentMethod } });
 
-    return schnorrAccount;
+    logger.info(`Schnorr account deployed at: ${account.address}`);
+
+    return account.address;
 }

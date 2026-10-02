@@ -1,0 +1,12 @@
+[submodule "submodules/CMTAT-equivalency-assessment"]
+	path = submodules/CMTAT-equivalency-assessment
+	url = https://github.com/CMTA/CMTAT-equivalency-assessment
+[submodule "submodules/CMTAT-Confidential"]
+	path = submodules/CMTAT-Confidential
+	url = https://github.com/CMTA/CMTAT-Confidential
+[submodule "submodules/CMTAT"]
+	path = submodules/CMTAT
+	url = https://github.com/CMTA/CMTAT
+[submodule "submodules/aztec-standards"]
+	path = submodules/aztec-standards
+	url = https://github.com/CMTA/aztec-standards

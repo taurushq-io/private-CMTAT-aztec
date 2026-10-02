@@ -1,0 +1,27 @@
+@startuml
+title Public entry points — authorize_public runs every rule synchronously
+
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 260
+
+actor Holder
+box "Sequencer — public phase" #FFF8E8
+participant "Token / MultiToken\ntransfer_public_to_public, burn_public, ..." as Tok
+participant "CMTATAztecAuth*\nauthorize_public(from, [id,] amount, selector)" as Auth
+participant "Public state (current)" as PS
+end box
+
+Holder -> Tok : transfer_public_to_public(from, to, amount, nonce)
+Tok -> Auth : self.call(auth_contract.authorize_public(from, amount, selector))
+Auth -> PS : is_frozen(from)
+Auth -> PS : list entry of from, operations flag
+Auth -> PS : is_paused / is_deactivated
+Auth -> Auth : assert not frozen\nassert list allows from\nis_burn ? assert not deactivated : assert not paused
+alt refused
+  Auth --> Holder : revert
+else allowed
+  Auth --> Tok : ok
+  Tok -> Tok : move the public balances
+end
+
+@enduml

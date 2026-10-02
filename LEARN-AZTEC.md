@@ -1,420 +1,416 @@
+# Learning Aztec
 
-This page has been written while studying the Aztec blockchain. It is kept here as it might be useful for developpers to have a condensed documentation. However, it might not be kept up to date.
+Condensed notes written while building this repository. They are kept here because a short, opinionated summary of the Aztec model is easier to start from than the full documentation.
 
-## Table of Contents
+> **Scope and freshness.** Rewritten against **Aztec v5.2.0** (toolchain, `aztec-nr` and `@aztec/*` packages), the version this repository pins. Aztec changes fast and breaks APIs between releases: treat everything below as correct for 5.2.0 and check the [official documentation](https://docs.aztec.network/) and the [migration notes](https://docs.aztec.network/developers/docs/resources/migration_notes) for anything newer. A [terminology section](#what-changed-since-the-early-notes) at the end maps the names used in older tutorials to the current ones.
 
-- [Aztec and Noir Concepts](#aztec-and-noir-concepts)
-  - [Users Addresses and Keys](#users-addresses-and-keys)
-  - [Authentication Witness](#authentication-witness)
-  - [Transaction Flow and Execution Environment](#transaction-flow-and-execution-environment)
-  - [Private State and Functions, Shields, Notes](#private-state-and-functions-shields-notes)
-    - [Private State Storage Management](#private-state-storage-management)
-    - [Private Function Execution](#private-function-execution)
-    - [Capabilities of Private Functions](#capabilities-of-private-functions)
-    - [Private Execution Environment](#private-execution-environment)
-    - [Note](#note)
-    - [Note Hash/Commitment](#note-hashcommitment)
-    - [Nullifier](#nullifier)
-  - [Public State and Functions](#public-state-and-functions)
-    - [Public Function Execution](#public-function-execution)
-  - [Unconstrained Functions](#unconstrained-functions)
-  - [Fees Market, Paymaster, and Legal](#fees-market-paymaster-and-legal)
-  - [Shared Mutable and Proxy](#shared-mutable-and-proxy)
-  - [Aztec Limitations](#aztec-limitations)
-    - [Note Encryption and Decryption Burden](#note-encryption-and-decryption-burden)
-  - [Crosschain Communication](#crosschain-communication)
-    - [L2 and L1 Token Interaction](#l2-and-l1-token-interaction)
-      - [L1 to L2 Private Token Transfer](#l1-to-l2-private-token-transfer)
-  - [Setup](#setup)
-    - [Development Environment](#development-environment)
-    - [Sandbox Testing](#sandbox-testing)
-  - [Examples](#examples)
+## Table of contents
 
-## Aztec and Noir Concepts
+- [The model in one page](#the-model-in-one-page)
+- [Accounts, addresses and keys](#accounts-addresses-and-keys)
+- [Authentication witnesses](#authentication-witnesses)
+- [Contract structure and function types](#contract-structure-and-function-types)
+- [Calling between contexts](#calling-between-contexts)
+- [Public state](#public-state)
+- [Private state: notes and nullifiers](#private-state-notes-and-nullifiers)
+- [Storage slots and siloing](#storage-slots-and-siloing)
+- [Note delivery](#note-delivery)
+- [Note discovery: tagging](#note-discovery-tagging)
+- [Events and logs](#events-and-logs)
+- [Transaction lifecycle](#transaction-lifecycle)
+- [Fees](#fees)
+- [Ethereum <-> Aztec messaging](#ethereum---aztec-messaging)
+- [Limits and gotchas](#limits-and-gotchas)
+- [Proving cost](#proving-cost)
+- [Tooling and workflow](#tooling-and-workflow)
+- [What changed since the early notes](#what-changed-since-the-early-notes)
+- [Questions and answers](#questions-and-answers)
+- [Further reading](#further-reading)
 
-### Users Addresses and Keys
+## The model in one page
 
-There are **four keys** for each account in Aztec:
+Aztec is a privacy-focused Layer 2 on Ethereum. A contract has two halves:
 
-- **Nullifier Key Pair**: Used for note nullifier computation, comprising the master nullifier secret key (`nsk_m`) and master nullifier public key (`Npk_m`).
-  - Rotating nullifier keys requires the nullifier public key, or at least an identifier of it, to be stored as part of the note.
-  - `nsk_m` **must not** enter an app circuit.
-  - `nsk_m` **may** enter the kernel circuit.
-  - `Npk_m = derive_public_key(nsk_m)`
+- a **private** half, executed on the user's own device inside a zero-knowledge proof, operating on encrypted UTXOs called **notes**;
+- a **public** half, executed by the sequencer in an EVM-like environment (the AVM), operating on a key-value public state tree.
 
-- **Incoming Viewing Key Pair**: Used to encrypt a note for the recipient, consisting of the master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
-  - `ivsk_m` **must not** enter an app circuit.
-  - `Ivpk_m = derive_public_key(ivsk_m)`
+What the network sees of the private half is commitments: note hashes, nullifiers and encrypted logs. It never sees the note contents, the parties, or the amounts — unless the contract publishes them itself.
 
-- **Outgoing Viewing Key Pair**: Used to encrypt a note for the sender, includes the master outgoing viewing secret key (`ovsk_m`) and master outgoing viewing public key (`Ovpk_m`).
-  - `ovsk_m` **must not** enter an app circuit.
-  - `ovsk_m` **may** enter the kernel circuit.
-  - `Ovpk_m = derive_public_key(ovsk_m)`
+Consequences that drive every design decision:
 
-- **Tagging Key Pair**: Used to compute tags in a tagging note discovery scheme, comprising the master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
-  - `tsk_m` **must not** enter an app circuit.
-  - `Tpk_m = derive_public_key(tsk_m)`
+- **Private execution is client-side and asynchronous.** It runs against a *historical* snapshot (the transaction's *anchor block*), because the user's client cannot know what the sequencer will do next. Therefore private functions **cannot read current public state**.
+- **Private state is append-only.** You never update a note; you nullify it and create a new one. Deleting a note means pushing its nullifier.
+- **Private can call public, not the other way round.** A private function can *enqueue* a public call, whose result is unavailable during private execution. Public functions cannot call private ones.
+- **A public revert reverts the whole transaction**, including the private side effects — but fees already committed in the setup phase are still paid.
 
-- **Signing Key Pair**: As there is account abstraction, this will/must be implemented by the wallet provider.
+## Accounts, addresses and keys
 
-### Authentication Witness
+Aztec has **native account abstraction**: an account *is* a contract, and how it authorises transactions is up to that contract. Beside that, the protocol mandates a set of key pairs, all on the **Grumpkin** curve. Grumpkin's base field is BN254's scalar field, so its arithmetic is native inside a proof — which is why every key the framework must handle in-circuit lives there.
 
-A scheme for authentication actions on Aztec allows users to permit third parties (e.g., protocols or other users) to execute an action on their behalf. It is defined for a specific action. For example, allowing an app to transfer funds on your behalf.
+| Key pair | Purpose at 5.2.0 | Managed by |
+|---|---|---|
+| Nullifier (`Npk_m`, `nhk_m`) | Computing nullifiers, i.e. spending notes | PXE |
+| Incoming viewing (`Ivpk_m`, `ivsk`) | Encrypting / decrypting notes sent to the account | PXE |
+| Outgoing viewing (`Ovpk_m`) | **Reserved, unused** | PXE |
+| Tagging (`Tpk_m`) | **Reserved, unused** | PXE |
+| Message-signing (`Mspk_m`) | **Reserved** (future protocol-level message signing) | Wallet |
+| Fallback (`Fbpk_m`) | **Reserved** (future account recovery) | Wallet |
+| Signing key | Transaction authorisation | Account contract — anything: Schnorr, ECDSA, passkeys, multisig, time locks |
 
-- **Private Context**: The authentication witness is created by the user who is making the action.
-  > "I want `Defi_protocol` to send X tokens on my behalf in private."
-  - The user will call `Defi_protocol`'s transfer function, which will call the transfer function of the token. The token's function will check with a private execution oracle call if the user has authorized `Defi_protocol` to send tokens on their behalf.
+Points to remember:
 
-- **Public Context**: Account contracts will (or should) store in the account storage the third-party authorizations made by a user. When a user makes a call through a third party, it will send in a batch the signature (authentication witness) to the account contract.
-  - Account contracts typically implement an entrypoint function that receives the actions to be carried out and an authentication payload.
+- Only `Ivpk_m` is carried as a **curve point**; the other five appear only as hashes. That is deliberate: address derivation needs `Ivpk_m` as a point so that anyone can encrypt to an address without a key registry.
+- Address derivation:
+  ```
+  public_keys_hash = H(npk_m_hash, ivpk_m_hash, ovpk_m_hash, tpk_m_hash, mspk_m_hash, fbpk_m_hash)
+  partial_address  = H(contract_class_id, salted_initialization_hash)
+  pre_address      = H(public_keys_hash, partial_address)
+  address          = (pre_address * G + Ivpk_m).x
+  ```
+  The address is the x-coordinate of a point whose discrete log is `pre_address + ivsk` — the account's **address secret**, and the private half of every Diffie-Hellman the framework performs on the recipient's behalf.
+- The nullifier key is **app-siloed**: `nhk_app = H(nhk_m, contract_address)`. A leak in one application does not spend notes in another. Never derive it by hand; use `context.request_nhk_app(owner_npk_m_hash)` in private, `get_nhk_app(...)` in unconstrained code.
+- **Protocol keys cannot be rotated** — they are baked into the address. Signing keys can, if the account contract allows it.
+- The terminology moved: the old "nullifier secret key" `nsk_m` is now the **nullifier hiding key** `nhk_m`.
 
-### Transaction Flow and Execution Environment
+## Authentication witnesses
 
-1. **Private Functions Execution**: All private functions are executed, generating an execution trace.
-2. **Private Proof Generation**: A proof of correct execution of private functions is generated.
-3. **Public Functions Execution**: All public functions are executed.
-4. **Public Proof Generation**: A proof of correct execution of public functions is generated.
+An *authwit* authorises **one specific action**, not an allowance. It is the mechanism by which a contract acts on a user's behalf.
 
-### Private State and Functions, Shields, Notes
+```
+inner_hash   = H(caller, selector, args_hash)
+message_hash = H(consumer, chain_id, version, inner_hash)
+```
 
-#### Private State Storage Management
+- **Private flow.** The consuming contract makes a *static* call to the caller's account contract, which fetches the witness through an oracle and validates it. Static, so the account cannot re-enter and mutate state during validation.
+- **Public flow.** No oracles are available to the sequencer, so authorisations are written in advance to a shared `AuthRegistry` contract and consumed from it. Setting and consuming in the same transaction cancels out and costs almost nothing.
+- **Replay protection** is a nullifier on the authwit nonce.
+- In a contract you rarely write any of this by hand: annotate the entry point with `#[authorize_once("from", "authwit_nonce")]`, naming the parameter holding the authorising account and the parameter holding the nonce. The macro skips validation when `msg_sender()` is that account (which must then pass nonce `0`).
 
-- **PXE Database Storage** (physically stored in client): Stores encrypted data (notes). UTXO = `enc(data, owner, owner.sk)`. An entry is available if there is no nullifier linked to this entry in the Nullifier Set. Also stores authentication witnesses, deferred notes, and capsules.
-- **Append-Only Hash Notes Tree** (physically stored in global state): Stores hashes of commitments (hashes of the encrypted data). Sometimes referred to as the **data tree** in Aztec documentation.
-- **Append-Only Nullifier Tree** (Nullifier Set, physically stored in global state): To delete notes that have been spent, a matching nullifier is created in the nullifier tree. To create a nullifier for the specific entry, one has to have a nullifier secret key that corresponds to the owner of this specific entry. No nullifier key—no nullifier! Nullifiers are deterministically generated from UTXO inputs and can’t be forged.
-  - **Nullifier**: `enc(UTXO, owner.sk (e.g., nsk_m))`
-  - **Deleting a Private Value**: Emitting the corresponding nullifier.
-  - **Modifying a Private Value**: Emitting a nullifier for the current state variable, generating a new private state, and appending it to the tree.
-  - **Reading Private Values**: Reading data from the data tree and proving that this data is active is done by reading and creating a new nullifier, so that no one knows if data has been read or new data has been written.
+## Contract structure and function types
 
-#### Private Function Execution
+```rust
+use aztec::macros::aztec;
 
-> **Note**: Since a user's PXE doesn't have an up-to-date view of the latest public state, private functions are always executed on some historical snapshot of the network's state. Private functions do not execute on the latest up-to-date public state.
+#[aztec]
+pub contract MyContract {
+    use aztec::macros::storage;
 
-Private functions rely on historical state due to concurrency issues. Execution of private functions is done on the user’s device, away from the sequencer and the network. For example:
+    #[storage]
+    struct Storage<Context> {
+        admin: PublicMutable<AztecAddress, Context>,
+        balances: Owned<PrivateSet<UintNote, Context>, Context>,
+    }
 
-- **Scenario**:
-  - Bob executes a private function based on public state **PS0** and ends up with a new state **PS1**.
-  - In the meantime, Alice writes publicly to **PS0**, updating it to **PS1**.
-  - Bob’s **PS1** cannot be proven as the new state because his **PS1** is not based on the latest state anymore, as Alice has overwritten it.
-  - Bob’s transaction is thus aborted.
-- **Solution**: Private functions read from historical state. Values read from historical state are checked as not nullified.
-
-**Proof of Execution and Correctness** is generated client-side before reaching the mempool:
-
-1. **Compilation**: Private functions are compiled down to **ACIR bytecode**.
-2. **Simulation and Execution**: The PXE simulates and executes the private function on the ACVM client-side, creating a private function circuit and generating needed data, particularly the witnesses needed for proving. The proving is done after execution by the backend prover, called **Barretenberg** in Aztec’s L2.
-3. **Private Kernel Circuit**: Aggregates and verifies functions from the private call stack one by one until there are none left. Builds a proof of transaction execution correctness.
-4. **Transaction Submission**: Private function execution proofs, nullifiers, commitments, and logs are sent to the sequencer (the P2P pool from which transactions are picked by the sequencer) as a transaction object.
-5. **Sequencer Execution**: The sequencer executes, proves, and verifies public functions with the help of a prover and the public kernel circuit, and constructs a block that it passes into the rollup circuit, which creates a final proof. The sequencer updates state trees, UTXOs, and notes/nullifiers.
-6. **L1 Verification**: The proof is verified by a smart contract on L1.
-
-### Capabilities of Private Functions
-
-Private functions can:
-
-- **Privately read from and insert into the private UTXO tree.**
-- **Insert into the Nullifier Set.**
-- **Create proofs from historical data** (coprocessor functionality).
-- **Shield data** (move data from public state to private state).
-- **Call public functions** (but without any return values).
-
-### Private Execution Environment
-
-- **PXE (Client)**: Library for private execution of functions. The client runs the **ACIR**, the **KeyStore**, and the **LMDB** (key-value store) database. The PXE generates proofs of private function execution using the private kernel circuit. **Private inputs never leave the client-side PXE.**
-
-- **PXE Service (Server)**: API for interacting with the network from PXE.
-
-- **ACIR**: Simulates Aztec smart contract function execution and generates the partial witness and the public inputs of the function, as well as collecting all the data (such as created notes, nullifiers, or state changes).
-
-- **LMDB Database**: Stores the data in a key-value store.
-
-- **KeyStore**: Secure storage for private and public keys.
-
-- **Private Kernel Circuit**: Runs on the user’s device.
-
-#### Note
-
-Private variables that hold data, also known as UTXOs.
-
-#### Note Hash/Commitment
-
-A public commitment to some note whose value is hidden by the commitment hash property. The notes or UTXOs in Aztec need to be compressed before they are added to the trees. To do so, we need to hash all the data inside a note using a collision-resistant hash function. Currently, **Pedersen hash** is used.
-
-- **Note Transmission**: A note that is created and nullified during the very same transaction is called **transient**. Such a note is chopped by the private kernel circuit and is never stored in any persistent data tree.
-- **Encrypted Logs**: Communication channel to transmit notes.
-
-#### Nullifier
-
-The nullifier is generated such that, without knowing the decryption key of the owner, an observer cannot link a state record with a nullifier. There is a pattern to disassociate notes and nullifiers, which should always be used.
-
-- **Shield Data**: Move data from public state to private state (e.g., public balance to private balance). Not necessarily the same address.
-- **Unshield Data**: Move data from private state to public state (e.g., private balance to public balance). Public functions can do that if the call was initiated by a private function earlier. Not necessarily the same address.
-
-### Public State and Functions
-
-#### Public storage
-
-**Data Storage Tree**: The key-value store for public contract state is an updatable merkle tree. (Public data also consists of the note hash tree and the nullifier tree). 
-
-**Archive tree** allows us to prove statements about the state at any given block.
-
-#### Public Function Execution
-
-- **Compilation**: Public function code is compiled down to **AVM bytecode** (once).
-- **Execution and Proving**: Two ways of executing and proving:
-  - The sequencer picks up the transaction in the mempool and executes and proves public functions on the AVM. The sequencer must run the AVM.
-  - The proof is done by a third-party prover.
-- **Verification**: Proof is verified by the public kernel circuit.
-- **Rollup**: Proof is then rolled up in the rollup circuit with other proofs and sent to L1 for verification.
-
-**Public Functions**:
-
-- Can read and write public state.
-- Can insert into the UTXO tree for use in private functions.
-- Can broadcast information to everyone (similar to `msg.data` on Ethereum).
-- Can unshield data (move data from private state to public state), if the call was initiated by a private function earlier.
-
-### Unconstrained Functions
-
-Generally, we use unconstrained functions whenever there's something easy to verify but hard to compute within the circuit. They are not constrained by the proving circuit, so if you pass an input that should be private in an unconstrained function, you won’t know and can’t be sure that the input has not been leaked. These functions are not part of the proof; however, you can verify the computation inside a constrained function.
-
-**Example**: Calculating the square root of a number.
-
-```noir
-fn main(in: Field) {
-    out = un_sqrt(in);
-    reconstructed_num = out^2;
-    assert(in == reconstructed_num);
-    out
-}
-
-unconstrained fn un_sqrt(in: Field) -> Field {
-    out = sqrt(in);
-    out
+    #[external("private")]
+    fn do_something(to: AztecAddress, amount: u128) { /* ... */ }
 }
 ```
 
-- **Execution**: Unconstrained functions are compiled down to **Brillig bytecode** and executed on the user device. The bytecode is executed by the PXE on the ACVM.
-- **Usage**: Aztec.nr contracts support developer-defined unconstrained getter functions to help dApps make sense of UTXOs, e.g., `getBalance()`. These functions can be called outside of a transaction context to read private state.
+- **One contract per Noir package**, one `#[storage]` struct per contract, holding *all* state. The `Context` generic parameter is required on every storage struct: it tells each state variable which execution mode it is in, and the compiler hides the methods that mode cannot use (a `PublicMutable::read` simply does not exist in a private function).
+- Everything is reached through `self`: `self.storage`, `self.msg_sender()`, `self.address`, `self.context`, `self.call(...)`, `self.enqueue(...)`, `self.emit(...)`.
 
-### Fees Market, Paymaster, and Legal
+The attributes worth knowing:
 
-- **Fee Payment**: Fee payment is public. Thus, if someone wants to pay fees privately, they will go through a **paymaster**.
-- **Gas/Fee Token**: There will be a gas/fee token that is locked on L2 and will not be transferable. This is due to legal purposes.
-- **Compliance**: Should happen at an application layer, not at the protocol layer. Aztec will provide credibly neutral infrastructure, and it’s up to the developers to build compliant applications.
+| Attribute | Meaning |
+|---|---|
+| `#[external("private")]` | Client-side, proved, operates on notes |
+| `#[external("public")]` | Sequencer-side, EVM-like, operates on public state |
+| `#[external("utility")]` | Unconstrained query, **never part of a transaction**; may read both private and public state and write local PXE state |
+| `#[internal("private")]` / `#[internal("public")]` | Helper, inlined at the call site — not callable from outside |
+| `#[view]` | Cannot modify state (private or public) |
+| `#[initializer]` / `#[noinitcheck]` | Constructor / exempt from the initialisation check |
+| `#[only_self]` | Callable only by the same contract — the counterpart of an enqueued private-to-public call |
+| `#[authorize_once("account", "nonce")]` | Authwit check with replay protection |
+| `#[allow_phase_change]` | Skip the phase check (account entrypoints) |
+| `#[note]` / `#[custom_note]` | Note type, default or hand-written hash/nullifier |
+| `#[event]` | Event type |
 
-### Shared Mutable and Proxy
+A good mental model for a **utility** function is a Solidity `view` reachable only through `eth_call` — except it can also mutate the local PXE (that is how log processing is implemented). Because it is unconstrained and oracle-driven, nothing guarantees the result; what *is* guaranteed is that the bytecode is the contract's, since the address commits to it.
 
-This variable type is used when you want to create a public variable that can be privately modified and read. Private function read/write is different from public read/write because, as mentioned earlier, public functions rely on the latest public state, whereas private functions do not.
+`aztec-nargo expand` prints the contract after macro expansion — the fastest way to see what the framework actually generated.
 
-- **Challenge**: Mutable public state that can be accessed with no contention is hard.
-- **Solution**: To support contract upgrades, we need a way to store what the current implementation is for a given contract such that it can be accessed from a private execution and doesn’t introduce contention between multiple transactions.
-- **Usage**: If the public state is changed infrequently and it is acceptable to have delays when doing so, then shared state is a good solution to this problem.
+## Calling between contexts
 
-### Aztec Limitations
+| From | To | How | Notes |
+|---|---|---|---|
+| private | private | `self.call(...)`, `self.view(...)` | Proved on the user's device; a failed assertion means no transaction is produced at all, so nothing is spent |
+| private | public | `self.enqueue(...)`, `self.enqueue_self._f(...)` | Asynchronous: **no return value**, no side effects visible during private execution |
+| private | public, hiding the caller | `self.enqueue_incognito(...)` | The called function must use `maybe_msg_sender()` |
+| public | public | `self.call(...)` / static call | As on the EVM |
+| public | private | — | Impossible |
+| private or utility | utility | `self.call(...)` | From private it runs as unconstrained code; crossing a contract boundary needs wallet authorisation |
 
-#### Note Encryption and Decryption Burden
+Two privacy traps on the private-to-public edge:
 
-One of the functions of the PXE is constantly loading encrypted logs from the AztecNode and decrypting them. When new encrypted logs are obtained, the PXE will try to decrypt them using the private encryption key of all the accounts registered inside PXE.
+- `enqueue` sets `msg_sender` to the private caller's address, **publicly**. Use `enqueue_incognito` when the caller must stay hidden.
+- The enqueued call itself is public: the target contract, the function and the arguments are all visible, and so is the fact that *some* private function of *this* contract enqueued it. This is why reading a `DelayedPublicMutable` privately is preferable to enqueueing a public read, and why the shared `PublicChecks` contract exists — `privately_check_timestamp` / `privately_check_block_number` route a common check through one contract shared by all applications, enlarging the privacy set.
 
-- **Decryption Process**:
-  - If the decryption is successful, the PXE will store the decrypted note inside a database.
-  - If the decryption fails, the specific log will be discarded.
-- **Note Processing**:
-  - For the PXE to successfully process the decrypted note, we need to compute the note's **note hash** and **nullifier**.
-  - Aztec.nr enables smart contract developers to design custom notes, meaning developers can also customize how a note's note hash and nullifier should be computed.
-  - Because of this customizability, and because there will be a potentially unlimited number of smart contracts deployed to Aztec, a PXE needs to be "taught" how to compute the custom note hashes and nullifiers for a particular contract.
-  - This is done by a function called `compute_note_hash_and_optionally_a_nullifier`, which is automatically injected into every contract when compiled.
+## Public state
 
-### Crosschain Communication
+Public state behaves like Ethereum's: a key-value tree the sequencer updates, everyone reads.
 
-- **L1 Bridge Contract**: Locks/unlocks funds from L1 to L2.
-- **Inbox Contract**: Manages L1 → L2 pending messages.
-- **Outbox Contract**: Manages L2 → L1 ready messages.
-- **Portal Contracts**: Developers create portal contracts on L1 and L2 that interact with the inbox and outbox contracts.
-- **L2 Structure**: Holds L1 → L2 and L2 → L1 messages.
+| Type | Mutable | Readable in private | Use |
+|---|---|---|---|
+| `PublicMutable<T>` | yes | **no** | Totals, flags, role tables |
+| `PublicImmutable<T>` | no | yes | Configuration fixed at deployment |
+| `DelayedPublicMutable<T, DELAY>` | yes, after `DELAY` seconds | yes | Configuration that private functions must read |
 
-**Message Passing**:
+`DelayedPublicMutable` is the one that needs explaining. A private function may not read current public state, but it *may* read a value that is guaranteed not to change for a while. That is exactly what a scheduled delay buys: `schedule_value_change` makes the new value effective `DELAY` seconds later, so a value read at the anchor block is still current for at least that long.
 
-Since any data that is moving from one chain to another will, at some point, reside on L1, it will be public. While this is acceptable for L1 consumption (which is always public), we want to ensure that L2 consumption can be private. To support this, we use a nullifier scheme similar to what we are doing for the other notes.
+- The delay is a **duration in seconds**, not a number of blocks.
+- Reading one in private sets the transaction's `expiration_timestamp` (anchor + remaining delay). The transaction is unincludable after that, and the expiry is **public** — so a delay nobody else uses fingerprints your application. Pick a common value.
+- Delays are themselves adjustable through `schedule_delay_change`: an *increase* is immediate, a *decrease* takes effect after the difference. Shortening it immediately would retroactively break the guarantee a reader had already relied on.
+- A zero or near-zero delay is not usable from private: the earliest includable block is already a slot away, so the transaction would expire before it could land. The library's own example uses 360 s and calls it "5 slots"; real deployments use hours.
+- Not suitable for an emergency lever, precisely because it is delayed.
 
-- **Nullifier Scheme**: As part of the nullifier computation, we use a secret that hashes to a `secretHash`, ensuring that only actors with knowledge of the secret will be able to see when it is spent on L2.
+## Private state: notes and nullifiers
 
-**Message from L1 to L2**:
+Private state is a set of **notes** (UTXOs). The note hash tree stores only commitments; the nullifier tree records spends.
 
-1. **Message Logic**: Written in the portal contract function. The message should be an Aztec function call, ABI encoded with parameters.
-2. **Portal Contracts**: Send the message to the inbox.
-3. **Inbox Processing**: Receives and sends the message to L2.
-4. **Message Storage**: Held on the L1 → L2 append-only tree.
-5. **Message Consumption**: When the message is consumed and the user has the right secret for that message, a nullifier is emitted.
+- **Create** a note: compute its hash, push it to the context, deliver the contents to the owner.
+- **Destroy** a note: push its nullifier. The nullifier is derived from the note and the owner's app-siloed nullifier key, so nobody can link a note to its nullifier without that key — and nobody else can produce it.
+- **Update**: nullify, create a new note. A note created and nullified in the same transaction is **transient** and is squashed by the kernel; it is never written to a tree.
+- A note created for someone else is only usable by them once they can **find and decrypt** it — delivery and discovery are separate problems from note creation, and both are the contract's responsibility.
 
-**Message from L2 to L1**:
+State variable types, all wrapped in `Owned<...>` and reached with `.at(owner)`:
 
-- TODO
+| Type | Shape |
+|---|---|
+| `Owned<PrivateSet<N>>` | A collection; the value is the sum of the live notes at the slot (token balances) |
+| `Owned<PrivateMutable<N>>` | One replaceable note |
+| `Owned<PrivateImmutable<N>>` | One note, written once |
+| `SinglePrivateMutable<N>` / `SinglePrivateImmutable<N>` | Contract-wide private singleton, no owner |
 
+Built-in note types: `UintNote` (a `u128`, and the type that supports **partial notes**) and `FieldNote`. `#[note]` derives the hash and nullifier with `poseidon2_hash_with_separator`; `#[custom_note]` lets you write them.
 
-### Questions
+The `NoteHash` trait is the interface:
 
-- **Custom Verifier Deployment**:
-  - Can we have our own verifier for our proofs and deploy it on the sandbox? See [How to Solidity Verifier](https://noir-lang.org/docs/how_to/how-to-solidity-verifier/) and [Aztec Setup L1 Contracts](https://github.com/AztecProtocol/aztec-packages/blob/10048da5ce7edfe850d03ee97505ed72552c1dca/yarn-project/end-to-end/src/fixtures/setup_l1_contracts.ts).
-  - This is useful for token bridges, as demonstrated in [Aztec Token Bridge Tutorial](https://docs.aztec.network/tutorials/contract_tutorials/advanced/token_bridge).
+```
+compute_note_hash(self, owner, storage_slot, randomness)
+compute_nullifier(self, context, owner, note_hash_for_nullification)
+compute_nullifier_unconstrained(self, owner, note_hash_for_nullification)
+```
 
-- **Fetching Public Master Keys**:
-  - When fetching public master keys, is it based on historical state so we can access it from a private function?
-  - What happens if the keys are not in the historical storage?
-  - Do the keys fetched from other users go to my private keystore?
+**Partial notes** are a `UintNote` whose private part (owner, randomness) is fixed in private and whose value is filled in later, possibly by a public function — the mechanism behind private-to-public payment flows. The completion publishes the value in clear; that is the point, and the privacy cost.
 
-- **Preventing Against Key Rotation**:
-  - Can we prevent against key rotation if we have the `npk_m_hash` as a value in our note instead of only `npk_m`?
+## Storage slots and siloing
 
-- **BalanceMap Usage**:
-  - Why do we have `balances: BalanceMap<TokenNote>`? Is it because we can have multiple accounts in the same PXE?
-  - Is it normal that a user can see notes of another user in the PXE?
-  - Answer: Yes, we can have multiple accounts in the same PXE. Notes will be encrypted in the PXE, but since the keystore has all the decryption keys of all the accounts in that PXE, it can decrypt them.
+Public:
 
-- **Nonce Utility**:
-  - Investigate if the `nonce` is useful in the contracts and how to make it useful.
+```
+siloed_storage_slot = H(contract_address, storage_slot)
+```
 
-- **Note Encryption in PXE**:
-  - When testing, private amounts seem to be accessed by external users who should not be able to.
-  - Is it because notes are stored in the same PXE?
-  - Answer: Notes are not yet encrypted in the user's PXE. There should be one PXE per user, which can have multiple accounts.
+Private — a "slot" is only a logical grouping mixed into the commitment, so that one account's balance cannot be confused with another's:
 
-- **Running Multiple PXEs**:
-  - Running different PXEs on the same computer is currently broken.
+```
+note_hash        = compute_note_hash(note, owner, storage_slot, randomness)
+siloed_note_hash = H(contract_address, note_hash)            // kernel
+note_nonce       = compute_note_hash_nonce(first_nullifier, note_index)
+unique_note_hash = H(note_nonce, siloed_note_hash)           // what the tree stores
+```
 
-- **Traceability in Private to Public Calls**:
-  - Public transactions will be traceable back to the private proof in private to public calls.
+Randomness is what makes the commitment hiding: without it, an observer could enumerate `(owner, value)` pairs and invert the hash. Nullifiers are siloed by contract address too.
 
-- **Unconstrained Functions Behavior**:
-  - How do unconstrained functions behave?
-  - Is `unconstrained` the same as the `view` attribute?
-  - Why is the `balance_of_private` function still unconstrained in the token contract?
-  - Answer: Unconstrained functions are used when we do not change the state of the network or when performing an off-chain call. `View` functions are used for reading from public state; you cannot use `unconstrained` for this.
+## Note delivery
 
-- **Witnesses in Proof Generation**:
-  - Are the witnesses the private function inputs that need to be kept private?
-  - The proving backend (Barretenberg) creates the proof, and then the private kernel circuit verifies it.
+Creating the note is not enough; the recipient needs its contents. Creation methods return a `NoteMessage` / `MaybeNoteMessage` on which you **must** call `.deliver()` or `.deliver_to()` — an undelivered message is lost forever (the compiler warns about the unused value).
 
-- **PXE and ACVM Instances**:
-  - Each PXE has an instance of the ACVM.
+| Mode | Where the ciphertext goes | Proving cost | Guarantee |
+|---|---|---|---|
+| `MessageDelivery::onchain_constrained()` | Ethereum blob (private log) | Highest | The encryption is proved: the recipient *can* decrypt |
+| `MessageDelivery::onchain_unconstrained()` | Ethereum blob | Low | None: the sender is trusted to encrypt correctly |
+| `MessageDelivery::offchain()` | Nowhere onchain — emitted as an offchain effect | Lowest, no DA cost | None; you must build the delivery channel |
 
-- **Blacklist Delay Impact**:
-  - Will a user who is just blacklisted be able to make one more transaction before being publicly flagged due to the delay constant?
-  - Answer: Cat from Aztec takes a look at it and gives me an answer. 
+Offchain delivery is extracted from the send result (`offchainMessages` in aztec.js) and handed to the recipient, who feeds it to the auto-generated `offchain_receive` utility function. It is the right choice when the sender is motivated to deliver — change notes to yourself, or a payment the recipient must receive before releasing goods.
 
-- **Proof Verification Flow**:
-  - Private/public functions are executed by their respective VMs, and a proof of this execution is generated.
-  - This proof is fed to the private kernel circuits, which verify it.
-  - The proof is then sent to L1 for verification.
+A constrained delivery is the only one that makes "the recipient will be able to spend this" a property of the proof rather than of the sender's goodwill. It is also, by a wide margin, the most expensive thing a token transfer does.
 
-- **Block Manipulation in Aztec**:
-  - How can we move the blocks of Aztec? Not implemented yet.
+> **A note copy addressed to a non-owner does not work onchain.** Discovery computes the note's nullifier, which needs the owner's nullifier key, so a PXE cannot process an onchain note message for a note it does not own. Auditor/observer copies have to go offchain, or be sent as an **event** instead — an event has no owner and no nullifier, so any recipient's PXE can process it.
 
-- **Event Emission and Key Registration**:
-  - When emitting events, `ivpk_m` is used to encrypt an event to the receiver.
-  - We need to ensure that this key has been registered in the PXE.
-  - Is it the wallet’s job to do that?
-  - Answer: Yes
+## Note discovery: tagging
 
-- **Note Decryption and PXE Storage**:
-  - Can we decrypt a note with our PXE and decide if we want that note inside our PXE or not?
-  - For example, rejecting memecoins airdropped to us.
-  - Will the PXE database get full at some point?
+This is the part that changed most since the early tutorials. The PXE **does not** download every log and trial-decrypt it. Each private log begins with a **tag**, the node indexes logs by tag, and the recipient queries only the tags it can compute.
 
-- **Note Encryption Constrained vs. Unconstrained**:
-  - What's the difference between constrained and unconstrained note encryption?
-  - Answer: note encryption needs to be constrained, as it is an important information that 
-  someone sends you and you want it to be verified by the kernel circuits. 
+```
+tag = poseidon2(secret, index)     // then siloed with the contract address by the kernel
+```
 
-- **Burn Function Authorization**:
-  - Can we burn other people's tokens if our burn function doesn't have authentication witness protection?
-  - Answer: No. This may occur in tests because there is only one PXE in the tests.
+`index` is a per-(sender, recipient, contract) counter. What differs between strategies is how the two parties come to share `secret`:
 
-- **Sender Identity in Notes**:
-  - When someone sends us a note, do we know the sender's address?
-  - Answer: No, unless the developer includes the sender's address in a note field.
+| Strategy | How the secret is established | Onchain trace | Can back constrained delivery |
+|---|---|---|---|
+| Arbitrary secret | Shared out of band, registered with the PXE | none | no |
+| Address-derived | Diffie-Hellman between `ivsk` and the other party's address point | none | no |
+| Non-interactive handshake | Sender publishes an ephemeral public key, encrypted to the recipient, tagged with the recipient's address | reveals *that* a handshake happened | yes |
+| Interactive handshake | Same, but the recipient signs the ephemeral key at send time; nothing is published | none | yes |
 
-- **TokenNote Interface Changes**:
-  - Ask about changes in the `TokenNote` interface from version 0.48.0.
-  - What does `TokenNoteHidingPoint` mean?
-  - What is the `compute_note_hiding_point` function, and where is it used?
+Practical consequences:
 
-- **Duplicate Note Emission**:
-  - If we emit the same note twice, one for the user and one for the issuer, what do we use instead of the `ovpk_m` of the second encryption?
-  - We don't want the user to end up with two identical notes.
+- To discover address-derived notes from a stranger you must first **register the sender**: `await wallet.registerSender(addr)`. Notes to yourself always work — local accounts are implicit senders.
+- The default for a new external recipient is the non-interactive handshake, which is why the first transaction between two parties costs more than the following ones.
+- The `#[aztec]` macro injects a `sync_state` utility function; the PXE drives it. It fetches tagged logs, AES-decrypts (silently discarding what is not for you), dispatches by message type, then does **nonce discovery**: iterate the transaction's note hashes, compute the candidate nonce from `(first_nullifier, note_index)`, and keep the one that reproduces the unique note hash.
+- The PXE scans a **sliding window** of tag indexes, from the highest index seen in a block older than `MAX_TX_LIFETIME` (24 h) up to 20 beyond the highest finalized one. A sender emitting a huge number of logs to the same recipient in the same contract in a short window can outrun it.
 
-- **PXE Data Portability**:
-  - What happens if we change computers and our PXE is stored on our device?
+## Events and logs
 
-### L2 and L1 Token Interaction
+- `#[event] struct Transfer { ... }`, then `self.emit(Transfer { ... })`.
+- In **private**, the returned `EventMessage` must be delivered: `.deliver_to(addr, MessageDelivery::...)`, with the same three modes as notes. The same event can be delivered to several recipients with different modes.
+- In **public**, `self.emit(event)` writes a plaintext log, like a Solidity event. `self.context.emit_public_log_unsafe(tag, data)` writes unstructured data; prefer the typed form, which tags for you.
+- Private events, unlike notes, have no owner and no nullifier, which makes them the natural channel for telling a third party (an auditor, an indexer) what happened.
 
-- **Privacy Considerations**:
-  - **Address Privacy**: Addresses are private.
-  - **Amount Privacy**: Amounts are private.
-  - **Shield/Unshield Pattern**: Used for moving tokens between L1 and L2.
+## Transaction lifecycle
 
-#### L1 to L2 Private Token Transfer
+1. **Simulate.** The wallet asks the PXE to execute the private functions. By default this runs in *kernelless* mode: the private bytecode is executed and the kernel outputs are computed in TypeScript rather than by running the kernel circuits — much faster, and it lets the wallet collect authwit requests without prompting for signatures.
+2. **Prove.** `proveTx` runs the private kernel circuits and the Barretenberg backend over the simulation's witnesses. Private inputs never leave the client.
+3. **Submit.** The transaction object — proof, nullifiers, note hashes, logs, enqueued public calls — goes to the mempool.
+4. **Execute publicly.** The sequencer runs the enqueued public calls on the AVM and proves them.
+5. **Roll up.** Block proofs are aggregated by the rollup circuits; the epoch proof is verified by the L1 rollup contract.
 
-1. **Initiate Transfer**:
-   - L1 token is sent to the inbox contract from the portal contract.
-   - The portal contract computes the L2 message selector that calls the `mint_private` function on L2.
-   - The portal contract transfers the token amount from the user to the portal contract.
+Each transaction is split into up to three **phases**:
 
-2. **Inbox Processing**:
-   - The inbox contract sends the message to the L2 append-only tree.
+- **Setup (non-revertible).** Fee bookkeeping: the fee payer is nominated with `set_as_fee_payer()`, `end_setup()` marks the boundary. Anything committed here stands even if the rest reverts — which is why the protocol restricts which public functions may be called here (an allowlist; ordinary token functions were removed from it in 4.2.0).
+- **App (revertible).** The public call stack the private execution enqueued, plus whatever those calls enqueue. A revert here discards the phase's state changes — and the private side effects — but the setup-phase fee is still charged.
+- **Teardown (optional).** Runs after the app phase with the final fee available, so an FPC can refund the unused part.
 
-### Setup
+Two timing values matter to contract authors: the **anchor block** (the historical state private execution read) and the **expiration timestamp**, which is the earliest deadline imposed by anything read during private execution — the kernel keeps the minimum. `MAX_TX_LIFETIME` is 24 hours.
 
-#### Development Environment
+## Fees
 
-- **Installation**:
-  - Get the sandbox, `aztec-cli`, and other tooling:
+| Ethereum | Aztec |
+|---|---|
+| gas | **mana** |
+| fee per gas | Fee Juice per mana |
+| fee (wei) | **Fee Juice** |
 
-    ```bash
-    bash -i <(curl -s install.aztec.network)
-    ```
+- Mana has two dimensions: **DA mana** (publishing data) and **L2 mana** (execution). `fee = daMana x feePerDaMana + l2Mana x feePerL2Mana`. The SDK still calls these `daGas` / `l2Gas`.
+- **Fee Juice** is the native fee asset: bridged from Ethereum through the enshrined `FeeJuicePortal`, held as a **public** balance, **non-transferable**, spendable only on fees, with no withdrawal path.
+- Bridging is deposit-on-L1 then claim-on-L2 (about two L2 blocks later) against a claim secret. A brand-new account can claim and pay for that same transaction, because the claim runs in the non-revertible setup phase.
+- A **fee-paying contract (FPC)** is Aztec's paymaster: it declares itself fee payer and may charge the user in another token, usually against a signed quote and an authwit, collected during setup. The **Sponsored FPC** pays unconditionally and is what local networks, devnet and testnet use for free transactions.
+- Fee payment is inherently public (someone's public Fee Juice balance decreases), which is the reason to use an FPC when the payer must stay private.
 
-- **Install Dependencies**:
-  - Follow [Aztec.js Getting Started](https://docs.aztec.network/getting_started/aztecjs-getting-started):
+## Ethereum <-> Aztec messaging
 
-    ```bash
-    yarn init -yp
-    yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @types/node
-    ```
+Two enshrined L1 contracts, `Inbox` (L1 to L2) and `Outbox` (L2 to L1), plus application-specific **portal** contracts on L1.
 
-- **Node Version**:
-  - Downgrade Node to version **20.14.0** until fixed with the Aztec team.
+**L1 to L2**
 
-- **Compile Contracts**:
+1. The portal calls `Inbox.sendL2Message(recipient, contentHash, secretHash)`, where the content hash is computed identically on both sides (share a Noir/Solidity library for it).
+2. The proposer batches Inbox messages into a later L2 block — the message is **not** immediately available.
+3. On L2, `context.consume_l1_to_l2_message(content_hash, [secret], portal, leaf_index)` consumes it and pushes a nullifier, so it cannot be consumed twice. Works in both private and public contexts. The secret is what keeps the L2 consumption unlinkable to the L1 deposit.
 
-  ```bash
-  aztec-nargo compile
-  ```
+**L2 to L1**
 
-- **Generate TypeScript Artifacts**:
+1. On L2, `context.message_portal(portal, content)` inserts the message. Also available in both contexts.
+2. The message becomes consumable on L1 only **after the epoch proof is submitted** — potentially a long wait if it was sent early in an epoch.
+3. On L1, the portal calls `Outbox.consume(message, epoch, numCheckpointsInEpoch, leafIndex, path)`. Get the witness with `aztecNode.getL2ToL1MembershipWitness(txHash, computeL2ToL1MessageHash({...}))`.
 
-  ```bash
-  aztec codegen -o src/artifacts target
-  ```
+A transaction may emit at most **8** L2-to-L1 messages, and their count is publicly visible.
 
-- **Note**:
-  - Ensure that dependencies in `Nargo.toml` and `package.json` are the same version.
+## Limits and gotchas
 
-#### Sandbox Testing
+Selected protocol constants (5.2.0, `noir-protocol-circuits/crates/types/src/constants.nr`):
 
-- **Cheat Codes**:
-  - Refer to the [Sandbox Reference Cheat Codes](https://docs.aztec.network/reference/sandbox_reference/cheat_codes) for testing.
+| Constant | Value |
+|---|---|
+| `MAX_NOTE_HASHES_PER_TX` / `MAX_NULLIFIERS_PER_TX` | 64 |
+| `MAX_NOTE_HASHES_PER_CALL` / `MAX_NULLIFIERS_PER_CALL` | 16 |
+| `MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX` / `..._PER_CALL` | 16 / 8 |
+| `MAX_ENQUEUED_CALLS_PER_TX` | 32 |
+| `MAX_PRIVATE_LOGS_PER_TX` / `..._PER_CALL` | 64 / 16 |
+| `MAX_L2_TO_L1_MSGS_PER_TX` | 8 |
+| `MAX_PUBLIC_DATA_READS_PER_TX` | 64 |
+| `FUNCTION_TREE_HEIGHT` | 7, so 128 private functions per contract |
 
-### Examples
+Things that bite:
 
-- **Aztec's Private Token Contract Example**: [Token Contract Tutorial](https://docs.aztec.network/tutorials/contract_tutorials/token_contract)
-- **DEX Built on Aztec**: [Aztec DEX Build](https://github.com/porco-rosso-j/aztec-dex-build)
-- **Homomorphic Encryption**:
-  - [Noir ElGamal](https://github.com/jat9292/noir-elgamal/)
-  - [Aztec Coin Toss PvP](https://github.com/defi-wonderland/aztec-coin-toss-pvp)
-  - Note: Full Homomorphic Encryption (FHE) is not yet supported on Aztec.
-- **Token Transfer Flows**: [Transferring Someone Else's Notes](https://forum.aztec.network/t/transferring-someone-elses-notes/2586)
-- **Private Token Using Aztec**: [Ethereum's Privacy New Frontier](https://medium.com/@jat9292/zksnarks-homomorphic-encryption-ethereums-privacy-new-frontier-b30357236a7a)
-- **Aztec Explorer**: [ShieldSwap](https://github.com/olehmisar/shieldswap)
+- **`msg_sender` leaks on private-to-public calls** unless you use `enqueue_incognito`. The initial `msg_sender` is `-1`.
+- **Side-effect counts are partly public.** Note hashes, nullifiers and private logs are padded, but the number of public calls and of L2-to-L1 messages is not: a distinctive count is a fingerprint.
+- **The AVM supports only a subset of Noir's cryptography.** No ECDSA (secp256k1/r1), no AES-128, no Blake2s/Blake3 in public functions — hence the `AuthRegistry` pattern for public authorisation.
+- **Circuits are fixed-size.** A loop bound of 16 costs 16 iterations' worth of constraints whether or not you use them. Sizing for the common case and recursing into an `#[only_self]` private function for the rest is the standard workaround (AIP-20's note-budget scheme does exactly this).
+- **The stack is unaudited and partly under-constrained.** The documentation says so explicitly, and adds: do not put real secrets on an Aztec network yet.
+- **Node queries leak.** Asking a third-party node whether a nullifier exists tells that node what you are interested in. Run your own node if this matters.
+
+## Proving cost
+
+Gate counts decide how long a user waits, and they are dominated by a handful of items:
+
+| Item | Order of magnitude | Source |
+|---|---|---|
+| Fixed private-kernel overhead per transaction (init, reset, tail) | ~290,000 gates | framework docs, *Writing efficient contracts* |
+| Each **nested private call** beyond the entrypoint, i.e. one more `private_kernel_inner` (an `#[only_self]` recursion step included) | ~101,000 gates | framework docs |
+| One **constrained** message delivery (note or event) | ~20,200 gates | measured in this repository |
+| One `DelayedPublicMutable` read (first one in the transaction) | ~4,000 gates | measured here |
+| One `PublicImmutable` / historical tree read | ~3,500 gates | measured here |
+| One additional note slot in a note-reading loop | ~3,050 gates | measured here |
+
+`aztec profile gates ./target` gives per-function circuit sizes and **excludes** the kernel overhead; `aztec-wallet profile`, against a running network, gives the whole transaction. Public functions are AVM bytecode and cost mana, not gates — never quote a gate count for one.
+
+Rules of thumb that follow: prefer library functions (`#[contract_library_method]`, inlined) over nested calls; do not pay for a constrained delivery where the recipient is motivated to deliver to itself; size note-reading loops for the common case; and measure before and after every "optimisation" — several plausible ones in this project turned out to be neutral or negative.
+
+## Tooling and workflow
+
+```bash
+# install the toolchain (aztec, aztec-up, aztec-wallet, aztec-nargo, aztec-bb, bundled foundry)
+VERSION=5.2.0 bash -i <(curl -sL https://install.aztec.network)
+aztec-up install 5.2.0        # or `aztec-up use <version>` / `aztec-up list`
+
+aztec start --local-network   # was `aztec start --sandbox` before 3.0
+aztec-wallet import-test-accounts
+
+aztec compile --workspace     # NOT `aztec-nargo compile`: that is a bare nargo and skips the AVM transpiler
+aztec codegen -o src/artifacts target
+aztec test                    # runs `aztec compile` first, then the Noir tests against the TXE
+aztec profile gates ./target  # per-function circuit sizes, kernel overhead excluded
+```
+
+- **Node.js 24** is required by the JS packages.
+- `Nargo.toml`, `package.json` and the installed CLI must all pin the **same** Aztec version; `aztec compile` warns when the `aztec-nr` tag and the CLI disagree.
+- **Tests belong in a separate crate.** `aztec new` scaffolds a contract crate plus a `<name>_test` crate; a `#[test]` inside a contract crate makes `aztec compile` warn and invalidates the contract artifact on every test edit. A test crate imports the contract by package name and deploys it with `env.deploy("@my_crate/MyContract")`.
+- The `TestEnvironment` (TXE) is Foundry-like: fast, mocked, no rollup circuits and no cross-chain messaging. Use `aztec.js` and a running local network for anything crossing those boundaries. Always `aztec test`, never `nargo test` — the latter has no oracle resolver.
+- Logging: `LOG_LEVEL="error;trace:debug_log" aztec test` surfaces contract `debug_log` output.
+
+## What changed since the early notes
+
+| Older name or claim | Current (5.2.0) |
+|---|---|
+| `#[aztec(private)]`, then `#[private]` / `#[public]` | `#[external("private")]`, `#[external("public")]`, `#[external("utility")]` |
+| Standalone `unconstrained` getters | Utility functions, `#[external("utility")] unconstrained fn` |
+| `SharedMutable` | `DelayedPublicMutable` |
+| Pedersen hash for note commitments | Poseidon2 (with domain separation) |
+| "The PXE trial-decrypts every log" | Tag-indexed discovery; the PXE fetches only logs whose tag it can compute |
+| `compute_note_hash_and_optionally_a_nullifier` injected into every contract | Gone; discovery is contract-side `sync_state` plus nonce discovery |
+| Shield / unshield | Gone as protocol vocabulary; a token exposes explicit bridge entry points instead, named as AIP-20 does (`transfer_private_to_public`, `transfer_public_to_private`) |
+| Four key pairs, outgoing viewing key in use | Six protocol key pairs; outgoing-viewing and tagging keys are **reserved and unused** |
+| `nsk_m` (nullifier secret key) | `nhk_m` (nullifier hiding key), app-siloed as `nhk_app` |
+| `aztec start --sandbox` | `aztec start --local-network` |
+| `aztec-nargo compile` | `aztec compile` (`aztec-nargo` is a plain `nargo`, no AVM transpilation) |
+| `bash -i <(curl -s install.aztec.network)`, Node 20 | `VERSION=x.y.z bash -i <(curl -sL https://install.aztec.network)`, Node 24 |
+| Running two PXEs on one machine is broken | Works; see `scripts/multiple_pxe.ts` in this repository |
+
+## Questions and answers
+
+Questions asked while learning, with the answer as it stands at 5.2.0.
+
+- **Can a private function read current public state?** No. It reads the anchor block's state. The only public value readable in private is a `DelayedPublicMutable` (or a `PublicImmutable`), and reading it constrains the transaction's expiry.
+- **Is `unconstrained` the same as `view`?** No. `#[view]` is a constrained function that may not write state. A utility function is unconstrained, never part of a transaction, and *may* write local PXE state. A private function can contain `unsafe { }` blocks calling unconstrained code, whose results must then be constrained by the caller.
+- **Can a user see another user's notes in the PXE?** One PXE can hold several accounts, and its keystore can decrypt all of them, so within one PXE the isolation is a `scopes` parameter chosen by the caller, not a protocol guarantee. This is a documented limitation ("limited private data authentication"). Tests that appear to read someone else's balance are usually a single-PXE artefact.
+- **When someone sends me a note, do I learn who sent it?** Not from the protocol. Only if the contract puts the sender in a note field or an event. Note that the "sender" used for *tagging* is not necessarily the transaction sender, and a contract can override it with `with_sender`.
+- **Can I burn someone else's tokens if the burn entry point has no authwit check?** Only if you can also produce their notes, which needs their nullifier key — but do not rely on that: add the authwit check, and be aware that in a single-PXE test every account's keys are available.
+- **If I emit the same note to two parties, what do I use for the second encryption?** Not an outgoing viewing key — those are unused. Deliver the same message twice with `deliver_to(recipient, mode)`. But a *note* copy addressed to a non-owner cannot be processed onchain by that recipient's PXE (nullifier computation needs the owner's key); send it offchain, or send an **event** instead.
+- **Will a user who was just frozen/blacklisted get one more transaction through?** With a delayed flag, yes: the change takes effect after the delay, and any transaction anchored before it and included before its expiry is valid. That is the price of making the flag privately readable.
+- **Can I fast-forward time on a local network?** Yes, when its L1 is anvil. `RollupCheatCodes.advanceToSlot` / `advanceSlots` warp L1 time and mine, and an L2 slot derives from the L1 timestamp, so the clock a private function reads moves with it; `EthCheatCodes.syncDateProvider` then brings the client's own clock along, or every later transaction looks expired. The TXE has its own equivalent, `env.advance_next_block_timestamp_by` followed by `env.mine_block`. A real network has neither, so there the wait is unavoidable.
+- **What happens to my notes if I change computer?** The PXE database is local. Losing it loses your notes unless you exported them, or they were delivered onchain — in which case a resynced PXE with the same keys can rediscover them. Offchain-delivered notes that you did not keep are gone.
+- **Can I decide which notes to keep in my PXE?** Discovery is contract-side and customisable in principle, but there is no standard "reject this airdrop" flow today. The database grows with what you sync.
+- **Do public transactions link back to the private proof?** Yes. An enqueued public call is visibly part of the same transaction as the private proof, and by default carries the caller's address as `msg_sender`.
+- **Can I deploy my own verifier?** Yes, for your own proofs verified inside a contract — see the recursive-verification tutorial. The rollup's own verifier is enshrined on L1.
+
+## Further reading
+
+- [Aztec developer documentation](https://docs.aztec.network/) — and the [migration notes](https://docs.aztec.network/developers/docs/resources/migration_notes), which are the fastest way to find out what a release broke.
+- [aztec-packages](https://github.com/AztecProtocol/aztec-packages) (protocol, contracts, TypeScript) and [aztec-nr](https://github.com/AztecProtocol/aztec-nr) (the Noir framework) at tag `v5.2.0` — the source is the specification.
+- [Noir documentation](https://noir-lang.org/docs/) for the language itself.
+- [aztec-standards](https://github.com/defi-wonderland/aztec-standards) — AIP-20 (fungible token), AIP-721, AIP-4626, escrow, generic proxy. The [CMTA fork](https://github.com/CMTA/aztec-standards) is pinned as a submodule here.
+- Token contract tutorial: [docs](https://docs.aztec.network/developers/docs/tutorials/contract_tutorials/token_contract); wallet building: [wallet extension tutorial](https://docs.aztec.network/developers/docs/tutorials/js_tutorials/wallet-extension).
+- [Privacy considerations](https://docs.aztec.network/developers/docs/resources/considerations/privacy_considerations) and [limitations](https://docs.aztec.network/developers/docs/resources/considerations/limitations) — read both before designing anything private.
+- In this repository: `doc/README.md` (design and privacy analysis of the token), `doc/technical/cmtat-vs-aip20.md`, `doc/technical/token-module.md`, `doc/audits/tools/` (code-quality reviews with measured gate counts).

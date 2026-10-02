@@ -1,0 +1,65 @@
+@startuml
+title Why compliance flags are delayed — and the window it opens
+
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 260
+
+actor "Compliance officer\n(ENFORCEMENT_ROLE)" as Officer
+database "Public state" as PS
+actor "Target holder" as Target
+participant "transfer\nexternal private" as Priv
+
+== Why a plain public flag cannot be used ==
+
+note over Priv, PS
+  A private function is proved against a HISTORICAL state on the user's
+  own device. It cannot read current mutable public state at all.
+  Two ways out, and only one keeps the caller private:
+  1. enqueue a public call to read the flag  ->  publishes the caller's
+     address on every single transfer. Defeats the point of the token.
+  2. make the flag a DelayedPublicMutable  ->  readable privately,
+     because a scheduled change cannot take effect for a known window.
+  This contract takes (2). The delay is the price of checking
+  compliance state privately.
+end note
+
+== The freeze, and the window ==
+
+Officer -> PS : freeze(target)
+PS -> PS : schedule_value_change(frozen = true)
+note right of PS
+  The SCHEDULED change is visible in public state immediately.
+  The EFFECTIVE value does not change until the delay elapses.
+end note
+
+group Window: roles_delay() — one hour initially, adjustable with set_roles_delay
+  Target -> PS : reads the pending change — it is public
+  Target -> Priv : transfer_private_to_private(...) — still succeeds
+  Priv -> PS : is_frozen(target) still reads false
+  note over Target, Priv
+    The target can move funds until the delay elapses. This window
+    is deterministic and cannot be closed by paying a higher fee,
+    nor hidden by a private relay: it is protocol-enforced, not a
+    consequence of mempool visibility.
+    Mitigation is procedural: pause the token, schedule the freeze,
+    wait out the delay, then unpause.
+  end note
+end
+
+== After the delay ==
+
+Target -> Priv : transfer_private_to_private(...)
+Priv -> PS : is_frozen(target) now reads true
+Priv --> Target : revert "Frozen: Sender"
+
+note over Officer, Priv
+  The same delay applies to every DelayedPublicMutable in the contract:
+  the freeze flags, the blacklist and whitelist entries, the operations
+  switch, and issuer_address.
+  CHANGE_ROLES_DELAY_SECONDS = 3600 is the value at deployment. Since
+  0.4.0 an admin may move it with set_roles_delay, bounded by
+  MAX_ROLES_DELAY_SECONDS = 86400; an increase is immediate, a decrease
+  takes effect after the difference.
+end note
+
+@enduml

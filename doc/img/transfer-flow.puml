@@ -1,0 +1,87 @@
+@startuml
+title Private transfer — CMTATAztec
+
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 250
+
+actor "Sender\n(or a delegate)" as Caller
+box "Client side — proved on the user's own device" #F4F8FC
+participant "transfer_private_to_private(from, to, amount, authwit_nonce)\nexternal private" as Priv
+participant "PXE\n(sender's notes)" as PXE
+  participant "_recurse_debit\nexternal private, only_self" as Recur
+end box
+database "Public state\npause, roles, total_supply,\ndelayed freeze and list flags" as PS
+box "Sequencer — runs after the proof, in the clear" #FDF4F4
+participant "_transfer()\nexternal public, only_self" as Pub
+end box
+participant "Issuer" as Issuer
+participant "Recipient" as To
+
+Caller -> Priv : transfer_private_to_private(from, to, amount, authwit_nonce)
+
+group Authwit — the authorize_once macro
+  alt msg_sender == from
+    Priv -> Priv : require authwit_nonce == 0
+  else msg_sender != from
+    Priv -> Priv : validate an authwit signed by `from`,\nthen nullify the nonce so it cannot be replayed
+  end
+end
+
+group Compliance checks
+  Priv -> PS : read issuer_address (once per call)
+  Priv -> PS : read is_frozen(from), is_frozen(to)
+  Priv -> PS : operateOnTransfer(from, to)\nblacklist or whitelist, whichever is enabled
+  note over Priv, PS
+    These are reads of a HISTORICAL state, not calls into the sequencer.
+    A private proof can only trust a public value that is guaranteed not
+    to change for a known window, so each of these is a DelayedPublicMutable
+    and a change to any of them takes CHANGE_ROLES_DELAY_SECONDS to bite.
+  end note
+end
+
+group Move the notes — none of this is public
+  group Debit — the note budget (A-5)
+    Priv -> PXE : try_debit(from, amount, DEBIT_INITIAL_MAX_NOTES = 2)
+    alt two notes cover the amount — the common case
+      PXE --> Priv : covered, change
+    else the balance is spread over more notes
+      PXE --> Priv : not covered, remaining
+      loop until covered, 8 notes per call
+        Priv -> Recur : call_self _recurse_debit(from, remaining)
+        Recur -> PXE : try_debit(from, remaining, DEBIT_RECURSIVE_MAX_NOTES = 8)
+        PXE --> Recur : covered, change  /  not covered, remaining
+      end
+      Recur --> Priv : change
+    end
+    note over Priv, Recur
+      The circuit is sized for two notes, not sixteen: about 3,050 gates
+      per unused slot were being paid on every debit. A fragmented balance
+      pays one nested private call instead (~101,000 gates), and only then.
+      "Balance too low" still fires at any depth when nothing can be spent.
+      The change note is created ONCE, here at the top level.
+    end note
+  end
+  PXE --> Priv : the spent notes are nullified
+  Priv -> Caller : change note, onchain_constrained
+  Priv -> Issuer : copy of the change note, offchain
+  Priv -> PXE : add(amount) for `to`
+  PXE --> Priv : create the recipient note
+  Priv -> To : recipient note, onchain_constrained
+  Priv -> Issuer : copy of the recipient note, offchain
+  Priv -> To : Transfer event, onchain_constrained
+  Priv -> Issuer : Transfer event, onchain_constrained\n(the issuer's only on-chain audit record)
+end
+
+Priv -> Pub : enqueue_self _transfer()
+note over Pub
+  The public half takes NO arguments, so from, to and amount
+  are never published. It exists only to read the pause flag,
+  which is PublicMutable and so unreadable from private execution.
+  An observer learns that a transfer happened, not who or how much.
+end note
+Pub -> PS : assert not paused
+alt contract is paused
+  Pub --> Caller : revert — the whole transaction fails,\nincluding the private half
+end
+
+@enduml

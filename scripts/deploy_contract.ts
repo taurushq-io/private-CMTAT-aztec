@@ -1,48 +1,49 @@
-import { CMTATokenContract as TokenContract} from "../src/artifacts/CMTAToken.js"
-import { createLogger, PXE, Logger, SponsoredFeePaymentMethod, Fr, AztecAddress, TxStatus } from "@aztec/aztec.js";
-//import { TokenContract } from "@aztec/noir-contracts.js/Token"
-import { setupPXETestnet } from "../src/utils/setup_pxe_testnet.js";
-import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js";
-import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { createLogger } from "@aztec/aztec.js/log";
+
+import { CMTATAztecContract as TokenContract } from "../src/artifacts/CMTATAztec.js";
 import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
+import { getSponsoredPaymentMethod } from "../src/utils/sponsored_fpc.js";
+import { setupWalletTestnet } from "../src/utils/setup_pxe_testnet.js";
 
 async function main() {
-
-    let pxe: PXE;
-    let logger: Logger;
-
-    logger = createLogger('aztec:CMTAToken');
+    const logger = createLogger('aztec:CMTAToken');
     logger.info('Starting CMTA Token deployment script...');
 
-    pxe = await setupPXETestnet();
+    const { wallet } = await setupWalletTestnet();
 
-    const sponsoredFPC = await getSponsoredFPCInstance();
-    await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
-    const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
+    const sponsoredPaymentMethod = await getSponsoredPaymentMethod(wallet);
+    const address = await deploySchnorrAccount(wallet);
 
-    let accountManager = await deploySchnorrAccount(pxe);
-    const wallet = await accountManager.getWallet();
-    const address = await accountManager.getAddress();
+    const tokenName = 'CMTAToken';
+    const tokenSymbol = 'CMTAT';
+    const tokenDecimals = 18;
 
-    const tokenName = 'CMTAToken'
-    const tokenSymbol = 'CMTAT'
-    const tokenDecimals = 18n
+    const { contract: tokenContract } = await TokenContract.deploy(
+        wallet,
+        address,
+        tokenName,
+        tokenSymbol,
+        tokenDecimals,
+        false, // public_side_enabled: keep the fully private token
+    ).send({ from: address, fee: { paymentMethod: sponsoredPaymentMethod } });
 
-
-    const tokenContract = await TokenContract.deploy(wallet, address, tokenName, tokenSymbol, tokenDecimals).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed({timeout: 120000});
     logger.info(`CMTA Token Contract deployed at: ${tokenContract.address}`);
-    const tokenContractAddress = tokenContract.address.toString();
 
     const tokenContractIssuer = await TokenContract.at(
-            AztecAddress.fromString(tokenContractAddress),
-            wallet,
-        );
+        AztecAddress.fromString(tokenContract.address.toString()),
+        wallet,
+    );
 
-    const initialSupply = 1_000_000n * 10n ** 18n; // 1 million tokens with 18 decimals
-    console.log(`Issuer gets minter role ...`);
+    logger.info('Issuer gets minter role ...');
     const minterRole = 7n;
-    let receipt = await tokenContractIssuer.methods.grant_role(minterRole, wallet.getAddress()).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout: 120000});
-
+    await tokenContractIssuer.methods
+        .grant_role(minterRole, address)
+        .send({ from: address, fee: { paymentMethod: sponsoredPaymentMethod } });
+    logger.info(`Minter role granted to ${address}`);
 }
 
-main();
+main().catch((error) => {
+    console.error("Error:", error);
+    process.exit(1);
+});

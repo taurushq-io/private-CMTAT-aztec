@@ -10,7 +10,6 @@
     "declaration": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "downlevelIteration": true,
     "inlineSourceMap": true,
     "declarationMap": true,
     "importHelpers": true,

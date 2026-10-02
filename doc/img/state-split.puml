@@ -1,0 +1,49 @@
+@startuml
+title What is public and what is private
+
+skinparam componentStyle rectangle
+
+package "Public state — on chain, readable by anyone" #FDF4F4 {
+  component "total_supply\nmoves visibly on every mint and burn" as TS
+  component "roles\nrole -> address -> bool" as Roles
+  component "pause / deactivated\nPublicMutable" as P
+  component "name, symbol, decimals\nPublicImmutable" as Meta
+  component "terms, tokenId" as Terms
+  component "freeze flags, list flags,\noperations switch, issuer_address\nDelayedPublicMutable" as Delayed
+  component "public_balances\nonly when public_side_enabled = true" as PB
+  component "roles_delay\nthe current delay, PublicMutable" as RD
+}
+
+package "Private state — notes in each holder's own PXE" #F4F8FC {
+  component "balance of holder A\na set of UintNotes" as BA
+  component "balance of holder B" as BB
+  component "issuer's audit copies\ndelivered offchain" as IC
+}
+
+note as N1
+  A balance is not a storage slot. It is the sum of the
+  holder's own notes, which only that holder can spend —
+  spending needs their nullifier key. That is why there is
+  no forced transfer and no forced burn: the issuer can
+  READ a balance from its copies, but cannot MOVE it.
+end note
+BA .. N1
+
+note as N2
+  Only the DelayedPublicMutable values can be read from a
+  private function. Everything else in the public column is
+  reachable only from a public function, which is why the
+  pause check has to run in the enqueued public half.
+end note
+Delayed .. N2
+
+note as N3
+  public_balances exists only if the issuer deployed with
+  public_side_enabled = true. It is the landing and departure point of
+  the four AIP-20 bridges: a holder who uses one publishes its own side
+  of that move, by choice. With the flag false every bridge reverts and
+  the token is fully private.
+end note
+PB .. N3
+
+@enduml

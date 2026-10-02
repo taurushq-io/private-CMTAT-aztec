@@ -1,190 +1,172 @@
-import { CMTATokenContractArtifact as TokenContractArtifact, CMTATokenContract as TokenContract} from "../../artifacts/CMTAToken.js"
-import { AccountManager, AccountWallet, ContractDeployer, createLogger, Fr, PXE, TxStatus, getContractInstanceFromDeployParams, Logger } from "@aztec/aztec.js";
-import { generateSchnorrAccounts } from "@aztec/accounts/testing"
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { NO_FROM } from "@aztec/aztec.js/account";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { createEthereumChain } from "@aztec/ethereum/chain";
+import { createExtendedL1Client } from "@aztec/ethereum/client";
+import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
+import type { L2AmountClaim } from "@aztec/aztec.js/ethereum";
+import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+import type { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
+import { Fr, GrumpkinScalar } from "@aztec/aztec.js/fields";
+import { createLogger } from "@aztec/aztec.js/log";
+import type { Logger } from "@aztec/aztec.js/log";
+import { getFeeJuiceBalance } from "@aztec/aztec.js/utils";
+import type { AztecNode } from "@aztec/aztec.js/node";
+import type { AccountManager } from "@aztec/aztec.js/wallet";
+import type { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { spawn } from 'child_process';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
-import { getFeeJuiceBalance, type L2AmountClaim, L1FeeJuicePortalManager, FeeJuicePaymentMethodWithClaim, AztecAddress } from "@aztec/aztec.js";
-import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
-import { getSponsoredFPCInstance } from "../../utils/sponsored_fpc.js";
-import { setupPXE } from "../../utils/setup_pxe.js";
-import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
+import { CMTATAztecContract as TokenContract } from "../../artifacts/CMTATAztec.js";
+import { getSponsoredPaymentMethod } from "../../utils/sponsored_fpc.js";
+import { setupWallet } from "../../utils/setup_pxe.js";
+import { waitForL1ToL2Messages } from "../../utils/l1_to_l2_message.js";
+import { l1Mnemonic } from "../../utils/l1_dev_account.js";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 describe("Accounts", () => {
-    let pxe: PXE;
+    let node: AztecNode;
+    let wallet: EmbeddedWallet;
     let logger: Logger;
-    let sandboxInstance;
+    let sandboxInstance: ReturnType<typeof spawn> | undefined;
     let sponsoredPaymentMethod: SponsoredFeePaymentMethod;
-    let ownerWallet: AccountWallet;
+    let owner: AztecAddress;
 
-    let randomAccountManagers: AccountManager[] = [];
-    let randomWallets: AccountWallet[] = [];
+    let randomAccounts: AccountManager[] = [];
     let randomAddresses: AztecAddress[] = [];
 
     let l1PortalManager: L1FeeJuicePortalManager;
-    let feeJuiceAddress: AztecAddress;
     let skipSandbox: boolean;
 
-    const tokenName = 'TEST'
-    const tokenSymbol = 'TT'
-    const tokenDecimals = 18n
+    const tokenName = 'TEST';
+    const tokenSymbol = 'TT';
+    const tokenDecimals = 18;
 
     beforeAll(async () => {
         skipSandbox = process.env.SKIP_SANDBOX === 'true';
         if (!skipSandbox) {
-            sandboxInstance = spawn("aztec", ["start", "--sandbox"], {
+            sandboxInstance = spawn("aztec", ["start", "--local-network"], {
                 detached: true,
-                stdio: 'ignore'
-            })
+                stdio: 'ignore',
+            });
             await sleep(15000);
         }
 
-        logger = createLogger('aztec:aztec-starter:accounts');
-        logger.info("Aztec-Starter tests running.")
+        logger = createLogger('aztec:cmtat:accounts');
+        logger.info("private-CMTAT-aztec account tests running.");
 
-        pxe = await setupPXE();
-
-        const sponsoredFPC = await getSponsoredFPCInstance();
-        await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
-        sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
+        ({ node, wallet } = await setupWallet());
+        sponsoredPaymentMethod = await getSponsoredPaymentMethod(wallet);
 
         // create default ethereum clients
-        const nodeInfo = await pxe.getNodeInfo();
+        const nodeInfo = await node.getNodeInfo();
         const chain = createEthereumChain(['http://localhost:8545'], nodeInfo.l1ChainId);
-        const DefaultMnemonic = 'test test test test test test test test test test test junk';
-        const l1Client = createExtendedL1Client(chain.rpcUrls, DefaultMnemonic, chain.chainInfo);
+        const l1Client = createExtendedL1Client(chain.rpcUrls, l1Mnemonic(), chain.chainInfo);
 
-        feeJuiceAddress = nodeInfo.protocolContractAddresses.feeJuice;
+        l1PortalManager = await L1FeeJuicePortalManager.new(node, l1Client, logger);
 
-        // create portal manager
-        l1PortalManager = await L1FeeJuicePortalManager.new(
-            pxe,
-            l1Client,
-            logger
+        const ownerAccount = await wallet.createSchnorrAccount(
+            Fr.random(),
+            Fr.random(),
+            GrumpkinScalar.random(),
         );
-
-        let secretKey = Fr.random();
-        let salt = Fr.random();
-        let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt)
-        await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait();
-        ownerWallet = await schnorrAccount.getWallet();
-    })
+        const ownerDeploy = await ownerAccount.getDeployMethod();
+        await ownerDeploy.send({ from: NO_FROM, fee: { paymentMethod: sponsoredPaymentMethod } });
+        owner = ownerAccount.address;
+    }, 300_000);
 
     beforeEach(async () => {
-        // generate random accounts
-        randomAccountManagers = await Promise.all(
-            (await generateSchnorrAccounts(2)).map(
-                a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt)
-            )
+        randomAccounts = await Promise.all(
+            [0, 1].map(() =>
+                wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random()),
+            ),
         );
-        // get corresponding wallets
-        randomWallets = await Promise.all(randomAccountManagers.map(am => am.getWallet()));
-        // get corresponding addresses
-        randomAddresses = await Promise.all(randomWallets.map(async w => (await w.getCompleteAddress()).address));
-    })
+        randomAddresses = randomAccounts.map(a => a.address);
+    });
 
     afterAll(async () => {
         if (!skipSandbox) {
-            sandboxInstance!.kill('SIGINT');
+            sandboxInstance?.kill('SIGINT');
         }
-    })
+    });
 
     it("Creates accounts with fee juice", async () => {
         // balance of each random account is 0 before bridge
-        let balances = await Promise.all(randomAddresses.map(async a => getFeeJuiceBalance(a, pxe)));
+        let balances = await Promise.all(randomAddresses.map(a => getFeeJuiceBalance(a, node)));
         balances.forEach(b => expect(b).toBe(0n));
 
-
-        // bridge funds to unfunded random addresses
-        const claimAmount = 1000000000000000000n;
-        const approxMaxDeployCost = 10n ** 10n; // Need to manually update this if fees increase significantly
-        let claims: L2AmountClaim[] = [];
+        // bridge funds to unfunded random addresses. The amount is not ours to choose: the L1
+        // portal's test handler mints a fixed quantity and rejects anything else with
+        // "Minting amount must be ...", so read it rather than hard-coding one.
+        const claimAmount = await l1PortalManager.getTokenManager().getMintAmount();
+        const claims: L2AmountClaim[] = [];
         // bridge sequentially to avoid l1 txs (nonces) being processed out of order
-        for (let i = 0; i < randomAddresses.length; i++) {
-            claims.push(await l1PortalManager.bridgeTokensPublic(randomAddresses[i], claimAmount, true));
+        for (const address of randomAddresses) {
+            claims.push(await l1PortalManager.bridgeTokensPublic(address, claimAmount, true));
         }
 
-
-        // arbitrary transactions to progress 2 blocks, and have fee juice on Aztec ready to claim
-        await TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), tokenName,tokenSymbol, tokenDecimals).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed(); // deploy contract with first funded wallet
-        await TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), tokenName,tokenSymbol, tokenDecimals).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed(); // deploy contract with first funded wallet
-
-        // claim and pay to deploy random accounts
-        let sentTxs = [];
-        for (let i = 0; i < randomWallets.length; i++) {
-            const paymentMethod = new FeeJuicePaymentMethodWithClaim(randomWallets[i], claims[i]);
-            await randomAccountManagers[i].deploy({ fee: { paymentMethod } }).wait();
-        }
-        // balance after deploy with claimed fee juice
-        balances = await Promise.all(randomAddresses.map(async a => await getFeeJuiceBalance(a, pxe)));
-        const amountAfterDeploy = claimAmount - approxMaxDeployCost;
-        balances.forEach(b => expect(b).toBeGreaterThanOrEqual(amountAfterDeploy));
-
-    });
-
-    it("Deploys first unfunded account from first funded account", async () => {
-        const receipt = await randomAccountManagers[0]
-            .deploy({ fee: { paymentMethod: sponsoredPaymentMethod }, deployWallet: ownerWallet })
-            .wait();
-
-        expect(receipt).toEqual(
-            expect.objectContaining({
-                status: TxStatus.SUCCESS,
-            }),
+        // The deposits are on L1; they become claimable only once a proposer has included them in an
+        // L2 block. Produce blocks until the node can serve a membership witness for each message,
+        // rather than assuming a fixed number - see src/utils/l1_to_l2_message.ts.
+        await waitForL1ToL2Messages(
+            node,
+            claims.map(c => c.messageHash),
+            () =>
+                TokenContract.deploy(wallet, owner, tokenName, tokenSymbol, tokenDecimals, false)
+                    .send({ from: owner, fee: { paymentMethod: sponsoredPaymentMethod } }),
+            logger,
         );
 
-        const deployedWallet = await randomAccountManagers[0].getWallet();
-        expect(deployedWallet.getAddress()).toEqual(randomAccountManagers[0].getAddress());
-    });
+        // claim and pay to deploy random accounts
+        const fees: bigint[] = [];
+        for (let i = 0; i < randomAccounts.length; i++) {
+            const paymentMethod = new FeeJuicePaymentMethodWithClaim(randomAddresses[i], claims[i]);
+            const deployMethod = await randomAccounts[i].getDeployMethod();
+            const { receipt } = await deployMethod.send({ from: NO_FROM, fee: { paymentMethod } });
+            expect(receipt.transactionFee).toBeGreaterThan(0n);
+            fees.push(receipt.transactionFee!);
+        }
+
+        // Balance after the deploy: the claim minus what the transaction actually cost. The test
+        // used to compare against a hard-coded upper bound on the fee, which went stale - the real
+        // cost is now roughly 7.6e12 against a bound of 1e10 - so take the figure from the receipt.
+        balances = await Promise.all(randomAddresses.map(a => getFeeJuiceBalance(a, node)));
+        balances.forEach((b, i) => expect(b).toBe(claimAmount - fees[i]));
+    }, 600_000);
+
+    it("Deploys first unfunded account from first funded account", async () => {
+        // The owner pays, so the new account needs no funds of its own.
+        const deployMethod = await randomAccounts[0].getDeployMethod();
+        const { receipt } = await deployMethod.send({
+            from: owner,
+            fee: { paymentMethod: sponsoredPaymentMethod },
+        });
+
+        expect(receipt.hasExecutionSucceeded()).toBe(true);
+
+        const metadata = await wallet.getContractMetadata(randomAddresses[0]);
+        expect(metadata.instance).toBeTruthy();
+    }, 300_000);
 
     it("Sponsored contract deployment", async () => {
         const salt = Fr.random();
-        const CMTATContractArtifact = TokenContractArtifact
-        const accounts = await Promise.all(
-            (await generateSchnorrAccounts(2)).map(
-                async a => await getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt)
-            )
-        );
-        await Promise.all(accounts.map(a => a.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait()));
-        const daWallets = await Promise.all(accounts.map(a => a.getWallet()));
-        const [deployerWallet, adminWallet] = daWallets;
-        const [deployerAddress, adminAddress] = daWallets.map(w => w.getAddress());
-        const constructorArgs = [adminAddress, tokenName, tokenSymbol, tokenDecimals];
 
-        const deploymentData = await getContractInstanceFromDeployParams(CMTATContractArtifact,
-            {
-                constructorArgs: constructorArgs,
-                salt,
-                deployer: deployerWallet.getAddress()
-            });
-        const deployer = new ContractDeployer(CMTATContractArtifact, deployerWallet);
-        const tx = deployer.deploy(adminAddress, tokenName,tokenSymbol, tokenDecimals).send({
-            contractAddressSalt: salt,
-            fee: { paymentMethod: sponsoredPaymentMethod } // without the sponsoredFPC the deployment fails, thus confirming it works
-        })
+        const { contract, receipt } = await TokenContract.deploy(
+            wallet,
+            owner,
+            tokenName,
+            tokenSymbol,
+            tokenDecimals,
+            false,
+            { salt, deployer: owner },
+        ).send({
+            from: owner,
+            // without the sponsoredFPC the deployment fails, thus confirming it works
+            fee: { paymentMethod: sponsoredPaymentMethod },
+        });
 
-        const receipt = await tx.getReceipt();
+        expect(receipt.hasExecutionSucceeded()).toBe(true);
 
-        expect(receipt).toEqual(
-            expect.objectContaining({
-                status: TxStatus.PENDING,
-            }),
-        );
-
-        const receiptAfterMined = await tx.wait({ wallet: deployerWallet });
-        expect(await pxe.getContractMetadata(deploymentData.address)).toBeDefined();
-        expect((await pxe.getContractMetadata(deploymentData.address)).contractInstance).toBeTruthy();
-        expect(receiptAfterMined).toEqual(
-            expect.objectContaining({
-                status: TxStatus.SUCCESS,
-            }),
-        );
-
-        expect(receiptAfterMined.contract.instance.address).toEqual(deploymentData.address)
-    })
-
+        const metadata = await wallet.getContractMetadata(contract.address);
+        expect(metadata.instance).toBeTruthy();
+    }, 300_000);
 });

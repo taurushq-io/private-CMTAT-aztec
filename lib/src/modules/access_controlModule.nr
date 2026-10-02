@@ -1,0 +1,126 @@
+use aztec::context::PublicContext;
+use aztec::protocol::address::AztecAddress;
+use aztec::state_vars::{Map, PublicMutable, StateVariable};
+
+// Type alias for better readability
+pub type Role = Field;
+
+pub global DEFAULT_ADMIN_ROLE: Field = 1;
+pub global PAUSE_ROLE: Field = 2;
+pub global ENFORCEMENT_ROLE: Field = 3;
+pub global VALIDATION_ROLE: Field = 4;
+pub global ADDRESS_LIST_ADD_ROLE: Field = 5;
+pub global ADDRESS_LIST_REMOVE_ROLE: Field = 6;
+pub global MINTER_ROLE: Field = 7;
+pub global BURNER_ROLE: Field = 8;
+pub global DEBT_ROLE: Field = 9;
+pub global DEBT_CREDIT_EVENT_ROLE: Field = 10;
+pub global EXTRA_INFORMATION_ROLE: Field = 11;
+
+// Define the storage for role data
+pub struct RoleData<Context> {
+    pub has_role: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+}
+
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
+impl<Context> StateVariable<1, Context> for RoleData<Context> {
+    fn new(context: Context, storage_slot: Field) -> Self {
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        Self { has_role: Map::new(context, storage_slot) }
+    }
+
+    fn get_storage_slot(self) -> Field {
+        self.has_role.get_storage_slot()
+    }
+}
+
+//Define the AccessControl storage
+pub struct AccessControlModule<T, Context> {
+    pub roles: Map<Role, RoleData<Context>, Context>,
+}
+
+impl<T, Context> StateVariable<1, Context> for AccessControlModule<T, Context> {
+    fn new(context: Context, storage_slot: Field) -> Self {
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        Self { roles: Map::new(context, storage_slot) }
+    }
+
+    fn get_storage_slot(self) -> Field {
+        self.roles.get_storage_slot()
+    }
+}
+
+impl<T> AccessControlModule<T, PublicContext> {
+
+    // Check if an account has a role
+    pub fn has_role(self: Self, role: Role, account: AztecAddress) -> bool {
+        let role_data = self.roles.at(role);
+        role_data.has_role.at(account).read()
+    }
+
+    // Check role internally
+    fn check_role(self: Self, role: Role, account: AztecAddress) {
+        assert(self.has_role(role, account), "AccessControlUnauthorizedAccount");
+    }
+
+    // Modifier to check role
+    pub fn only_role(self: Self, role: Role, caller: AztecAddress) {
+        self.check_role(role, caller);
+    }
+
+    /*TODO: this default admin role should be modular, but for now we keep it simple
+    @dev: If we want it to be modular, we should add a _set_role_admin function like in OpenZeppelin as well as a
+    way for the constructor to set the default admin role.
+    */
+    pub fn getRoleAdmin(_self: Self, _role: Role) -> Role {
+        DEFAULT_ADMIN_ROLE
+    }
+
+    /*
+     * @dev Authorise a role grant without performing it.
+     *
+     * `grant_role` below both checks and writes, which is convenient for a caller that has nothing
+     * to add. A contract that must also emit an event needs the two halves separately, so that the
+     * write and the emit can live together in one place and neither can be forgotten.
+     */
+    pub fn only_role_admin(self: Self, role: Role, sender: AztecAddress) {
+        self.only_role(self.getRoleAdmin(role), sender);
+    }
+
+    // Grant a role to an account
+    pub fn grant_role(self: Self, role: Role, account: AztecAddress, sender: AztecAddress) {
+        self.only_role(self.getRoleAdmin(role), sender);
+        self._grant_role(role, account);
+    }
+
+    // Revoke a role from an account
+    pub fn revoke_role(self: Self, role: Role, account: AztecAddress, sender: AztecAddress) {
+        assert(sender != account, "Revoke Role: Cannot revoke role from self");
+        self.only_role(self.getRoleAdmin(role), sender);
+        self._revoke_role(role, account);
+    }
+
+    // renounce ownership of a role
+    // This is a public function because it can be called by the user
+    pub fn renounce_role(
+        self: Self,
+        role: Field,
+        caller: AztecAddress,
+        callerConfirmation: AztecAddress,
+    ) {
+        assert(caller == callerConfirmation, "Renounce Role: Addresses do not match");
+        self._revoke_role(role, callerConfirmation)
+    }
+
+    //this is made public so that the constructor can call it.
+    //TODO: see how to make otherwise
+    pub fn _grant_role(self: Self, role: Role, account: AztecAddress) {
+        let role_data = self.roles.at(role);
+        role_data.has_role.at(account).write(true);
+    }
+
+    fn _revoke_role(self: Self, role: Role, account: AztecAddress) {
+        let role_data = self.roles.at(role);
+        role_data.has_role.at(account).write(false);
+    }
+}

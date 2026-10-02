@@ -1,32 +1,43 @@
-import { createLogger, Fr, PXE, Logger, AccountManager } from "@aztec/aztec.js";
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { NO_FROM } from '@aztec/aztec.js/account';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
+import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
+import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 import * as dotenv from 'dotenv';
-import { getSponsoredFPCInstance } from "./sponsored_fpc.js";
-import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 
+import { getSponsoredPaymentMethod } from './sponsored_fpc.js';
 
 // Load environment variables
 dotenv.config();
 
-export async function createAccountFromEnv(pxe: PXE, number: number): Promise<AccountManager[]> {
-    let logger: Logger;
-    logger = createLogger('aztec:create-account');
+/**
+ * Recreates `number` Schnorr accounts from the SECRET<i>/SALT<i> pairs in `.env`, deploying any that
+ * are not on chain yet. Recreating from the same secret and salt always yields the same address, which
+ * is how the testnet scripts keep talking to the same accounts across runs.
+ *
+ * The signing key is derived from the secret so that `.env` stays a secret/salt pair. Note that both
+ * the derivation and the address computation changed with Aztec v3, so a given SECRET/SALT pair no
+ * longer resolves to the address it did on 0.87 - the addresses recorded in .env.example are stale.
+ */
+export async function createAccountFromEnv(
+    wallet: EmbeddedWallet,
+    number: number,
+): Promise<AztecAddress[]> {
+    const logger = createLogger('aztec:create-account');
 
-    logger.info(`🔐 Creating ${number} Schnorr account(s) from environment variables...`);
+    logger.info(`Creating ${number} Schnorr account(s) from environment variables...`);
 
     if (number <= 0) {
         throw new Error('Number of accounts must be greater than 0');
     }
 
-    const accounts: AccountManager[] = [];
+    const sponsoredPaymentMethod = await getSponsoredPaymentMethod(wallet);
+    const addresses: AztecAddress[] = [];
 
-    // Process each account
     for (let i = 1; i <= number; i++) {
-        logger.info(`🏗️  Creating account ${i}/${number}...`);
+        logger.info(`Creating account ${i}/${number}...`);
 
-        // Read SECRET and SALT from environment variables
         const secretEnv = process.env[`SECRET${i}`];
         const saltEnv = process.env[`SALT${i}`];
 
@@ -38,68 +49,52 @@ export async function createAccountFromEnv(pxe: PXE, number: number): Promise<Ac
             throw new Error(`SALT${i} environment variable is required. Please set it in your .env file.`);
         }
 
-        // Convert hex strings to Fr values
         let secretKey: Fr;
         let salt: Fr;
 
         try {
             secretKey = Fr.fromString(secretEnv);
             salt = Fr.fromString(saltEnv);
-            logger.info(`✅ Successfully parsed SECRET${i} and SALT${i} values`);
         } catch (error) {
-            logger.error(`❌ Failed to parse SECRET${i} and SALT${i} values: ${error}`);
-            throw new Error(`Invalid SECRET${i} or SALT${i} format. Please ensure they are valid hex strings starting with "0x".`);
+            logger.error(`Failed to parse SECRET${i} and SALT${i} values: ${error}`);
+            throw new Error(
+                `Invalid SECRET${i} or SALT${i} format. Please ensure they are valid hex strings starting with "0x".`,
+            );
         }
 
-        // Create Schnorr account with specified values
-        logger.info(`🏗️  Creating Schnorr account ${i} instance with environment values...`);
-        let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
-        const accountAddress = schnorrAccount.getAddress();
-        logger.info(`📍 Account ${i} address: ${accountAddress}`);
+        const account = await wallet.createSchnorrAccount(secretKey, salt, deriveMasterMessageSigningSecretKey(secretKey));
+        const accountAddress = account.address;
+        logger.info(`Account ${i} address: ${accountAddress}`);
 
-        // Check if account is already deployed
-        logger.info(`🔍 Checking if account ${i} is already deployed...`);
-        try {
-            const registeredAccounts = await pxe.getRegisteredAccounts();
-            const isRegistered = registeredAccounts.some(acc => acc.address.equals(accountAddress));
-            
-            if (isRegistered) {
-                logger.info(`✅ Account ${i} is already registered with PXE`);
-            } else {
-                logger.info(`ℹ️  Account ${i} is not yet registered. Deploying it.`);
-                const sponsoredFPC = await getSponsoredFPCInstance();
-                await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
-                const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
-
-                let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
-                await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout: 120000});
-                let wallet = await schnorrAccount.getWallet();
-
-    logger.info(`Schnorr account deployed at: ${wallet.getAddress()}`);
-            }
-        } catch (error) {
-            logger.warn(`⚠️  Could not check account ${i} registration: ${error}`);
+        const metadata = await wallet.getContractMetadata(accountAddress);
+        if (metadata.initializationStatus) {
+            logger.info(`Account ${i} is already deployed`);
+        } else {
+            logger.info(`Account ${i} is not deployed yet. Deploying it.`);
+            const deployMethod = await account.getDeployMethod();
+            await deployMethod.send({ from: NO_FROM, fee: { paymentMethod: sponsoredPaymentMethod } });
+            logger.info(`Schnorr account ${i} deployed at: ${accountAddress}`);
         }
 
-        logger.info(`🎉 Schnorr account ${i} instance created successfully!`);
-        logger.info(`📋 Account ${i} Summary:`);
-        logger.info(`   - Address: ${accountAddress}`);
-        logger.info(`   - SECRET${i} (truncated): ${secretEnv.substring(0, 10)}...`);
-        logger.info(`   - SALT${i} (truncated): ${saltEnv.substring(0, 10)}...`);
-
-        accounts.push(schnorrAccount);
+        addresses.push(accountAddress);
     }
 
-    logger.info(`🎉 All ${number} accounts created successfully!`);
-    return accounts;
+    logger.info(`All ${number} accounts created successfully`);
+    return addresses;
 }
 
-export async function getAccountFromEnv(pxe: PXE, number: number): Promise<AccountManager[]> {
-    return await createAccountFromEnv(pxe, number);
+export async function getAccountFromEnv(
+    wallet: EmbeddedWallet,
+    number: number,
+): Promise<AztecAddress[]> {
+    return await createAccountFromEnv(wallet, number);
 }
 
 // Helper function to get a single account (for backward compatibility)
-export async function getSingleAccountFromEnv(pxe: PXE, accountIndex: number = 1): Promise<AccountManager> {
-    const accounts = await createAccountFromEnv(pxe, accountIndex);
+export async function getSingleAccountFromEnv(
+    wallet: EmbeddedWallet,
+    accountIndex: number = 1,
+): Promise<AztecAddress> {
+    const accounts = await createAccountFromEnv(wallet, accountIndex);
     return accounts[accountIndex - 1];
 }

@@ -1,14 +1,14 @@
-import { PXE } from "@aztec/aztec.js";
-import { setupPXE } from "../src/utils/setup_pxe.js";
+import { setupWallet } from "../src/utils/setup_pxe.js";
 
 async function main() {
+    const { node } = await setupWallet();
 
-    let pxe: PXE;
-    pxe = await setupPXE();
-
-    let block = await pxe.getBlock(1);
-    console.log(block)
-    console.log(await block?.hash())
+    const block = await node.getBlock(1);
+    console.log(block);
+    console.log(await block?.hash());
 }
 
-main();
+main().catch((error) => {
+    console.error("Error:", error);
+    process.exit(1);
+});

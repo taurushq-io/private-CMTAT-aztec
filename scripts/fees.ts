@@ -1,155 +1,91 @@
-import { createLogger, FeeJuicePaymentMethodWithClaim, Fr, L1FeeJuicePortalManager, PXE, waitForPXE , createPXEClient, Logger, FeeJuicePaymentMethod, PrivateFeePaymentMethod, PublicFeePaymentMethod } from "@aztec/aztec.js";
-import {
-    Chain,
-    createPublicClient,
-    createWalletClient,
-    http,
-} from 'viem';
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { foundry } from 'viem/chains'
-import { mnemonicToAccount } from 'viem/accounts';
-import { FeeJuiceContract } from "@aztec/noir-contracts.js/FeeJuice";
-import { FPCContract } from "@aztec/noir-contracts.js/FPC";
-import { CMTATokenContractArtifact as TokenContractArtifact, CMTATokenContract as TokenContract} from "../src/artifacts/CMTAToken.js"
-import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing'
-import { getDeployedSponsoredFPCAddress } from "../src/utils/sponsored_fpc.js";
-import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
-import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js";
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+// Walks through the fee payment methods this project can use on a local network.
+//
+// Two of the modes the pre-v3 version of this script demonstrated are gone: `FeeJuicePaymentMethod`
+// no longer exists (an account that holds Fee Juice now pays with it automatically when no payment
+// method is given), and the reference FPC's `PrivateFeePaymentMethod` / `PublicFeePaymentMethod` are
+// deprecated and do not work beyond a local network. Paying in another token now goes through a
+// third-party FPC's own SDK, which is out of scope here.
+import { NO_FROM } from "@aztec/aztec.js/account";
+import { createExtendedL1Client } from "@aztec/ethereum/client";
+import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
+import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+import { Fr, GrumpkinScalar } from "@aztec/aztec.js/fields";
+import { createLogger } from "@aztec/aztec.js/log";
 import * as dotenv from 'dotenv';
+import { l1Mnemonic } from '../src/utils/l1_dev_account.js';
+
+import { CMTATAztecContract as TokenContract } from "../src/artifacts/CMTATAztec.js";
+import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
+import { getSponsoredPaymentMethod } from "../src/utils/sponsored_fpc.js";
+import { setupWallet } from "../src/utils/setup_pxe.js";
+
 dotenv.config();
 
-import { setupPXE } from "../src/utils/setup_pxe.js";
 
-const MNEMONIC = 'test test test test test test test test test test test junk';
+const MNEMONIC = l1Mnemonic();
 const FEE_FUNDING_FOR_TESTER_ACCOUNT = 1000000000000000000n;
 
-let walletClient = getL1WalletClient(process.env.L1_URL!, 0);
-
-const publicClient = createPublicClient({
-    chain: foundry,
-    transport: http(process.env.L1_URL),
-});
-
 async function main() {
-
-    let pxe: PXE;
-    let logger: Logger;
-
-    logger = createLogger('aztec:CMTAToken');
+    const logger = createLogger('aztec:CMTAToken');
     logger.info('Starting Fee Juice script...');
 
-    pxe = await setupPXE();
-    const nodeInfo = (await pxe.getNodeInfo())
-
-    // Setup Schnorr AccountManager
-
-    let secretKey = Fr.random();
-    let salt = Fr.random();
-    let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
-    
-    const wallet1 = await (await deploySchnorrAccount(pxe)).getWallet()
-    const newWallet = await schnorrAccount.getWallet()
-    const feeJuiceReceipient = schnorrAccount.getAddress()
-
-    // Setup and bridge fee asset to L2 to get fee juice
-
-    const feeJuicePortalManager = await L1FeeJuicePortalManager.new(
-        pxe,
-        //@ts-ignore
-        publicClient,
-        walletClient,
-    );
-
-    const claim = await feeJuicePortalManager.bridgeTokensPublic(feeJuiceReceipient, FEE_FUNDING_FOR_TESTER_ACCOUNT, true);
-
-    logger.info(`Fee Juice minted to ${feeJuiceReceipient} on L2.`)
-
-    // set up sponsored fee payments
-    const sponseredFPC = await getSponsoredFPCInstance();
-    await pxe.registerContract({instance: sponseredFPC, artifact: SponsoredFPCContract.artifact});
-    const paymentMethod = new SponsoredFeePaymentMethod(sponseredFPC.address);
-    // Two arbitraty txs to make the L1 message available on L2
-    const votingContract = await TokenContract.deploy(wallet1, wallet1.getAddress()).send({fee: {paymentMethod}}).deployed({timeout: 120000});
-    const bananaCoin = await TokenContract.deploy(wallet1, wallet1.getAddress(), "bananaCoin", "BNC", 18).send({fee: {paymentMethod}}).deployed({timeout: 120000})
-
-    // Claim Fee Juice & Pay Fees yourself
-
-    const claimAndPay = new FeeJuicePaymentMethodWithClaim(newWallet, claim)
-    await schnorrAccount.deploy({ fee: { paymentMethod: claimAndPay } }).wait({timeout: 120000})
-    logger.info(`New account at ${newWallet.getAddress()} deployed using claimed funds for fees.`)
-
-    // Pay fees yourself
-
-    // Create a new voting contract instance, interacting from the newWallet
-    const useFeeJuice = new FeeJuicePaymentMethod(newWallet.getAddress())
-    await votingContract.withWallet(newWallet).methods.cast_vote(wallet1.getAddress()).send({ fee: { paymentMethod: useFeeJuice }}).wait({timeout: 120000})
-    logger.info(`Vote cast from new account, paying fees via newWallet.`)
-
-    // Private Fee Payments via FPC
-
-    // Must use a Fee Paying Contract (FPC) to pay fees privately
-    // Need to deploy an FPC to use Private Fee payment methods
-
-    // This uses bananaCoin as the fee paying asset that will be exchanged for fee juice
-    const fpc = await FPCContract.deploy(wallet1, bananaCoin.address, wallet1.getAddress()).send({fee: {paymentMethod}}).deployed({timeout: 120000})
-    const fpcClaim = await feeJuicePortalManager.bridgeTokensPublic(fpc.address, FEE_FUNDING_FOR_TESTER_ACCOUNT, true);
-    // 2 public txs to make the bridged fee juice available
-    // Mint some bananaCoin and send to the newWallet to pay fees privately
-    await bananaCoin.methods.mint_to_private(wallet1.getAddress(), newWallet.getAddress(), FEE_FUNDING_FOR_TESTER_ACCOUNT).send({fee: {paymentMethod}}).wait({timeout: 120000})
-    // mint some public bananaCoin to the newWallet to pay fees publicly
-    await bananaCoin.methods.mint_to_public(newWallet.getAddress(), FEE_FUNDING_FOR_TESTER_ACCOUNT).send({fee: {paymentMethod}}).wait({timeout: 120000})
-    const bananaBalance = await bananaCoin.withWallet(newWallet).methods.balance_of_private(newWallet.getAddress()).simulate()
-
-    logger.info(`BananaCoin balance of newWallet is ${bananaBalance}`)
-
-    const feeJuiceInstance = await getCanonicalFeeJuice();
-    // await pxe.registerContract({instance: feeJuiceInstance.instance, artifact: })
-    const feeJuice = await FeeJuiceContract.at(feeJuiceInstance.address, newWallet)
-    await feeJuice.methods.claim(fpc.address, fpcClaim.claimAmount, fpcClaim.claimSecret, fpcClaim.messageLeafIndex).send().wait({timeout: 120000})
-
-    logger.info(`Fpc fee juice balance ${await feeJuice.methods.balance_of_public(fpc.address).simulate()}`)
-
-    const privateFee = new PrivateFeePaymentMethod(fpc.address, newWallet)    
-    await bananaCoin.withWallet(newWallet).methods.transfer_in_private(newWallet.getAddress(), wallet1.getAddress(), 10, 0).send({ fee: { paymentMethod: privateFee }}).wait({timeout: 120000})
-    
-    logger.info(`Transfer paid with fees via the FPC, privately.`)
-
-    // Public Fee Payments via FPC
-
-    const publicFee = new PublicFeePaymentMethod(fpc.address, newWallet)
-    await bananaCoin.withWallet(newWallet).methods.transfer_in_private(newWallet.getAddress(), wallet1.getAddress(), 10, 0).send({ fee: { paymentMethod: publicFee }}).wait({timeout: 120000})
-    logger.info(`Transfer paid with fees via the FPC, publicly.`)
-
-    // Sponsored Fee Payment
-
-    // This method will only work in environments where there is a sponsored fee contract deployed 
-    const deployedSponseredFPC = await getDeployedSponsoredFPCAddress(pxe);
-    const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(deployedSponseredFPC);
-    await bananaCoin.withWallet(newWallet).methods.transfer_in_private(newWallet.getAddress(), wallet1.getAddress(), 10, 0).send({ fee: { paymentMethod: sponsoredPaymentMethod }}).wait({timeout: 120000})
-    logger.info(`Transfer paid with fees from Sponsored FPC.`)
-}
-
-main();
-
-// from here: https://github.com/AztecProtocol/aztec-packages/blob/ecbd59e58006533c8885a8b2fadbd9507489300c/yarn-project/end-to-end/src/fixtures/utils.ts#L534
-function getL1WalletClient(rpcUrl: string, index: number) {
-    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
-    const chain: Chain = {
-        id: Number(process.env.L1_CHAIN_ID!),
-        name: "test",
-        nativeCurrency: {
-            name: "ETH",
-            symbol: "ETH",
-            decimals: 18
-        },
-        rpcUrls: {default: {http: [process.env.L1_URL!]}}
+    if (!process.env.L1_URL) {
+        throw new Error('L1_URL is not set. Copy .env.example to .env and point it at an L1 RPC.');
     }
-    return createWalletClient({
-        account: hdAccount,
-        chain,
-        transport: http(rpcUrl),
-    });
+
+    const { node, wallet } = await setupWallet();
+
+    // 1. Sponsored FPC: pays unconditionally, so a fresh account can transact with no funding.
+    const sponsoredPaymentMethod = await getSponsoredPaymentMethod(wallet);
+    const funder = await deploySchnorrAccount(wallet);
+
+    const tokenName = 'CMTAToken';
+    const tokenSymbol = 'CMTAT';
+    const { contract: token } = await TokenContract.deploy(
+        wallet,
+        funder,
+        tokenName,
+        tokenSymbol,
+        18,
+    ).send({ from: funder, fee: { paymentMethod: sponsoredPaymentMethod } });
+    logger.info(`Token deployed at ${token.address}, fees paid by the sponsored FPC.`);
+
+    // 2. Bridge Fee Juice from L1 and claim it while deploying the account that will use it.
+    const l1Client = createExtendedL1Client([process.env.L1_URL], MNEMONIC);
+    const feeJuicePortalManager = await L1FeeJuicePortalManager.new(node, l1Client, logger);
+
+    const feeJuiceAccount = await wallet.createSchnorrAccount(
+        Fr.random(),
+        Fr.random(),
+        GrumpkinScalar.random(),
+    );
+    const claim = await feeJuicePortalManager.bridgeTokensPublic(
+        feeJuiceAccount.address,
+        FEE_FUNDING_FOR_TESTER_ACCOUNT,
+        true,
+    );
+    logger.info(`Fee Juice bridged to ${feeJuiceAccount.address}.`);
+
+    // Two arbitrary txs so the L1 message becomes available on L2.
+    for (let i = 0; i < 2; i++) {
+        await token.methods
+            .grant_role(7n, funder)
+            .send({ from: funder, fee: { paymentMethod: sponsoredPaymentMethod } });
+    }
+
+    const claimAndPay = new FeeJuicePaymentMethodWithClaim(feeJuiceAccount.address, claim);
+    const deployMethod = await feeJuiceAccount.getDeployMethod();
+    await deployMethod.send({ from: NO_FROM, fee: { paymentMethod: claimAndPay } });
+    logger.info(`Account ${feeJuiceAccount.address} deployed using claimed Fee Juice for fees.`);
+
+    // 3. Fee Juice directly: the account now holds Fee Juice, so no payment method is needed.
+    const { receipt } = await token.methods
+        .grant_role(7n, feeJuiceAccount.address)
+        .send({ from: feeJuiceAccount.address });
+    logger.info(`Transaction paid from the account's own Fee Juice, fee: ${receipt.transactionFee}`);
 }
+
+main().catch((error) => {
+    console.error("Error:", error);
+    process.exit(1);
+});

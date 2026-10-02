@@ -1,38 +1,38 @@
-
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
-import { createStore } from "@aztec/kv-store/lmdb"
-import { createAztecNodeClient, createLogger, waitForPXE } from '@aztec/aztec.js';
+// Wallet setup for the public testnet. See setup_pxe.ts for why this no longer creates a PXE directly.
+import { createLogger } from '@aztec/aztec.js/log';
+import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { createStore } from '@aztec/kv-store/lmdb';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const { NODE_URL = process.env.NODE_URL} = process.env;
-const node = createAztecNodeClient(NODE_URL as string)
-const l1Contracts = await node.getL1ContractAddresses();
-const config = getPXEServiceConfig()
-const fullConfig = { ...config, l1Contracts }
-fullConfig.proverEnabled = true;
+const { NODE_URL } = process.env;
 
-const store = await createStore('pxe', {
-    dataDirectory: 'store',
-    dataStoreMapSizeKB: 1e6,
-});
+export type WalletSetup = {
+    node: AztecNode;
+    wallet: EmbeddedWallet;
+};
 
-export const setupPXETestnet = async () => {
-    const pxeLogger = createLogger('aztec:pxe');
-    const proverLogger = createLogger('aztec:prover');
-    const storeLogger = createLogger('aztec:store');
-
-    const creationOptions = {
-    loggers: {
-        store: storeLogger,
-        pxe: pxeLogger,
-        prover: proverLogger
-    },
-    store
+export const setupWalletTestnet = async (): Promise<WalletSetup> => {
+    if (!NODE_URL) {
+        throw new Error('NODE_URL is not set. Copy .env.example to .env and set it to a testnet node.');
     }
-    
-    const pxe = await createPXEService(node, fullConfig, creationOptions);
-    await waitForPXE(pxe);
-    return pxe;
+
+    const node = createAztecNodeClient(NODE_URL);
+    await waitForNode(node);
+
+    const store = await createStore('pxe', {
+        dataDirectory: 'store',
+        dataStoreMapSizeKb: 1e6,
+    });
+
+    const wallet = await EmbeddedWallet.create(node, {
+        logger: createLogger('aztec:pxe'),
+        // Testnet transactions are proven, unlike the sandbox ones.
+        pxe: { proverEnabled: true, store },
+    });
+
+    return { node, wallet };
 };
