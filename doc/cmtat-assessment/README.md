@@ -62,6 +62,8 @@
 | Assessment date | 2026-10-05 |
 | Assessed by | *(to be completed by the assessor)* |
 
+> Part of this document has been written with [Claude Code](https://claude.com/product/claude-code) by Anthropic.
+
 ## Deployment variants
 
 Noir has no inheritance and allows one contract per package, so the CMTAT variants are separate contract packages composing a shared module library, rather than a base contract with mixins. This assessment answers for **`CMTATAztec`**, the base variant, and marks the criteria that only a different variant satisfies.
