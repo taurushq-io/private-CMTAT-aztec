@@ -24,15 +24,15 @@ An assessment can currently answer criterion 19 with `y` in all three cases and 
 
 Add a warning note to the **Freeze** subsection of *Guideline for New Blockchain Implementations*, and a sentence to the Notes column of criteria 19 and 20 pointing at it.
 
-Proposed wording for the guideline subsection:
+Proposed addition to the Notes column of criteria 19 and 20:
+
+> Where a freeze may not take effect immediately, the window between submission and enforcement SHOULD be documented: how long it lasts, and whether that length is known in advance or depends on when the transaction is included.
+
+Proposed wording for the guideline subsection (CMTAT Assessment documentation):
 
 > **Warning — the freeze window.** Depending on the underlying ledger, a freeze may not be instantaneous. Between the moment it is submitted and the moment the ledger enforces it, a targeted address that is monitoring the chain may be able to transfer its tokens. On a public blockchain the freeze transaction is visible in the mempool before inclusion, and the target can pay a higher priority fee to be ordered ahead of it; the window lasts until inclusion, so at least one block and longer if the transaction is underpriced or the network is congested, and it can be avoided by submitting through a private relay (for example Flashbots Protect on Ethereum) so that the transaction is not publicly visible beforehand. On a blockchain where compliance state is read from private execution, the flag may instead carry a protocol-enforced delay, in which case the window is deterministic, publicly visible and cannot be avoided by paying more or by routing the transaction differently. On a permissioned ledger the window may be negligible, if pending transactions are not visible to the target.
 >
 > An implementation SHOULD state which of these applies, whether the window's length is known in advance and what it is, and what compensating measure is available — for example pausing the token until the freeze is effective, which blocks every holder rather than racing one address. Where the length cannot be known in advance, as on a chain where it depends on fee markets and congestion, saying so is the useful answer.
-
-Proposed addition to the Notes column of criteria 19 and 20:
-
-> Where a freeze may not take effect immediately, the window between submission and enforcement SHOULD be documented: how long it lasts, and whether that length is known in advance or depends on when the transaction is included.
 
 ## Why a note rather than a new criterion
 
