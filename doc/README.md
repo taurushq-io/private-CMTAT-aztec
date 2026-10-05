@@ -130,6 +130,8 @@ You may modify the token code by adding, removing, or modifying features, at you
   - **Third-party transactions**: We want to allow third parties to execute transactions on behalf of our users, so we use **authentication witnesses** when transferring. (same functionality as `transferFrom` on EVM)
   - **Mint and burn restrictions**: There is no authentication witness in the `mint_to_private` and `burn` functions, as a third party is not allowed to mint or burn; only the issuer can perform these actions.
   - **Admin role**: The admin can add or remove other admins, with `grant_role` / `revoke_role` on `DEFAULT_ADMIN_ROLE`; an admin cannot revoke *itself*, and steps down with `renounce_role`. What cannot change is which role administers a role: `getRoleAdmin` returns `DEFAULT_ADMIN_ROLE` for every role, so no role can be delegated to another administrator. There is no two-step handover, so a grant to a mistyped address cannot be undone from that address's side.
+    - **The model is OpenZeppelin's [`AccessControl`](https://docs.openzeppelin.com/contracts/5.x/access-control) (v5)**, which CMTAT Solidity builds on, ported rather than reinvented. Three fingerprints of it survive in `access_controlModule.nr`: `getRoleAdmin(role)` keeps OpenZeppelin's camelCase name against this project's snake_case convention, `renounce_role` takes a `callerConfirmation` argument that must equal the caller — the guard OpenZeppelin 5.0 added to `renounceRole` — and the failed-authorisation message is its custom error name, `AccessControlUnauthorizedAccount`.
+    - **Two deliberate divergences.** OpenZeppelin exposes `_setRoleAdmin`, so a role there *can* be delegated to a different administrator; this module has no equivalent, which is why every role answers `DEFAULT_ADMIN_ROLE` and the hierarchy is fixed at one level. And `revoke_role` here refuses `sender == account` (`Revoke Role: Cannot revoke role from self`), where OpenZeppelin allows an admin to revoke its own role — self-removal must go through `renounce_role` and its confirmation.
   - **Private by default, public by the holder's choice**: balances are private notes. If, and only if, the token was deployed with `public_side_enabled = true`, a holder may move value between its notes and a public balance through the four AIP-20 bridges; what such a move publishes is the mover's own side. See [Private/public bridges](#privatepublic-bridges).
 
 - **Functionalities**:
@@ -357,6 +359,10 @@ This one is worth explaining, because both choices — who receives it, and how 
 
 **Why constrained.** An `onchain_unconstrained` delivery is "on-chain delivery without constrained encryption": the circuit computes `from` correctly, but nothing proves that what the sender's PXE posts encrypts that value. The recipient would decrypt whatever the sender chose — a receipt the sender can forge is not a convenience but a settlement-confirmation attack surface. Constrained delivery makes the receipt provable. It costs about **20,200 gates per delivery**, measured.
 
+**What "constrained" constrains, precisely: the AES-128 encryption itself.** This is worth stating because it is easy to assume the cost buys only the tag. Under `onchain_constrained()` the framework guarantees that "both the encryption and the discovery tag are constrained and stored onchain", and charges "proving time overhead for encryption and tagging" (aztec-nr's `note_delivery` documentation). The implementation bears that out: `aztec-nr`'s `messages/encryption/aes128.nr` encrypts with `std::aes128::aes128_encrypt`, a Noir standard-library function, so it compiles to constraints in the circuit — while *decryption* runs through an oracle, `try_aes128_decrypt`, and is therefore unconstrained. The asymmetry is the right way round: the sender must prove it encrypted correctly, and the recipient's PXE only has to try keys during discovery, where nothing needs proving.
+
+Two clarifications that follow from it. The constraints live in **this contract's own circuit**, not in the protocol's kernel circuits — which is why the 20,200 gates show up per function in `aztec profile gates`, and why AES-128 is unavailable in public (AVM) functions while working in private ones. And the guarantee applies only to the constrained mode: `onchain_unconstrained()` and `offchain()` both encrypt *without* constraints, so the issuer's offchain audit copies carry no such proof — the reason the `Transfer` events, not the note copies, are the audit trail.
+
 **Why the issuer.** The issuer's note copies are offchain, and a stock PXE cannot store a note it does not own by either delivery mode (see *Limitations*). Without the events, three things followed:
 
 - the issuer's whole audit trail had no data availability;
@@ -365,7 +371,14 @@ This one is worth explaining, because both choices — who receives it, and how 
 
 An event has no owner and no nullifier, so the issuer's PXE validates its commitment against the tree and stores it without anyone else's keys.
 
-The `Transfer` stream is therefore the issuer's on-chain, unforgeable **ledger**. Since 0.4.0 it covers every movement — mints (`from = 0`) and burns (`to = 0`) as well as transfers, following the ERC-20 and AIP-20 convention — so replaying it reconstructs every holder's balance. No set of note copies could do that: a copy says a note was created, never that it was spent. The copies remain as corroboration, the preimage of a note the ledger says exists.
+The `Transfer` stream is therefore the issuer's on-chain, unforgeable **ledger**. Since 0.4.0 it covers every movement of the fully private token — mints (`from = 0`) and burns (`to = 0`) as well as transfers and their batches, following the ERC-20 and AIP-20 convention — so replaying it reconstructs every holder's balance. No set of note copies could do that: a copy says a note was created, never that it was spent. The copies remain as corroboration, the preimage of a note the ledger says exists.
+
+**Two paths are outside that stream, and both belong to the public side.** They exist only in a token deployed with `public_side_enabled = true`; for a fully private deployment the paragraph above is the whole story.
+
+- **The bridges** publish a `Transfer` naming their public party and the sentinel `PRIVATE_ADDRESS_MAGIC_VALUE` for the private one, as AIP-20 does. The movement is recorded, the private counterparty is not, so it is the public balance rather than the private one that a replay reconstructs here.
+- **A commitment completion emits no `Transfer` at all.** It cannot: at completion the contract holds the commitment and never the recipient's address, and an event naming a recipient the contract could not verify would be forgeable by the payer — the opposite of what constrained delivery is for. The issuer reconstructs these from the `CommitmentInitialized { to, completer, commitment }` event it receives when the commitment is opened, deriving the completion log's tag from the commitment and reading the amount there; see [Private/public bridges](#privatepublic-bridges).
+
+Both facts are pinned mechanically rather than left to this prose. A warm `transfer_private_to_private` leaves four private logs — one per note, plus the event's two constrained deliveries — and a `transfer_private_to_commitment` of the same value leaves the same two notes and two logs, no event among them. `tests/cmtat-aztec/src/test_invariants.nr` asserts both counts, so either path gaining or losing an event fails the suite.
 
 **What the mint and burn records cost.** One constrained delivery each: `mint_to_private` 36,976 → 61,062 gates, `burn` 87,935 → 111,638, `mint_batch` 132,584 → 218,669 (one event per recipient), `burn_batch` 331,362 → 352,719 (one event for the total) on the base and Debt variants; Light: 30,776 → 54,862, 81,736 → 105,439, 107,871 → 193,956, 306,820 → 328,177. The batch caps are unchanged: `mint_batch` at 4 recipients carries eight constrained deliveries, the same count `transfer_batch` at 2 already carries.
 
@@ -554,7 +567,16 @@ They are **off unless the issuer enables them at deployment**: the constructor's
 | `transfer_private_to_public_with_commitment(from, to, amount, authwit_nonce) -> commitment` | `transfer_private_to_public` plus a commitment for `to` that the **sender** may fill later | as `transfer_private_to_public` | `from`, the commitment's owner |
 | `balance_of_public(owner)` | reads a public balance | — | — |
 
-**The compliance chain follows.** The private half of each bridge runs the same checks as `transfer_private_to_private`: both parties' freeze flags and the enabled list, then the issuer's copy of every note created; the public half asserts the contract is not paused. For a commitment the recipient is screened **when the commitment is opened**, because at completion the contract holds only the commitment, and the issuer learns which holder a commitment belongs to from a `CommitmentInitialized { to, completer, commitment }` event delivered constrained to it — the library delivers the partial note to `to` alone. Two things are deliberately not here. The first is an expiry on commitments: a recipient frozen after opening one can still be paid into it, until the freeze is checked at the next bridge it uses. The second is public-to-public transfers, public mints and public burns — a public balance is a landing and departure point, not a second ledger.
+**Each bridge enforces the same compliance chain as `transfer_private_to_private`** — freeze and list screening, the issuer's copy of every note, and the pause check — divided across its two halves:
+
+- **The private half** screens both parties' freeze flags and the enabled list, then delivers the issuer's copy of every note it creates.
+- **The public half** asserts the contract is not paused, and nothing else.
+- **A commitment is screened when it is opened, not when it is paid.** At completion the contract holds only the commitment and never the recipient's address, so there is nothing left to screen against. The issuer learns which holder a commitment belongs to from a `CommitmentInitialized { to, completer, commitment }` event delivered constrained to it, because the library delivers the partial note to `to` alone. That delivery is pinned by a test, so it cannot be dropped while the suite stays green.
+
+Two things are deliberately absent:
+
+- **No expiry on commitments.** A recipient frozen after opening one can still be paid into it, until the freeze is checked at the next bridge that recipient uses.
+- **No public-to-public transfers, public mints or public burns.** A public balance is a landing and departure point, not a second ledger.
 
 **A commitment can be paid exactly once — a difference from AIP-20.** In the standard, `PartialUintNote::complete` (aztec-nr) does not consume the commitment, and its documentation says why that matters: "the recipient only discovers the first completion, so anything carried by further ones is lost". In AIP-20 a second `transfer_private_to_commitment` into the same commitment therefore debits the payer again, leaves `total_supply` unchanged and credits nothing the recipient's wallet can find; the framework leaves the single-completion guarantee to contract logic (aztec-packages #14364), and the standard's token has not written it. CMTAT-Aztec has: `pay_commitment` pushes one nullifier, `H(commitment, DOM_SEP__CMTAT_COMMITMENT_PAID)`, next to the completion, so a second payment into the same commitment is a duplicate nullifier — an invalid transaction that never lands, and the payer's funds never move. The same guard covers the commitment a sender opens for itself with `transfer_private_to_public_with_commitment`. What it costs and what it changes:
 
@@ -579,7 +601,7 @@ Seven entry points carry the exact names and parameter types of the AIP-20 `Toke
 
 This is a **partial profile, not conformance**. Aztec has no interface detection, so the gaps show up at the first call rather than at discovery:
 
-- `burn(account, amount, authwit_nonce)` deliberately keeps its own name and selector. AIP-20's `burn_private` is holder-authorised; CMTAT's burn is redemption, an issuer act gated by `BURNER_ROLE` on top of the holder's consent. A wallet calling `0xc282ed79` as a self-burn would fail with a role error it cannot anticipate.
+- `burn(account, amount, authwit_nonce)` deliberately keeps its own name and selector. AIP-20's `burn_private` is holder-authorised; CMTAT's burn is redemption, an issuer act gated by `BURNER_ROLE` on top of the holder's consent. A wallet calling `0xc282ed79` — the selector of that `burn_private`, which the standard defines as a holder-authorised self-burn — would call it as exactly that and fail with a role error it cannot anticipate.
 - The four private/public bridges, `initialize_transfer_commitment` and `balance_of_public` are present since 0.4.0 but **behind the `public_side_enabled` deployment flag** — see [Private/public bridges](#privatepublic-bridges). Still absent: `transfer_public_to_public`, `transfer_public_to_commitment`, `mint_to_public`, `mint_to_commitment`, `burn_public` and `get_auth_contract`.
 - The constructor differs, so deployment tooling differs regardless.
 - `transfer_batch`, `mint_batch`, `burn_batch` and `cancel_authwit` are this project's extras with no AIP-20 counterpart.
@@ -652,6 +674,8 @@ A freshly deployed token is unusable for an hour of chain time, because every mi
 
 ## Gas sponsorship
 
+**What Fee Juice is.** Every Aztec transaction pays for its own computation in **Fee Juice**, the protocol's native fee asset: bridged from Ethereum through the enshrined `FeeJuicePortal`, held as a *public* balance, and **non-transferable** — it can be spent on fees and on nothing else, and it cannot be sent from one account to another. Those two properties are what make the rest of this section matter: an issuer cannot simply top up its holders the way it would subsidise gas with an ERC-20, and a holder who pays its own fee publishes that it transacted, because a public balance visibly decreases.
+
 **A holder does not need Fee Juice to use this token, and the token carries no code to make that true.** On Aztec the fee payer is chosen per transaction, not configured in the contract: any transaction may nominate a **fee-paying contract** (FPC) with `set_as_fee_payer()` during its non-revertible setup phase. There is no trusted forwarder, no `_msgSender()` override and no relayer to trust — which is why this implementation has no equivalent of CMTAT's ERC-2771 module and does not need one. The equivalency assessment answers the *fee payer / gasless* row `n.a.` for exactly this reason: the criterion asks for a module the protocol makes redundant.
 
 Three ways to pay, all available to a holder of this token without any change to it:
@@ -692,7 +716,7 @@ This repository already uses the second: `src/utils/sponsored_fpc.ts` supplies t
 
 - **Validation module enhancements**:
   - The limitation regarding `DelayedPublicMutable` delay means changes to the whitelist/blacklist have a delay (minutes to hours) before reflecting on the blockchain.
-  - A sanction-list mode is not provided, for lack of an on-chain list to check against — there is no Aztec equivalent of the Chainalysis oracle used on Ethereum.
+  - A sanction-list mode is not provided, for lack of an on-chain list to check against — there is no Aztec equivalent of the [Chainalysis oracle](https://go.chainalysis.com/chainalysis-oracle-docs.html) used on Ethereum.
 
 - **Audit capabilities**:
   - Users may, in the future, be able to arbitrarly share to third-parties a shareable key for audit purposes.
@@ -761,7 +785,7 @@ This repository already uses the second: `src/utils/sponsored_fpc.ts` supplies t
 | Roles | 11, numeric, in public state | 14, named, OpenZeppelin `AccessControl` |
 | Deployment variants | 3 token variants (`CMTATAztec`, `CMTATAztecDebt`, `CMTATAztecLight`), plus 2 ARC-403 authorization contracts | 4 (Lite, standard, RuleEngine, Whitelist) |
 
-Forced transfer is the sharpest divide, and the strongest argument for the FHE variant in a regulated deployment: CMTAT requires it for regulatory recovery, it is a hard cryptographic impossibility here, and it is an ordinary function under FHE because the contract can compute on ciphertext it does not own.
+Forced transfer is the sharpest divide, and the strongest argument for the FHE variant in a regulated deployment: CMTAT provides it for regulatory recovery — as an optional capability, criterion 22 of the equivalency assessment, not a mandatory one — it is a hard cryptographic impossibility here, and it is an ordinary function under FHE because the contract can compute on ciphertext it does not own.
 
 ### Issuer auditability
 
@@ -776,9 +800,9 @@ Forced transfer is the sharpest divide, and the strongest argument for the FHE v
 
 | Axis | private-CMTAT-aztec | CMTAT-Confidential |
 |---|---|---|
-| Security audit | **None** — see the disclaimer at the top of this file | **OpenZeppelin audit of v1.0.0**: 8 findings, none critical or high, 1 medium (fixed) |
+| Security audit | **None** — see the disclaimer at the top of this file | **OpenZeppelin audit of v1.0.0** |
 | Audit scope caveat | — | The audit excluded the CMTAT library itself (pinned to an unaudited release candidate), the RuleEngine, the OpenZeppelin confidential contracts and the FHEVM |
-| Network status | No Aztec mainnet yet, and the API still changes heavily between majors | Deployable on EVM mainnet wherever the Zama protocol is available |
+| Network status | Aztec mainnet ("Alpha") is live, with a Sepolia testnet; both ran 5.1.0 against this project's 5.2.0 when last checked, and the API still changes heavily between majors | Deployable on EVM mainnet wherever the Zama protocol is available |
 | Batching | Capped at `MAX_ADDR_PER_CALL` by the per-call protocol limits | Ordinary Solidity loops, bounded only by gas |
 | Fees | Fee juice or a sponsored FPC, plus client-side proving cost | Ordinary gas plus FHE compute units |
 
@@ -792,8 +816,8 @@ Note that the two disagree about total supply in opposite directions: this imple
 ## Limitations
 
 - **Issuer's view of user balances**: [SEE](#issuers-view-of-transactions-and-notes)
-- **Force transfer requirement**: [SEE](#transfer-private-specifications)
-  - According to Swiss law, the issuer should be able to force the transfer of notes.
+- **Forced transfer**: [SEE](#transfer-private-specifications)
+  - Depending on the jurisdiction, a forced-transfer function may be required — for a court-ordered transfer, a lost-key recovery or an inheritance. This implementation cannot offer one.
   - **Current limitation**: This is not possible in Aztec as it would require the issuer to nullify a user's notes without consent.
   - **Workaround**:
     - Freeze the account.
@@ -892,6 +916,25 @@ Two jobs remain, and they are why the delay has a value at all:
 At any value it also leaks the anchor block's timestamp, `expiry − delay`, which is a timing fact rather than an identifying one.
 
 The privacy set would matter again only for a path with no public half. For transfers that would mean a delayed pause; mints and burns can never qualify, since the role check and `total_supply` are public state. See *What each operation publishes* above.
+
+**Q: Would burning be simpler with AIP-20's `burn_private` than with this token's `burn`, for an issuer that holds the tokens itself?**
+
+No, and the premise does not hold: AIP-20 uses the identical authentication-witness mechanism. Its `burn_private` carries `#[authorize_once("from", "_nonce")]`, the same macro and the same `from`-plus-nonce convention as this token's `burn`. The two differ in *authorisation* — holder-authorised there, `BURNER_ROLE` here — and not in the machinery around it.
+
+For a party burning its own tokens, that machinery costs nothing in either contract. The macro validates a witness only when `msg_sender()` differs from the named account; the account itself passes `authwit_nonce = 0` and no witness is created, collected or nullified. An issuer burning its own treasury calls `burn(issuer, amount, 0)` and is done.
+
+| Burning one's own tokens | AIP-20 `burn_private` | this token's `burn` |
+|---|---|---|
+| Witness to create | none | none |
+| Nonce | `0` | `0` |
+| Additional requirement | — | `BURNER_ROLE` on the caller, granted once |
+
+**If the comparison is against the ARC-403 hook rather than the authwit, it inverts.** AIP-20's `burn_private` calls `_call_auth_private(from, amount)`, so a fork token wired to [`CMTATAztecAuth`](./auth/README.md) makes a cross-contract call to the authorization contract on every burn — `authorize_private` measures 14,650 gates — on top of the token's own work, and adds a second deployed contract whose pointer is immutable. This token screens freeze and lists inline, in the same circuit. For the issuer's own burn the standard-plus-hook route has more moving parts, not fewer.
+
+One asymmetry does favour AIP-20. This token screens the **account** of a burn, and when the issuer burns its own tokens the account is the issuer, so an issuer that were itself frozen or outside an active whitelist could not burn its own treasury. A plain AIP-20 token with no hook applies no such check.
+
+Whether that is a defect or the intended behaviour is a policy question: an issuer subject to its own enforcement role is defensible. It is a foot-gun either way, and worth deciding deliberately rather than discovering.
+
 
 ## Glossary
 

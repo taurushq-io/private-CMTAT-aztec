@@ -38,7 +38,7 @@ unconstrained fn version_matches_the_constant() {
     let (env, auth, _, _) = utils::setup();
     let result = env.view_public(Auth::at(auth).version());
     assert(result == FieldCompressedString::from_string(cmtat_aztec_auth::CMTATAztecAuth::VERSION));
-    assert(result == FieldCompressedString::from_string("0.4.0                          "));
+    assert(result == FieldCompressedString::from_string("0.5.0                          "));
 }
 
 // --- delay setting (H-6) ------------------------------------------------------------------------

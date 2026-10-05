@@ -53,8 +53,18 @@ pub unconstrained fn setup_with_public_side(
 pub unconstrained fn setup_and_more_addresses(
     with_account_contracts: bool,
 ) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
-    // Setup
-    let (mut env, token_contract_address, issuer, user1) = setup(with_account_contracts);
+    setup_and_more_addresses_with_public_side(with_account_contracts, /* public_side_enabled */ false)
+}
+
+/// `setup_and_more_addresses` with the public side settable, for tests that need several holders on
+/// both sides of the token. Mirrors how `setup` delegates to `setup_with_public_side`, so the account
+/// setup exists once rather than once per flag value.
+pub unconstrained fn setup_and_more_addresses_with_public_side(
+    with_account_contracts: bool,
+    public_side_enabled: bool,
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+    let (mut env, token_contract_address, issuer, user1) =
+        setup_with_public_side(with_account_contracts, public_side_enabled);
 
     let user2 = env.create_light_account();
     let user3 = env.create_light_account();

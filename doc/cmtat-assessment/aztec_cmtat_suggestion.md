@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document suggests an addition to the **CMTAT Equivalency Assessment Criteria** (`CMTAT-equivalency-assessment`, template `v0.3.0`): a warning note under the Freeze section, recording that on many blockchains a targeted address can move its tokens between the moment a freeze is submitted and the moment it becomes effective.
+This document suggests an addition to the **CMTAT Equivalency Assessment Criteria** (`CMTAT-equivalency-assessment`, template `v0.4.0`): a warning note under the Freeze section, recording that on many blockchains a targeted address can move its tokens between the moment a freeze is submitted and the moment it becomes effective.
 
 It comes from filling that template for the Aztec implementation in this repository (see [`README.md`](./README.md)), and is a suggestion produced here, not a CMTA publication.
 
@@ -24,15 +24,15 @@ An assessment can currently answer criterion 19 with `y` in all three cases and 
 
 Add a warning note to the **Freeze** subsection of *Guideline for New Blockchain Implementations*, and a sentence to the Notes column of criteria 19 and 20 pointing at it.
 
-Proposed wording for the guideline subsection:
+Proposed addition to the Notes column of criteria 19 and 20:
+
+> Where a freeze may not take effect immediately, the window between submission and enforcement SHOULD be documented: how long it lasts, and whether that length is known in advance or depends on when the transaction is included.
+
+Proposed wording for the guideline subsection (CMTAT Assessment documentation):
 
 > **Warning — the freeze window.** Depending on the underlying ledger, a freeze may not be instantaneous. Between the moment it is submitted and the moment the ledger enforces it, a targeted address that is monitoring the chain may be able to transfer its tokens. On a public blockchain the freeze transaction is visible in the mempool before inclusion, and the target can pay a higher priority fee to be ordered ahead of it; the window lasts until inclusion, so at least one block and longer if the transaction is underpriced or the network is congested, and it can be avoided by submitting through a private relay (for example Flashbots Protect on Ethereum) so that the transaction is not publicly visible beforehand. On a blockchain where compliance state is read from private execution, the flag may instead carry a protocol-enforced delay, in which case the window is deterministic, publicly visible and cannot be avoided by paying more or by routing the transaction differently. On a permissioned ledger the window may be negligible, if pending transactions are not visible to the target.
 >
-> An implementation SHOULD state which of these applies, whether the window has a bounded length and what that bound is where one exists, and what compensating measure is available — for example pausing the token until the freeze is effective, which blocks every holder rather than racing one address. Where the length cannot be known in advance, as on a chain where it depends on fee markets and congestion, saying so is the useful answer.
-
-Proposed addition to the Notes column of criteria 19 and 20:
-
-> Where a freeze may not take effect immediately, the window between submission and enforcement SHOULD be documented, together with whether its length is bounded; see *Freeze* in the guideline section.
+> An implementation SHOULD state which of these applies, whether the window's length is known in advance and what it is, and what compensating measure is available — for example pausing the token until the freeze is effective, which blocks every holder rather than racing one address. Where the length cannot be known in advance, as on a chain where it depends on fee markets and congestion, saying so is the useful answer.
 
 ## Why a note rather than a new criterion
 
@@ -40,7 +40,7 @@ A freeze window is a property of the underlying ledger rather than of the token 
 
 ## How this repository answers it
 
-The Aztec implementation answers criteria 19 and 20 `y`, and records the window in the *Enforcement* note of its assessment. That note is reproduced in full below so this file can be read on its own; only its closing cross-reference back to this document has been dropped. In it, `CHANGE_ROLES_DELAY_SECONDS` is the contract's freeze delay, currently 360 seconds.
+The Aztec implementation answers criteria 19 and 20 `y`, and records the window in the *Enforcement* note of its assessment. That note is reproduced in full below so this file can be read on its own; only its closing cross-reference back to this document has been dropped. In it, `CHANGE_ROLES_DELAY_SECONDS` is the contract's freeze delay. It is **3600 seconds (one hour)** at deployment, and adjustable at runtime by `DEFAULT_ADMIN_ROLE` up to `MAX_ROLES_DELAY_SECONDS` (86400 seconds, the protocol's transaction lifetime). So the window has a length that is known in advance and published, which is the answer this suggestion asks an implementation to give.
 
 > The flag is a `Map<AztecAddress, DelayedPublicMutable<FreezableFlag, CHANGE_ROLES_DELAY_SECONDS>>`. The delay is not a tuning choice: a private function proves its execution against a historical state, so it can only trust a public value that is guaranteed not to change for a known window. Reading the flag any other way — through a public call — would publish the caller's address on every transfer. The delay is the price of checking compliance state privately.
 >
@@ -56,4 +56,4 @@ The Aztec implementation answers criteria 19 and 20 `y`, and records the window 
 > - **Here it can be neither won nor hidden.** It is protocol-enforced rather than a consequence of transaction visibility: the scheduled change is visible in public state and becomes effective only after `CHANGE_ROLES_DELAY_SECONDS`.
 > - **The mitigation is procedural rather than transactional.** Pause the token, schedule the freeze, wait out the delay, then unpause — which blocks every holder for the duration instead of racing one address.
 
-Answering the two questions this suggestion would add to the template: the window here **is** bounded, at `CHANGE_ROLES_DELAY_SECONDS`, and the compensating measure is the pause described above. This suggestion exists so that a future assessor is prompted to record the same two things rather than having to notice that they are missing.
+Answering the two questions this suggestion would add to the template: the window here has a length **known in advance**, `CHANGE_ROLES_DELAY_SECONDS`, rather than one that depends on inclusion, and the compensating measure is the pause described above. This suggestion exists so that a future assessor is prompted to record the same two things rather than having to notice that they are missing.

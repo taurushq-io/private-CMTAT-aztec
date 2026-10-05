@@ -44,7 +44,7 @@ pub contract CMTATAztecAuth {
     // Kept equal to the `VERSION` of the CMTAT token contracts (`contracts/cmtat-aztec*/src/main.nr`)
     // for now: the authorization contract ships with the token release it is built and tested
     // against. Bump the four together. Padded to 31 characters for `FieldCompressedString`.
-    pub global VERSION: str<31> = "0.4.0                          ";
+    pub global VERSION: str<31> = "0.5.0                          ";
 
     // The two selectors the hook treats as a burn; every other selector is a transfer.
     global BURN_SELECTORS: [Field; 2] = [AIP20_BURN_PRIVATE_SELECTOR, AIP20_BURN_PUBLIC_SELECTOR];

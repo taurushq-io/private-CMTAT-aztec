@@ -1,0 +1,58 @@
+@startuml
+title Transfer between two holders — what is private and what is published
+
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 230
+skinparam sequence {
+  ParticipantBackgroundColor #EEF5FF
+  ParticipantBorderColor #4A78B5
+  ActorBackgroundColor #EEF5FF
+  ActorBorderColor #4A78B5
+}
+
+actor "Holder A\n(sender)" as A
+box "Private — proved on A's own device, never seen by the network" #F4F8FC
+participant "transfer_private_to_private\n(from, to, amount)" as Priv
+end box
+database "Public state\npause, roles, total_supply,\nfreeze and list flags" as PS
+box "Public — run by the sequencer, in the clear" #FDF4F4
+participant "_transfer()" as Pub
+end box
+actor "Holder B\n(recipient)" as B
+participant "Issuer" as I
+
+A -> Priv : transfer(to = B, amount)
+
+group Compliance, checked in private
+  Priv -> PS : read the freeze and list flags of A and of B
+  note right of PS
+    Read as a value guaranteed stable for a known window
+    (DelayedPublicMutable), because a proof is built against
+    a past state. A change takes effect after the delay.
+  end note
+  Priv -> Priv : refuse if either party is frozen\nor fails the enabled list
+end
+
+group Move the value, in private
+  Priv -> Priv : spend A's notes, create A's change note\nand B's new note
+  Priv -> A : change note
+  Priv -> B : new note + Transfer event
+  Priv -> I : copy of both notes, and the Transfer event
+  note right of I
+    The issuer's audit trail. The contract cannot read a
+    holder's balance, so the issuer is sent its own copy.
+  end note
+end
+
+Priv -> Pub : enqueue _transfer()  — no arguments
+Pub -> PS : assert the contract is not paused
+
+note over A, I
+  **What an observer learns:** that a transfer of this token happened.
+  **Not**: who sent it, who received it, or how much.
+  The public half carries no arguments, and `total_supply` does not move.
+  A pause makes the public half revert, which reverts the private half with it.
+end note
+
+@enduml
