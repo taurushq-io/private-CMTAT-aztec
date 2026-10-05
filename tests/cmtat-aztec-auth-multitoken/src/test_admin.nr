@@ -43,7 +43,7 @@ unconstrained fn version_matches_the_constant() {
                 cmtat_aztec_auth_multitoken::CMTATAztecAuthMultiToken::VERSION,
             ),
     );
-    assert(result == FieldCompressedString::from_string("0.4.0                          "));
+    assert(result == FieldCompressedString::from_string("0.5.0                          "));
 }
 
 // --- delay setting (H-6) ------------------------------------------------------------------------

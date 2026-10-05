@@ -78,7 +78,7 @@ The three-way split matters. CMTAT assumes a transparent ledger and builds issue
 | Deferred/undetermined recipient | — | **`initialize_transfer_commitment`** → `transfer_private_to_commitment` → `complete_from_private` |
 | "This party is private" marker in public events | — | `PRIVATE_ADDRESS_MAGIC_VALUE`, explicitly distinct from the zero address |
 | Note consumption strategy | n/a (account model) | `INITIAL_TRANSFER_CALL_MAX_NOTES = 2`, then `#[only_self]` recursion at `RECURSIVE_TRANSFER_CALL_MAX_NOTES = 8` |
-| Forced transfer | `forcedTransfer` — mandatory-adjacent for regulatory recovery | — |
+| Forced transfer | `forcedTransfer` — optional in CMTAT (criterion 22), and the core of its regulatory-recovery story | — |
 
 **Partial notes are the heart of AIP-20** and have no CMTAT counterpart, because on an account-model chain the problem does not exist: a public function can read state and move a balance in the same call.
 

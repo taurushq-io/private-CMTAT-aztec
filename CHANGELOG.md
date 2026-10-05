@@ -72,7 +72,61 @@ yarn test:js             # Jest e2e tests in src/test/e2e/, requires: aztec star
   - Check that no Markdown file mixes hard-wrapped and one-line-per-block prose
   - Update this changelog
 
+## 0.5.0 — unreleased
+
+`version()` returns `0.5.0` in all five contracts. Nothing so far changes contract behaviour: this release is the security review of 0.4.0, the tests it asked for, and the one documentation correction it found. 
+
+### Changed
+
+- `VERSION` bumped to `0.5.0` in the three token contracts and the two authorization contracts; the two authorization-contract tests that pin the value follow it.
+
+### Testing
+
+- Three tests in `test_invariants.nr` close the two gaps the security review left open, neither of them needing a contract change.
+  - `total_supply` is now asserted against the sum of every balance, private and public, across four holders and a mixed sequence — two mints, a private transfer, both bridges and a burn. Individual bridge tests already checked that supply was unmoved by one call; the invariant itself had no test, so a bridge that credited without debiting would have passed the suite.
+  - Two tests pin the reach of the `Transfer` event stream by counting what a transaction leaves. A warm `transfer_private_to_private` leaves two notes and four private logs — one per note plus the event's two constrained deliveries, to the recipient and to the issuer. A `transfer_private_to_commitment` of the same value leaves the same two notes and **two** logs: no event at all, because at completion the contract holds the commitment and never the recipient's address. Either path gaining or losing an event now fails the suite.
+  - A balance-level replay of the event stream is not expressible in the TXE, which cannot read a private event's content, so these count logs instead; the reasoning is in the tests' own comments.
+  - New helper `setup_and_more_addresses_public_side` in the base crate's `utils.nr`, for tests needing several holders with the public side on.
+- The Debt and Light suites gained the supply invariant, which neither asserted anywhere before — not in aggregate and not per operation (0.5.0 review, K-1). Light is the variant that needed it: `FreezeOnly` screening and no validation module mean its value-moving chains compile to their own shorter circuits, so a supply error reachable only through them had nothing to catch it. Debt shares the token module byte for byte, and its twin exists because the crate asserted supply nowhere at all.
+- The Noir suite is 244 tests (146 base, 13 Debt, 8 Light, 38 and 37 authorization) plus 2 library tests.
+
+### Documentation
+
+- Two overstated claims about forced transfer corrected in `doc/README.md` and `doc/technical/cmtat-vs-aip20.md`.
+  - The limitations list asserted that "according to Swiss law, the issuer should be able to force the transfer of notes". That is not the case, and the claim is replaced by the jurisdiction-neutral statement that a forced-transfer function may be required depending on the jurisdiction — for a court order, a lost key or an inheritance — followed as before by the reason this implementation cannot offer one.
+  - The CMTAT-Confidential comparison said "CMTAT requires it for regulatory recovery", and the AIP-20 comparison called `forcedTransfer` "mandatory-adjacent". Both contradicted this repository's own equivalency assessment, where forced transfer is criterion 22 under **Optional**. Both now say optional and cite the criterion. The capability's importance to a regulated deployment is unchanged; what was wrong was calling it mandatory.
+- `doc/README.md` no longer presents the `Transfer` event stream as covering every movement without qualification. The claim is now scoped to the fully private token, where it holds, and the two public-side exceptions are stated.
+  - The bridges publish a `Transfer` naming their public party and the `PRIVATE_ADDRESS_MAGIC_VALUE` sentinel for the private one, so the movement is recorded but the private counterparty is not.
+  - A commitment completion emits no `Transfer` at all, and cannot: at completion the contract holds the commitment and never the recipient's address, so an event naming an unverifiable recipient would be forgeable by the payer. The issuer reconstructs these from `CommitmentInitialized` plus the commitment-tagged completion log, which the same section already described.
+  - Both paths exist only when a token is deployed with `public_side_enabled = true`; nothing changed for a fully private deployment, and no contract code changed at all.
+- A `What each operation publishes` table added above the privacy table: what each of the seven value-moving entry points publishes, what it keeps private, and the two disclosures common to all of them.
+  - It complements the privacy table rather than repeating it. The new one is per operation, which is the view needed when checking one criterion; the existing one is per data item, which is the view the template asks for.
+  - The contrast it makes visible is the one the prose takes a paragraph to state: `_transfer()` carries no arguments and so publishes only that a transfer occurred, while `_mint` and `_burn` must carry the caller and the amount because the role check and the supply update can only happen in public.
+- The assessment gained its first diagram, `doc/img/transfer-simple.png`, in the Architecture section where the template asks how a holder's call reaches the token logic. It shows a transfer between two holders with the private and public halves separated, and states what an observer learns from it: that a transfer happened, and not the parties or the amount.
+  - Drawn rather than reused. `doc/img/transfer-flow.png` covers the same operation for a developer, down to the note budget, the recursion and the authwit branches; an assessor needs the shape and the disclosure boundary, not the optimisation.
+  - PlantUML rather than an inline diagram, because the assessment is converted to PDF and that pipeline renders images, not diagram source.
+- Corrected a claim that had become false: the documentation said Aztec has no mainnet. [It does](https://docs.aztec.network/networks) — "Alpha", on L1 chain ID 1, alongside a Sepolia-backed testnet. Fixed in `doc/README.md`'s CMTAT-Confidential comparison and in two places in the assessment.
+  - The correction carries a second fact worth more than the first: both live networks ran protocol version **5.1.0** when this was checked, while this project pins **5.2.0**. Aztec ships the node, Aztec.nr and aztec.js as one version, so a contract compiled against 5.2.0 is not deployable to a 5.1.0 network as pinned. Deploying anywhere other than a local network therefore needs a deliberate version decision, not just an `.env` change.
+  - The 0.4.0 review under `doc/audits/tools/` still says "no mainnet". That report describes what was true at its own date and is left alone, as released reports are.
+- The assessment now assesses `0.5.0` rather than `0.4.0`: the implementation version, the source commit, the Reference table and the two places quoting what `version()` returns.
+  - The relabel is safe to make, and was checked rather than assumed: nothing in `contracts/`, `lib/` or `test-helpers/` differs between the `v0.4.0` tag and the assessed commit except the `VERSION` constant itself, so all 61 answers are unchanged.
+  - `0.5.0` is not tagged, so the source reference is the commit `3843a36` rather than a release, and the Metadata row says so.
+  - One `0.4.0` deliberately kept: the sentence "Since 0.4.0 the private profile answers AIP-20's selectors" is a historical statement about when that became true, not a claim about the assessed version.
+- `doc/cmtat-assessment/README.md` brought up to version `0.4.0` of the CMTA equivalency-assessment template.
+  - The template added an `Architecture` section, to be filled before the equivalency table, so that a reader can follow the answers without knowing the target chain. It is filled here for Aztec: the underlying ledger in prose and in a nine-row table, the smart contract layer in prose and a six-row table, and a table naming which layer implements each CMTAT module.
+  - **No criterion changed.** The template still holds 61 criteria, 19 mandatory and 42 optional, and the IDs are unchanged, so every answer in this assessment stands. The count was re-verified at 61.
+  - The new section states once, as context, the two facts the criteria otherwise repeat: an issuer cannot nullify a holder's notes, which is why forced transfer, forced burn and partial freeze are impossible rather than unimplemented; and a private function cannot read ordinary public state, which is why freeze and list flags are delayed.
+  - The `Conclusion`'s separate *Token model* and *Architecture* paragraphs are merged into one short recap, as the template now asks, rather than repeating the section.
+  - Two stale values corrected while there: the template reference moves from `v0.3.0` to `v0.4.0` at commit `bac6380`, and criterion 6 said `version()` returns `0.3.0` when the assessed commit returns `0.4.0`.
+- Added `doc/audits/tools/v0.5.0/CLAUDE_ANALYSIS.md`, the code-quality review of this release. It is a delta review and says so: the only change to contract or library source since `v0.4.0` is the `VERSION` string, so the 0.4.0 review remains the current analysis of the code.
+  - The bump is **gate-neutral, measured**: all 40 circuits in the 0.4.0 baseline report the same gate count at 0.5.0, compared mechanically rather than by eye.
+  - Three findings against this release's own new code. The new `setup_and_more_addresses_public_side` helper duplicates its sibling and drops the `with_account_contracts` parameter; the Debt and Light suites assert `total_supply` nowhere at all, and Light compiles its own shorter bridge circuits, so nothing would catch a supply error reachable only through it; and the mechanism that compensates for the security review's F-1 — the issuer's `CommitmentInitialized` event — has no test, so removing its delivery would leave the whole suite green.
+  - The checks that examine unchanged source were not re-run, and the report lists which and why rather than implying a full pass.
+- Added `doc/audits/tools/v0.4.0/CLAUDE_AUDIT.md`, the tool-assisted security review of the 0.4.0 release. The review is described in the 0.4.0 section below; the file itself landed after the tag.
+
 ## 0.4.0 — 2026-09-29
+
+Commit: `1d63038a5ff813ac04f9aa909d5343b5850c7cd4`
 
 MAJOR under the policy above: a packed struct changed shape on `CMTATAztecDebt`, five entry points were renamed, and the constructor takes a new argument, so 0.4.0 is not compatible with a 0.3.0 deployment. `version()` returns `0.4.0` in all five contracts. Built and tested on Aztec **5.2.0**.
 
@@ -145,11 +199,13 @@ MAJOR under the policy above: a packed struct changed shape on `CMTATAztecDebt`,
 - Four tests in `test_issuer_records.nr` pin the issuer's mint and burn records by counting what each event leaves in the transaction (one private log, two nullifiers), measured on a second call so that first-contact handshakes do not enter the count; all four fail with the emits removed.
 - The note-count edge cases follow the new debit: two notes without recursion, three through one recursive call, twelve and seventeen in one transfer, a fragmented balance that is still short, and `_recurse_debit` refused to an outside caller.
 - Eight tests in `test_roles_delay.nr` and three per authorization crate pin the delay setting: the initial hour, an increase applying at once to the issuer address and to the next freeze, a decrease applying only after the difference and then governing the next write, the admin role, the 24-hour bound and zero refused.
+
 - Four compiler warnings in the base test crate silenced. The Noir suite is now 237 tests (143 base, 12 Debt, 7 Light, 38 and 37 authorization) plus 2 library tests.
 
 ### Documentation
 
 - `aztec start --sandbox` replaced by `aztec start --local-network` everywhere it was an instruction: the release checklist, the quick starts in both READMEs, the glossary, the agent guide, and `src/test/e2e/accounts.test.ts`, which spawned it. The flag was renamed at Aztec 3.0 and does not exist at 5.2.0, so every one of those was a command that fails.
+
 - New `Tests` section in `doc/README.md`: the two suites and their commands, the `L1_MNEMONIC` and `SKIP_SANDBOX` requirements of the end-to-end one, why it warps the chain past the one-hour delay, and a pointer to the note below. The specification described how to deploy but never how to test, so `doc/technical/test.md` was reachable only from the agent guides.
 - New `doc/technical/test.md`, on the end-to-end suite: what each of its two files covers, the two defects that kept the Fee Juice test red and how each was measured, and why the suite warps the chain past the one-hour delay instead of waiting for it.
 - New `doc/scripts/convert_links_for_pdf_assessment.sh`, the PDF link conversion for `doc/cmtat-assessment/README.md`, delegating to `convert_links_for_pdf.sh` exactly as the root-README entry point does.
