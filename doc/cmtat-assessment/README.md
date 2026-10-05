@@ -8,6 +8,10 @@
 
 - [Document Version](#document-version)
 - [Metadata](#metadata)
+- [Architecture](#architecture)
+  - [Underlying ledger](#underlying-ledger)
+  - [Smart contract layer](#smart-contract-layer)
+  - [Layer of each CMTAT module](#layer-of-each-cmtat-module)
 - [Summary](#summary)
   - [Scope of the count](#scope-of-the-count)
   - [Answer values](#answer-values)
@@ -41,7 +45,7 @@
 
 | Version | Value |
 |---|---|
-| Template version — this document, as published by CMTA; pre-filled, MUST NOT be modified by the author of an assessment | `v0.3.0` |
+| Template version — this document, as published by CMTA; pre-filled, MUST NOT be modified by the author of an assessment | `v0.4.0` |
 | Assessment version — the filled document, set by its author | `0.1.0` |
 
 > The two numbers are independent, and the assessment's own version had previously been set to mirror the template's, which is what the template forbids. This is the first published revision of the filled assessment, so it is `0.1.0`; earlier drafts numbered `0.2.0` and `0.3.0` were never published. Being below `1.0` it remains a **draft**, filled against an implementation that is itself a prototype and has not been audited.
@@ -72,6 +76,83 @@ Noir has no inheritance and allows one contract per package, so the CMTAT varian
 | Debt (criteria 48–61) | ✘ | ✘ | ✔ |
 
 Criteria 44–61 are answered `y` below because the feature exists in the implementation, in the variant built to carry it; an assessment of `CMTATAztec` or `CMTATAztecLight` alone would answer them `n`. An issuer deploying a bond deploys `CMTATAztecDebt`, exactly as a CMTAT Solidity issuer deploys CMTAT Debt rather than CMTAT Standard.
+
+## Architecture
+
+This section describes the platform the implementation runs on, so that the answers below can be read without prior knowledge of Aztec. It is context for the criteria and is **outside the equivalency count**: the 61 criteria and their IDs are unchanged.
+
+### Underlying ledger
+
+**General description**
+
+[Aztec](https://aztec.network/) is a privacy-focused Layer 2 that settles to Ethereum. Its distinguishing property is that a transaction has two halves. The **private** half is executed and proved on the holder's own device, inside a zero-knowledge proof, by a local component called the PXE (private execution environment); what reaches the chain from it is commitments — note hashes and nullifiers — never the data itself. The **public** half is executed by the sequencer in the open, exactly as an EVM contract would be. A single transfer normally uses both: the value moves privately, and a public call is enqueued to check a flag or update a published counter.
+
+The state model differs from an EVM ledger in the way that matters most for these criteria. Private state is **UTXO-like**: a holder's balance is a set of *notes*, each a commitment in a Merkle tree, spent by publishing a nullifier derived from the note and its owner's key. The notes themselves live in the holder's PXE, not in contract storage, and **the contract cannot read them**. Public state is ordinary key-value contract storage. Every account is itself a contract (native account abstraction), and an address is a point on the Grumpkin curve, so roughly half of all field values are not valid addresses.
+
+The path of a private transfer is therefore: the holder's PXE selects enough of its own notes, proves the transfer circuit locally, publishes the nullifiers of the spent notes and the commitments of the new ones, and enqueues the public half; the sequencer runs that public half, which can revert and take the whole transaction with it.
+
+Two consequences run through the whole assessment:
+
+- An issuer **cannot move or destroy a holder's notes**, because nullifying one requires that holder's key. This is why forced transfer, forced burn and partial freeze are answered `n` and cannot be implemented at all.
+- A private function **cannot read ordinary public state**, because its proof is built against a historical state. Values a private function must consult are held in `DelayedPublicMutable`, whose writes take effect only after a delay.
+
+**Details**
+
+| Aspect | Implementation being approved |
+|---|---|
+| Ledger type and governance | Public, permissionless Layer 2 settling to Ethereum. Blocks are proposed by a sequencer drawn from a validator set and proven to L1. **There is no mainnet**: the implementation targets Aztec 5.2.0 on a local network and the public testnet. |
+| Consensus and finality | Proposer-based block production with proofs settled on Ethereum L1; finality follows L1 once the enclosing epoch is proven. A transaction is also bounded by an `expiration_timestamp`, and the protocol caps inclusion at 24 hours. |
+| State model | **Hybrid.** Private state is UTXO-like notes committed to a Merkle tree with a nullifier set; public state is key-value contract storage. A holder's private balance is the sum of its `UintNote`s and is known only to that holder and to the issuer, which receives a copy of each note. |
+| Native asset support | No native asset primitive for application tokens — a token is a contract. The ledger's only native asset is **Fee Juice**, used to pay fees, bridged from Ethereum, held as a public balance and non-transferable. |
+| Native compliance features | **None.** The ledger offers no freeze, clawback, authorization flag or transfer hook. Every control in this assessment is contract logic. |
+| Identity and addresses | Every account is a contract (native account abstraction), so there is no externally-owned-account equivalent. An address is derived from the contract class and its initialisation, and must be a valid point on the Grumpkin curve. An account must be deployed before it can send a transaction, but it can receive notes before deployment. |
+| Transactions and fees | A transaction runs in phases (setup, application logic, teardown), private before public. The **fee payer is chosen per transaction**, so a holder need not hold Fee Juice: a fee-paying contract may pay instead. Per-call protocol limits on note reads, nested private calls and logs are what cap this token's batch sizes. |
+| Time source | Block timestamp, in **seconds**. The `DelayedPublicMutable` delays used for the freeze, list and issuer values are durations in seconds, not block counts. |
+| Data visibility | **Mixed by design, and the subject of [Privacy and Confidentiality](#privacy-and-confidentiality).** Private balances and the parties and amounts of a private transfer are confidential. Public: `total_supply`, roles, the pause and deactivation flags, the freeze and list flags per address, and the fact that a transfer of this token occurred. A private function that reads a delayed value also publishes the transaction's expiration timestamp. |
+
+### Smart contract layer
+
+**General description**
+
+The token is a smart contract, written in Noir with the Aztec.nr framework at v5.2.0. Private functions are compiled to zero-knowledge circuits and proved on the holder's device; public functions are transpiled to bytecode for the Aztec Virtual Machine and executed by the sequencer. The two are written in the same source file and the same language, and a private function reaches its public counterpart by *enqueueing* a call, which runs after the whole private part has completed.
+
+Noir has no inheritance and allows one contract per crate, so the structure differs from CMTAT Solidity, where one contract inherits a stack of modules. Here the CMTAT modules are plain structs held as fields of a single `#[storage]` struct, and the shared logic lives in a library crate that the contracts compose. That is why the repository ships **five contracts over one library**: three token variants (base, Debt, Light) and two ARC-403 authorization contracts, which are not tokens but apply this token's controls to a third-party standard token through the hook it already calls.
+
+A call made by a holder goes through the same chain as CMTAT Solidity's, split across the two halves: the **private** half screens both parties' freeze flags and the enabled list and moves the notes, then the **public** half it enqueues performs the role check and the lifecycle check. The split is forced by the ledger rather than chosen: roles and the pause flag are public state, which a private function cannot read at proving time. A revert in the public half reverts the entire transaction, so the ordering costs no safety.
+
+**Details**
+
+| Aspect | Implementation being approved |
+|---|---|
+| Execution environment | Noir / Aztec.nr **v5.2.0**. Private functions compile to zero-knowledge circuits; public functions are transpiled to AVM bytecode. |
+| Components | Five contract crates over one library crate (`cmtat_aztec_lib`): `CMTATAztec` (base), `CMTATAztecDebt`, `CMTATAztecLight`, and the two authorization contracts `CMTATAztecAuth` / `CMTATAztecAuthMultiToken`. The CMTAT modules are structs inside the library, composed into each contract's single storage struct; there is no inheritance and no cross-contract call between the token's own parts. |
+| Token state location | **Split.** Private balances are notes held in each holder's PXE, addressed by a storage slot in the contract; `total_supply`, roles, pause and deactivation flags, freeze and list flags, terms, token id, credit events and debt are public contract storage. Public balances exist only when the deployment enables them. |
+| External dependencies | The `aztec-nr` libraries at v5.2.0 (`aztec`, `uint_note`, `balance_set`, `compressed_string`) and nothing else: **no rule engine, no snapshot engine, no oracle and no bridge**. The two authorization contracts additionally target the `aztec-standards` token contracts. |
+| Deployment and ownership | A public constructor takes the issuer address, name, symbol, decimals and a flag enabling the public-balance paths. It grants `DEFAULT_ADMIN_ROLE` to the deployer-designated admin and schedules the issuer address, which becomes readable only after the delay. Administrative rights move by granting and revoking roles; there is no two-step ownership handover. |
+| Upgradeability | **None, and not retrofittable.** There is no proxy and no native upgrade path in use. A change of logic means a new deployment and a migration — and the migration cannot be performed by the issuer alone, because private balances are notes in holders' PXEs rather than storage the issuer can read and rewrite. This is why any storage or note-layout change is treated as MAJOR in the project's versioning policy. |
+
+### Layer of each CMTAT module
+
+| CMTAT module | CMTAT Solidity | Layer (implementation being approved) | Comment |
+|---|---|---|---|
+| Token attributes | `contract` | `contract` | Name, symbol and decimals as compile-time values; terms and token id in public storage. |
+| Mint and burn | `contract` | `contract` | Private note movement plus an enqueued public supply update carrying the role and lifecycle checks. |
+| Pause and deactivation | `contract` | `contract` | Public flags. The pause is deliberately **not** delayed, so that it remains an immediate lever. |
+| Enforcement (freeze, partial freeze, forced transfer) | `contract` | `contract` — **freeze only** | Freeze is a per-address delayed public flag. Partial freeze and forced transfer are **not implementable**: spending a note requires its owner's key. |
+| Transfer restriction | `contract` — external rule engine | `contract` — **integrated, not external** | The validation module with its blacklist and whitelist is part of the token, not a separate pluggable engine; there is no `RuleEngine` equivalent and no sanction-list oracle, the ledger offering no register to read. |
+| Access control | `contract` | `contract` | Eleven numeric roles in public state, modelled on OpenZeppelin `AccessControl` v5, with a fixed one-level hierarchy. |
+| Snapshot | `contract` — external snapshot engine | `none` | Not implementable as designed: balances are notes in holders' PXEs, so no vantage point can enumerate holders or sum balances at a past block. An issuer could reconstruct one off-chain from its note copies. |
+| Dividend | `none` — prototype in [IncomeVault](https://github.com/CMTA/IncomeVault) | `none` | Absent, as in CMTAT Solidity. |
+| Credit events and debt | `contract` | `contract` — **`CMTATAztecDebt` only** | Packed structs in public state, written by role-restricted setters; the base and Light variants do not carry them. |
+
+##### Note
+
+Two architectural points are worth stating alongside the tables, because they explain answers that would otherwise look like omissions.
+
+**The issuer's audit trail is a design obligation, not a by-product.** Because the contract cannot read a holder's notes, the issuer is given its own copy of every note created, plus a `Transfer` event delivered under proof for every movement. That event stream, rather than contract storage, is what lets an issuer reconstruct holdings — and it is why this token can answer the transparency criteria at all.
+
+**Three controls are impossible rather than unimplemented.** Forced transfer, forced burn and partial freeze each require the issuer to spend or restrict a holder's notes without that holder's key. No role and no contract change can grant that, so these are answered `n` with "cryptographically impossible" rather than "not implemented", and the compliance workaround is to freeze the account and, if the freeze is permanent, to reduce the circulating supply accordingly.
+
 
 ## Summary
 
@@ -158,7 +239,7 @@ Storing the digest in a single `Field` would have truncated it silently, which i
 |---|---|---|---|---|---|---|---|
 | 4 | Ticker symbol attribute | ERC20 `symbol` | Public (`view`) | Optional in the CMTA framework, which lists the attribute as "Ticker symbol (optional)". | `y` | Public (`view`), in both contexts | `symbol()` / `private_get_symbol()`, `PublicImmutable<FieldCompressedString>` set at deployment. |
 | 5 | Token ID attribute | `tokenId` | Public (`view`) | Optional parameter. | `y` | Read public (`view`); write `EXTRA_INFORMATION_ROLE` | `set_token_id(FieldCompressedString)` and `token_id()`, in all three variants. As in CMTAT Solidity the value is written even when it equals the current one. Capped at 31 characters by `FieldCompressedString`, which fits an ISIN with room to spare. |
-| 6 | Version attribute | `version()` (`IERC3643Version`, implemented by `VersionModule`) | Public (`view`) | Returns the version of the token implementation, for example `"3.2.0"`. In CMTAT Solidity the value is a constant of the contract code: it changes only through a new deployment or an upgrade, and it is not settable at runtime. | `y` | Public (`view`) | `version()` returns a `FieldCompressedString`, currently `0.3.0`, padded to the 31 characters that type requires. As in the CMTAT Solidity `VersionModule` it is a **compile-time constant**, not stored state, so it cannot be desynchronised from the deployed code and changes only through a new deployment. |
+| 6 | Version attribute | `version()` (`IERC3643Version`, implemented by `VersionModule`) | Public (`view`) | Returns the version of the token implementation, for example `"3.2.0"`. In CMTAT Solidity the value is a constant of the contract code: it changes only through a new deployment or an upgrade, and it is not settable at runtime. | `y` | Public (`view`) | `version()` returns a `FieldCompressedString`, `0.4.0` at the assessed commit, padded to the 31 characters that type requires. As in the CMTAT Solidity `VersionModule` it is a **compile-time constant**, not stored state, so it cannot be desynchronised from the deployed code and changes only through a new deployment. |
 
 ##### Note
 
@@ -633,9 +714,7 @@ Three consequences MUST be recorded:
 
 ## Conclusion
 
-**Token model.** The token is an Aztec contract — `CMTATAztec`, or one of its two sibling variants — written in Noir with Aztec.nr v5.2.0. There is no native token standard on Aztec comparable to ERC-20; the contract implements the CMTAT functions directly. A holder's balance is not a storage slot but a set of `UintNote`s (each a `u128`) held in that holder's own PXE, reached through an `Owned<BalanceSet>` state variable and summed by the utility function `balance_of_private`. Total supply, by contrast, is an ordinary `PublicMutable<u128>`, and `name`, `symbol` and `decimals` are `PublicImmutable` values fixed at deployment.
-
-**Architecture.** Noir has no inheritance, so the CMTAT modules are plain structs implementing the `StateVariable` trait and held as fields of one storage struct: access control, pause, enforcement (freeze), validation (lists), extra information (terms and token ID), credit events and debt. Every user-callable entry point must be re-declared in the contract itself; the module structs hold state and logic but are not independently callable. The contract is **not upgradeable**, and there is no proxy: changing the logic means deploying a new contract and migrating holders — which, because balances are notes in holders' PXEs rather than contract storage, the issuer cannot do unilaterally.
+**Token model and architecture.** A short recap of the [Architecture](#architecture) section, which holds the detail. The token is an Aztec contract — `CMTATAztec`, or one of its two sibling variants — in Noir with Aztec.nr v5.2.0; there is no native token primitive on Aztec comparable to ERC-20, so the contract implements the CMTAT functions directly. A holder's balance is not a storage slot but a set of `UintNote`s held in that holder's own PXE, reached through an `Owned<BalanceSet>` and summed by `balance_of_private`, while `total_supply` is a `PublicMutable<u128>` and `name`, `symbol` and `decimals` are `PublicImmutable` values fixed at deployment. Noir has no inheritance, so the CMTAT modules are structs held as fields of one storage struct and every entry point is re-declared in the contract; the contract is **not upgradeable**, and because balances are notes in holders' PXEs a migration cannot be performed by the issuer alone.
 
 **Access control.** Eleven numeric roles in public state, administered by `DEFAULT_ADMIN_ROLE`, which administers itself and can therefore appoint further admins. Because the role table is public and a private function cannot read mutable public state, every private entry point that needs a role check enqueues a public call that performs it — which is also where the pause check runs. A revert in that public half reverts the whole transaction.
 
@@ -663,7 +742,7 @@ Three consequences MUST be recorded:
 | Item | Repository | Version | Commit |
 |---|---|---|---|
 | Implementation assessed | https://github.com/CMTA/private-CMTAT-aztec | `0.4.0` | `05c18bb0f24f0a91b94b777a784a219a2d980cc1` (v0.4.0) |
-| Assessment template | https://github.com/CMTA/CMTAT-equivalency-assessment | `v0.3.0` | `e2ddb6ee05354311fcf2c00f421f5a4f0fb94944` |
+| Assessment template | https://github.com/CMTA/CMTAT-equivalency-assessment | `v0.4.0` | `bac6380e0d587b4512a0dd8d98ee692cb5658027` — the template declares `0.4.0`; the tag is not published yet, so the commit is the reference |
 | Aztec toolchain and aztec-nr | https://github.com/AztecProtocol/aztec-nr | `v5.2.0` | — |
 
 The template's own reference table lists the CMTA Solidity repositories the criteria are mapped against; they are not restated here.

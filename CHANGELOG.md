@@ -74,7 +74,7 @@ yarn test:js             # Jest e2e tests in src/test/e2e/, requires: aztec star
 
 ## 0.5.0 — unreleased
 
-`version()` returns `0.5.0` in all five contracts. Nothing so far changes contract behaviour: this release is the security review of 0.4.0, the tests it asked for, and the one documentation correction it found. These entries sit here rather than under 0.4.0 because the `v0.4.0` tag does not contain them.
+`version()` returns `0.5.0` in all five contracts. Nothing so far changes contract behaviour: this release is the security review of 0.4.0, the tests it asked for, and the one documentation correction it found. 
 
 ### Changed
 
@@ -99,6 +99,12 @@ yarn test:js             # Jest e2e tests in src/test/e2e/, requires: aztec star
   - The bridges publish a `Transfer` naming their public party and the `PRIVATE_ADDRESS_MAGIC_VALUE` sentinel for the private one, so the movement is recorded but the private counterparty is not.
   - A commitment completion emits no `Transfer` at all, and cannot: at completion the contract holds the commitment and never the recipient's address, so an event naming an unverifiable recipient would be forgeable by the payer. The issuer reconstructs these from `CommitmentInitialized` plus the commitment-tagged completion log, which the same section already described.
   - Both paths exist only when a token is deployed with `public_side_enabled = true`; nothing changed for a fully private deployment, and no contract code changed at all.
+- `doc/cmtat-assessment/README.md` brought up to version `0.4.0` of the CMTA equivalency-assessment template.
+  - The template added an `Architecture` section, to be filled before the equivalency table, so that a reader can follow the answers without knowing the target chain. It is filled here for Aztec: the underlying ledger in prose and in a nine-row table, the smart contract layer in prose and a six-row table, and a table naming which layer implements each CMTAT module.
+  - **No criterion changed.** The template still holds 61 criteria, 19 mandatory and 42 optional, and the IDs are unchanged, so every answer in this assessment stands. The count was re-verified at 61.
+  - The new section states once, as context, the two facts the criteria otherwise repeat: an issuer cannot nullify a holder's notes, which is why forced transfer, forced burn and partial freeze are impossible rather than unimplemented; and a private function cannot read ordinary public state, which is why freeze and list flags are delayed.
+  - The `Conclusion`'s separate *Token model* and *Architecture* paragraphs are merged into one short recap, as the template now asks, rather than repeating the section.
+  - Two stale values corrected while there: the template reference moves from `v0.3.0` to `v0.4.0` at commit `bac6380`, and criterion 6 said `version()` returns `0.3.0` when the assessed commit returns `0.4.0`.
 - Added `doc/audits/tools/v0.5.0/CLAUDE_ANALYSIS.md`, the code-quality review of this release. It is a delta review and says so: the only change to contract or library source since `v0.4.0` is the `VERSION` string, so the 0.4.0 review remains the current analysis of the code.
   - The bump is **gate-neutral, measured**: all 40 circuits in the 0.4.0 baseline report the same gate count at 0.5.0, compared mechanically rather than by eye.
   - Three findings against this release's own new code. The new `setup_and_more_addresses_public_side` helper duplicates its sibling and drops the `with_account_contracts` parameter; the Debt and Light suites assert `total_supply` nowhere at all, and Light compiles its own shorter bridge circuits, so nothing would catch a supply error reachable only through it; and the mechanism that compensates for the security review's F-1 — the issuer's `CommitmentInitialized` event — has no test, so removing its delivery would leave the whole suite green.
