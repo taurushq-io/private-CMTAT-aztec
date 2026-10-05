@@ -122,6 +122,9 @@ Noir has no inheritance and allows one contract per crate, so the structure diff
 
 A call made by a holder goes through the same chain as CMTAT Solidity's, split across the two halves: the **private** half screens both parties' freeze flags and the enabled list and moves the notes, then the **public** half it enqueues performs the role check and the lifecycle check. The split is forced by the ledger rather than chosen: roles and the pause flag are public state, which a private function cannot read at proving time. A revert in the public half reverts the entire transaction, so the ordering costs no safety.
 
+
+![Transfer between two holders on Aztec: the private half, proved on the sender's device, reads the freeze and list flags of both parties, spends the sender's notes and delivers the new note and a Transfer event to the recipient and copies to the issuer; the enqueued public half carries no arguments and only asserts the contract is not paused, so an observer learns that a transfer occurred but not the parties or the amount](../img/transfer-simple.png)
+
 **Details**
 
 | Aspect | Implementation being approved |

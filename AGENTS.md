@@ -127,7 +127,7 @@ submodules/                          # reference repositories, pinned; nothing i
 - `jest.integration.config.json` — ESM ts-jest config for the `src/**/*.test.ts` e2e suite.
 - `.env.example` — `L1_URL`, `NODE_URL`, `CMTA_TOKEN_CONTRACT_ADDRESS`, `SECRET*`/`SALT*`, `L1_CHAIN_ID`; copy to `.env` for testnet scripts.
 - `SECURITY.md`, `LICENSE-MIT.md`, `LICENSE-MPL.md` — vulnerability reporting; dual MIT / MPL-2.0. Copyright is split by history: © 2025 Taurus SA up to and including commit `61f4220d` (the 0.2.0 release; releases 0.1.0, 0.1.1 and 0.2.0), © 2026 Capital Market and Technology Association (CMTA) after it. Keep both notices.
-- `doc/img/` and `doc/auth/img/` — PlantUML sources and their rendered PNGs for the diagrams in `doc/README.md` and `doc/auth/README.md` (architecture, public/private state split, mint, transfer, burn, and the delayed-flag model). The `.puml` file is the source of truth: edit it and re-run `plantuml -tpng doc/img/<name>.puml`, never hand-edit a PNG. `doc/README.md` embeds the **image** only; the source stays in `doc/img/`.
+- `doc/img/` and `doc/auth/img/` — PlantUML sources and their rendered PNGs for the diagrams in `doc/README.md`, `doc/auth/README.md` and `doc/cmtat-assessment/README.md` (architecture, public/private state split, mint, transfer, burn, and the delayed-flag model). The `.puml` file is the source of truth: edit it and re-run `plantuml -tpng doc/img/<name>.puml`, never hand-edit a PNG. `doc/README.md` embeds the **image** only; the source stays in `doc/img/`.
 - `doc/docs.aztec.network-developers-docs/` — a local, untracked mirror of the Aztec developer docs; handy offline reference, not part of the project.
 - Generated and gitignored: `target/`, `src/artifacts/`, `store/`, `codegenCache.json`.
 
