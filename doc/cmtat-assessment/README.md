@@ -59,7 +59,7 @@
 | Implementation language | Noir / Aztec.nr v5.2.0 |
 | Implementation version | `0.4.0`, as returned by `version()` — see criterion 6 |
 | Source repository and commit | https://github.com/CMTA/private-CMTAT-aztec — `05c18bb0f24f0a91b94b777a784a219a2d980cc1` (v0.4.0) |
-| Assessment date | 2026-09-23 |
+| Assessment date | 2026-10-05 |
 | Assessed by | *(to be completed by the assessor)* |
 
 ## Deployment variants
