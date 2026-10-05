@@ -57,8 +57,8 @@
 | Implementation name | private CMTAT on Aztec — variants `CMTATAztec` (base), `CMTATAztecDebt`, `CMTATAztecLight` |
 | Target blockchain or distributed ledger | Aztec (privacy L2 on Ethereum) |
 | Implementation language | Noir / Aztec.nr v5.2.0 |
-| Implementation version | `0.4.0`, as returned by `version()` — see criterion 6 |
-| Source repository and commit | https://github.com/CMTA/private-CMTAT-aztec — `05c18bb0f24f0a91b94b777a784a219a2d980cc1` (v0.4.0) |
+| Implementation version | `0.5.0`, as returned by `version()` — see criterion 6 |
+| Source repository and commit | https://github.com/CMTA/private-CMTAT-aztec — `3843a36eedd91d2ac83d04e142b1e29536bfb48c`. `0.5.0` is not tagged yet, so the commit is the reference. Nothing in `contracts/`, `lib/` or `test-helpers/` differs from the `v0.4.0` tag except the `VERSION` constant, so the answers below are unchanged by the bump. |
 | Assessment date | 2026-10-05 |
 | Assessed by | *(to be completed by the assessor)* |
 
@@ -244,7 +244,7 @@ Storing the digest in a single `Field` would have truncated it silently, which i
 |---|---|---|---|---|---|---|---|
 | 4 | Ticker symbol attribute | ERC20 `symbol` | Public (`view`) | Optional in the CMTA framework, which lists the attribute as "Ticker symbol (optional)". | `y` | Public (`view`), in both contexts | `symbol()` / `private_get_symbol()`, `PublicImmutable<FieldCompressedString>` set at deployment. |
 | 5 | Token ID attribute | `tokenId` | Public (`view`) | Optional parameter. | `y` | Read public (`view`); write `EXTRA_INFORMATION_ROLE` | `set_token_id(FieldCompressedString)` and `token_id()`, in all three variants. As in CMTAT Solidity the value is written even when it equals the current one. Capped at 31 characters by `FieldCompressedString`, which fits an ISIN with room to spare. |
-| 6 | Version attribute | `version()` (`IERC3643Version`, implemented by `VersionModule`) | Public (`view`) | Returns the version of the token implementation, for example `"3.2.0"`. In CMTAT Solidity the value is a constant of the contract code: it changes only through a new deployment or an upgrade, and it is not settable at runtime. | `y` | Public (`view`) | `version()` returns a `FieldCompressedString`, `0.4.0` at the assessed commit, padded to the 31 characters that type requires. As in the CMTAT Solidity `VersionModule` it is a **compile-time constant**, not stored state, so it cannot be desynchronised from the deployed code and changes only through a new deployment. |
+| 6 | Version attribute | `version()` (`IERC3643Version`, implemented by `VersionModule`) | Public (`view`) | Returns the version of the token implementation, for example `"3.2.0"`. In CMTAT Solidity the value is a constant of the contract code: it changes only through a new deployment or an upgrade, and it is not settable at runtime. | `y` | Public (`view`) | `version()` returns a `FieldCompressedString`, `0.5.0` at the assessed commit, padded to the 31 characters that type requires. As in the CMTAT Solidity `VersionModule` it is a **compile-time constant**, not stored state, so it cannot be desynchronised from the deployed code and changes only through a new deployment. |
 
 ##### Note
 
@@ -550,7 +550,7 @@ On external data sources the template asks about: there are none. Every list is 
 
 ### Version
 
-Implemented, taking the template's **first** option: a constant returned by a read-only entry point, as in CMTAT Solidity. `version()` returns a `FieldCompressedString` holding `0.4.0`, padded to the 31 characters that type requires; the value is a Noir `global`, so it lives in the compiled code rather than in storage.
+Implemented, taking the template's **first** option: a constant returned by a read-only entry point, as in CMTAT Solidity. `version()` returns a `FieldCompressedString` holding `0.5.0`, padded to the 31 characters that type requires; the value is a Noir `global`, so it lives in the compiled code rather than in storage.
 
 The template's third option — a state variable restricted to an administrator role — was deliberately not taken. It carries the requirement that the value "cannot be desynchronized from the deployed code", and a compile-time constant satisfies that by construction: there is no setter to call and no storage slot to write, so the only way to change the version is to deploy new code.
 
@@ -762,7 +762,7 @@ Three consequences MUST be recorded:
 
 | Item | Repository | Version | Commit |
 |---|---|---|---|
-| Implementation assessed | https://github.com/CMTA/private-CMTAT-aztec | `0.4.0` | `05c18bb0f24f0a91b94b777a784a219a2d980cc1` (v0.4.0) |
+| Implementation assessed | https://github.com/CMTA/private-CMTAT-aztec | `0.5.0` (unreleased) | `3843a36eedd91d2ac83d04e142b1e29536bfb48c` |
 | Assessment template | https://github.com/CMTA/CMTAT-equivalency-assessment | `v0.4.0` | `bac6380e0d587b4512a0dd8d98ee692cb5658027` — the template declares `0.4.0`; the tag is not published yet, so the commit is the reference |
 | Aztec toolchain and aztec-nr | https://github.com/AztecProtocol/aztec-nr | `v5.2.0` | — |
 
