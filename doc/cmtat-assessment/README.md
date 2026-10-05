@@ -661,6 +661,22 @@ Aztec is a privacy L2: a private function runs on the user's own device (in the 
 
 This implementation deliberately keeps compliance state public and holdings private.
 
+Two tables answer the template's question from different angles. The first is per **operation**, which is the view needed when checking one criterion: what a caller discloses by invoking that entry point. The second is per **data item**, which is the view the template asks for.
+
+#### What each operation publishes
+
+| Operation | Published on chain | Stays private |
+|---|---|---|
+| `mint_to_private` | the minter and the amount, as arguments of `_mint(caller, amount)`; `total_supply` rises | the recipient, and the note itself |
+| `transfer_private_to_private` | **only that a transfer of this token occurred**: `_transfer()` takes no arguments | sender, recipient and amount |
+| `burn` | the burner and the amount, as arguments of `_burn(caller, amount)`; `total_supply` falls | the debited account, unless the burner is the holder |
+| `transfer_private_to_public` | the public party and the amount, as arguments of `_credit_public(to, amount)` | the private sender |
+| `transfer_public_to_private` | the public party and the amount, as arguments of `_debit_public(from, amount)` | the private recipient |
+| `transfer_private_to_commitment` | that a transfer occurred, and the amount unencrypted in the completion log, tagged by the commitment | both parties |
+| `initialize_transfer_commitment` | **nothing**: the validity commitment is a nullifier | the recipient and the completer |
+
+Two disclosures are common to every value-moving operation, whatever the row says. The transaction's **nullifiers and note hashes**, padded so that their count reveals little. And an **expiration timestamp**, because reading a delayed value (the issuer address, the freeze and list flags) bounds how long the transaction may be included. A mint and a burn also move `total_supply`, which is public, so the amount is inferable from the supply delta even where it is not passed as an argument.
+
 #### Privacy table
 
 | Data | Visibility in CMTAT Solidity | Visibility in the implementation being approved | Available to the issuer (`y/n`) | Other readers | Implementation details |
