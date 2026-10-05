@@ -802,7 +802,7 @@ Forced transfer is the sharpest divide, and the strongest argument for the FHE v
 |---|---|---|
 | Security audit | **None** — see the disclaimer at the top of this file | **OpenZeppelin audit of v1.0.0** |
 | Audit scope caveat | — | The audit excluded the CMTAT library itself (pinned to an unaudited release candidate), the RuleEngine, the OpenZeppelin confidential contracts and the FHEVM |
-| Network status | No Aztec mainnet yet, and the API still changes heavily between majors | Deployable on EVM mainnet wherever the Zama protocol is available |
+| Network status | Aztec mainnet ("Alpha") is live, with a Sepolia testnet; both ran 5.1.0 against this project's 5.2.0 when last checked, and the API still changes heavily between majors | Deployable on EVM mainnet wherever the Zama protocol is available |
 | Batching | Capped at `MAX_ADDR_PER_CALL` by the per-call protocol limits | Ordinary Solidity loops, bounded only by gas |
 | Fees | Fee juice or a sponsored FPC, plus client-side proving cost | Ordinary gas plus FHE compute units |
 
